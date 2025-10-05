@@ -1,10 +1,13 @@
 ---
-title: Oral Cancer App Minimal
-emoji: 🚀
-colorFrom: blue
-colorTo: pink
+title: Oral Cancer Webapp
 sdk: docker
-pinned: false
+emoji: 🦷
+colorFrom: blue
+colorTo: yellow
+pinned: true
+app_file: src/index.js
+app_port: 7860
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+# Oral Cancer Web Application
+This is a full-stack QR-enabled medical imaging web app deployed on Hugging Face Spaces (Docker).
