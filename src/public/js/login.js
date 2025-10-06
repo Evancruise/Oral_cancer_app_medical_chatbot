@@ -172,7 +172,7 @@ async function loadQRCode() {
     // 這裡 data.token 就是病患要掃的內容
     //connectWebSocket(qrToken);
     //checkStatus(qrToken);
-    tryWebSocketOrSSE(qrToken);
+    //tryWebSocketOrSSE(qrToken);
 }
 
 function checkStatus(qrToken) {

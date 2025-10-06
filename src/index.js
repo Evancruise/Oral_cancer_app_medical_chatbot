@@ -13,7 +13,10 @@ import session from "express-session";
 import i18next from "i18next";
 import i18nextMiddleware from "i18next-http-middleware";
 import Backend from "i18next-fs-backend";
+
 import { homepage } from "#controllers/auth.controller.js";
+
+import authRoutes from "#routes/auth.routes.js";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -74,6 +77,8 @@ app.use('/static', express.static('node_modules/bootstrap/dist'));
 app.use("/static", express.static(path.join(__dirname, "public")));
 
 app.get("/", homepage);
+
+app.use('/api/auth', authRoutes);
 
 app.listen(process.env.PORT || 7860, "0.0.0.0", () =>
   console.log(`🚀 Server running on port ${process.env.PORT || 7860}`)
