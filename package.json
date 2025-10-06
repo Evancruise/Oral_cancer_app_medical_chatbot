@@ -45,10 +45,10 @@
     "test": "set NODE_OPTIONS=--experimental-vm-modules && jest"
   },
   "dependencies": {
-    "@sendgrid/mail": "^8.1.6",
     "@arcjet/inspect": "^1.0.0-beta.11",
     "@arcjet/node": "^1.0.0-beta.11",
     "@neondatabase/serverless": "^1.0.1",
+    "@sendgrid/mail": "^8.1.6",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -68,6 +68,7 @@
     "morgan": "^1.10.1",
     "pg": "^8.16.3",
     "winston": "^3.17.0",
+    "uuid": "^13.0.0",
     "zod": "^4.1.8"
   },
   "devDependencies": {
@@ -81,7 +82,6 @@
     "multer": "^2.0.2",
     "qrcode": "^1.5.4",
     "supertest": "^7.1.4",
-    "uuid": "^13.0.0",
     "ws": "^8.18.3"
   }
 }
