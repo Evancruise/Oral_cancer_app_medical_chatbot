@@ -29,10 +29,10 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-removeUserTable();
-removeRegisterTable();
-createUsersTable();
-createRegisterTable();
+await removeUserTable();
+await removeRegisterTable();
+await createUsersTable();
+await createRegisterTable();
 
 const app = express();
 
