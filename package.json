@@ -45,6 +45,7 @@
     "test": "set NODE_OPTIONS=--experimental-vm-modules && jest"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@arcjet/inspect": "^1.0.0-beta.11",
     "@arcjet/node": "^1.0.0-beta.11",
     "@neondatabase/serverless": "^1.0.1",
@@ -70,7 +71,6 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
-    "@sendgrid/mail": "^8.1.6",
     "body-parser": "^2.2.0",
     "bootstrap": "^5.3.8",
     "drizzle-kit": "^0.31.0",
