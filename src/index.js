@@ -42,6 +42,9 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
 app.use(express.static(path.join(__dirname, "../public")));
 
+app.use("/bootstrap", express.static(path.join(process.cwd(), "node_modules/bootstrap/dist")));
+app.use('/static', express.static('node_modules/bootstrap/dist'));
+
 app.get("/", (req, res) => {
   res.render("login", { title: "Oral Cancer Webapp" });
 });
