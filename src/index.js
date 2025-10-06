@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 
 import cors from 'cors';
 import helmet from "helmet";
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,10 @@ app.use(
 app.use(helmet.xssFilter());
 app.use(helmet.noSniff());
 app.use(helmet.hidePoweredBy());
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
