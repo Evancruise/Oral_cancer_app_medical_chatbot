@@ -1,0 +1,54 @@
+.modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 300px;
+}
+
+.modal-content button {
+  margin-top: 10px;
+}
+
+.login-container {
+  background: white;
+  padding: 40px 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+}
+
+.form-inline {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.form-inline label {
+  width: 120px;       /* label 固定寬度 */
+  text-align: left;   /* 文字靠左 */
+  margin-right: 10px; /* label 與 input 間距 */
+  font-weight: 500;
+}
+
+.form-inline input {
+  flex: 1;            /* 輸入框自動佔滿剩餘空間 */
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* footer */
+.footer{ text-align:center; color:#6aa8c8; font-size:13px; padding:8px 0 28px; }

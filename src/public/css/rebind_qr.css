@@ -1,0 +1,126 @@
+.rebind-pwd-container {
+    max-width: 500px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    font-family: "Segoe UI", Arial, sans-serif;
+    text-align: center;
+}
+
+/* QR 區塊 */
+.rebind-pwd-container img#qr-image {
+    width: 250px;
+    margin: 0 auto;
+    display: block;
+}
+
+.rebind-pwd-container .form-group {
+    margin-bottom: 1rem;
+}
+
+.rebind-pwd-container .form-group div {
+    margin-top: 0.5rem;
+    font-size: 14px;
+    color: #555;
+}
+
+/* 按鈕通用樣式 */
+.rebind-pwd-container button {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.2s ease;
+}
+
+/* 個別按鈕色系 */
+#reload-btn {
+    margin-top: 0.8rem;
+    background: #f59e0b;
+    color: #fff;
+}
+
+#btn-toggle-scanner {
+    background: #0d6efd;
+    color: #fff;
+}
+
+#capture-btn {
+    background: #10b981;
+    color: #fff;
+}
+
+#send-scan-btn {
+    background: #409eff;
+    color: #fff;
+}
+
+#send-scan-btn-recap {
+    background: #ef4444;
+    color: #fff;
+}
+
+/* 按鈕 hover 效果 */
+.rebind-pwd-container button:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+/* 掃描區塊 */
+#scanner-container {
+    margin-top: 1rem;
+    display: none;
+    text-align: center;
+}
+
+#scanner-container video {
+    width: 300px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+#scanner-container canvas {
+    display: none;
+    margin-top: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+#camera,
+#snapshot {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  position: relative;
+}
+
+/* 按鈕列 */
+.scan-btn-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+}
+
+/* 掃描結果文字 */
+#scan-result {
+    margin-top: 1rem;
+    font-size: 14px;
+    color: #333;
+}
+
+/* 響應式 */
+@media (max-width: 480px) {
+    .rebind-pwd-container {
+        padding: 1.2rem;
+    }
+
+    #scanner-container video {
+        width: 100%;
+    }
+}

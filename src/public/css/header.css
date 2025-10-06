@@ -1,0 +1,86 @@
+/* 頁首基礎 */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #ddd;
+  background: #fff;
+}
+
+/* 左側標題 */
+.header-title small {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #3aa3d1;
+  margin: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-title small {
+  font-weight: 600;
+  color: #3aa3d1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem; /* 語言切換 和 設定區的間距 */
+}
+
+.header-nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.header-nav .nav-link {
+  text-decoration: none;
+  color: #555;
+  font-weight: 600;
+}
+
+.header-nav .nav-link:hover,
+.lang-link:hover {
+  color: #3aa3d1;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.lang-link {
+  text-decoration: none;
+  color: #3aa3d1;
+  font-weight: 600;
+}
+
+.lang-link:hover {
+  color: #0077a3;
+}
+
+/* 主內容 */
+.app-body {
+  padding: 2rem;
+}
+
+/* 頁尾 */
+.app-footer {
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 0.9rem;
+  padding: 1rem;
+  border-top: 1px solid #e0e0e0;
+  color: #555;
+}
+
+.app-footer a {
+  text-decoration: none;
+  font-weight: 800;
+  color: #3aa3d1;
+}

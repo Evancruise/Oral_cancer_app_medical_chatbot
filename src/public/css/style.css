@@ -1,0 +1,108 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f7fa;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  padding: 0 20px;
+  color: #333;
+}
+.login-container {
+  background: #fff;
+  padding: 30px 40px;
+  border-radius: 10px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+h2 {
+  margin-bottom: 24px;
+  font-weight: 600;
+  color: #222;
+}
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  text-align: left;
+  color: #555;
+}
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+input[type="text"]:focus,
+input[type="password"]:focus {
+  outline: none;
+  border-color: #0078d4;
+  box-shadow: 0 0 6px #0078d4aa;
+}
+button {
+  margin-top: 12px;
+  padding: 12px 0;
+  background-color: #0078d4;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+button:hover {
+  background-color: #005fa3;
+}
+.error-message {
+  color: #d93025;
+  font-weight: 600;
+  margin-bottom: 12px;
+  text-align: left;
+  font-size: 14px;
+}
+@media (max-width: 320px) {
+  body {
+    padding: 0 10px;
+  }
+  .login-container {
+    padding: 20px 20px;
+  }
+  button {
+    font-size: 14px;
+  }
+}
+
+/* 主要按鈕 */
+button, .btn {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 10px 15px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  background: #0078d7;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+
+button:hover, .btn:hover {
+  background: #005a9e;
+}

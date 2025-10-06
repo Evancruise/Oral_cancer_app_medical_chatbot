@@ -1,0 +1,98 @@
+{
+    "setting": "使用設定",
+    "privacy": "隱私設定",
+    "loginPage": {
+        "title": "使用者登入"
+    },
+    "dashboard": {
+        "title": "首頁",
+        "content_1": "歡迎使用",
+        "scan_now": "立即檢測"
+    },
+    "parts": {
+        "upper_gum": "上牙齦",
+        "palate": "上顎",
+        "right_cheek": "右頰",
+        "tongue_right": "舌右",
+        "tongue_left": "舌左",
+        "left_cheek": "左頰",
+        "tongue_under": "舌下",
+        "lower_gum": "下牙齦"
+    },
+    "record": {
+        "title": "個人病歷紀錄",
+        "already_upload": "已上傳",
+        "edit_modal_title": "檢視病例資料",
+        "add_modal_title": "新增病例資料",
+        "result_modal_title": "辨識結果檢視/建議",
+        "create": "建立",
+        "basic_info": "基本資料",
+        "name": "病患姓名",
+        "gender": "性別",
+        "age": "年齡",
+        "patient_id": "病例編號",
+        "note": "備註",
+        "picture": "口腔照片",
+        "upload": "請上傳照片",
+        "start_test": "開始辨識",
+        "view_result": "查看辨識結果",
+        "diag_report": "診斷報告",
+        "diag_explain": "診斷內容",
+        "suggestion": "診斷建議",
+        "upload_img_appoint": "上傳影像 / 診斷預約",
+        "category_result": "綜合風險等級",
+        "infer_again_msg": "再次辨識"
+    },
+    "record_search": {
+        "title": "所有病歷紀錄"
+    },
+    "account_management": {
+        "title": "帳號管理"
+    },
+    "recycle_bin": {
+        "title": "垃圾桶",
+        "view_modal_title": "檢視病歷資料",
+        "resume": "還原",
+        "confirm_delete": "確認刪除"
+    },
+    "quick_chgpwd": {
+        "title": "快速密碼修改",
+        "old_password": "舊密碼",
+        "new_password": "新密碼",
+        "new_password_confirm": "再次輸入新密碼",
+        "change_pwd_msg": "確認更改密碼"
+    },
+    "rebind_account": {
+        "title": "重新綁定",
+        "refresh_in": "下次刷新倒數",
+        "regenerate": "重新生成 QR Code",
+        "scan": "開啟擾描器",
+        "capture": "拍照",
+        "reset": "重置相機",
+        "verify": "驗證",
+        "close_msg": "關閉掃描器",
+        "open_msg": "開啟擾描器"
+    },
+    "reminder": {
+        "title": "回診提醒"
+    },
+    "tracking": {
+        "title": "健康追蹤"
+    },
+    "education": {
+        "title": "衛教宣傳"
+    },
+    "logout": "登出",
+    "title": "台大影像醫學部",
+    "version": "ver",
+    "app_name": "益口拍 - 病歷影像記錄系統",
+    "select": "請選擇",
+    "male": "男",
+    "female": "女",
+    "save": "儲存",
+    "delete": "刪除",
+    "cancel": "取消",
+    "return": "返回",
+    "second": "秒",
+    "suggestion": "此快篩僅供參考。人工智慧判讀，受光線，拍攝視角及手機解析度等限制，仍存誤差及死角，不可取代醫師親自診察，且視情況需進行病理切片檢查，始能得正確診斷。有無症狀每六個月至牙醫處洗牙，並做口腔檢查或遵循醫囑回診。"
+}

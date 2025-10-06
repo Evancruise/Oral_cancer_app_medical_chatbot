@@ -1,0 +1,32 @@
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 100%;
+  background: #4d8fd1;
+  border-right: 1px solid #ddd;
+  padding: 1rem;
+  transition: transform 0.3s ease;
+  z-index: 1000;
+}
+
+.sidebar.hidden {
+  transform: translateX(-100%);
+}
+
+main {
+  margin-left: 240px;
+  background: #a5c6e7;
+  transition: margin-left 0.3s ease;
+}
+
+main.expanded {
+  margin-left: 0;
+}
+
+.toggle-btn {
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin-right: 1rem;
+}
