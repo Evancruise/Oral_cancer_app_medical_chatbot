@@ -55,7 +55,7 @@ Delete functions
 export const removeRegisterTable = async() => {
   try {
     console.log("🔍 刪除 registers 資料表中...");
-    await sql`DROP TABLE registers`;
+    await sql`DROP TABLE IF EXISTS registers`;
 
     console.log("✅ 刪除 registers 資料表完成");
   } catch (e) {

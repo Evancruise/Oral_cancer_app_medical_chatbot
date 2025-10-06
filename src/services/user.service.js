@@ -10,7 +10,7 @@ Delete functions
 export const removeUserTable = async() => {
   try {
     console.log("🔍 刪除 users 資料表中...");
-    await sql`DROP TABLE users`;
+    await sql`DROP TABLE IF EXISTS users;`;
 
     console.log("✅ 刪除 users 資料表完成");
   } catch (e) {

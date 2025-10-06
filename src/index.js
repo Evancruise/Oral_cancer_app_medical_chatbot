@@ -20,9 +20,19 @@ import authRoutes from "#routes/auth.routes.js";
 import userRoutes from "#routes/user.routes.js";
 import registerRoutes from "#routes/register.routes.js";
 
+import { removeUserTable } from "#services/user.service.js";
+import { createUsersTable } from "#services/auth.service.js";
+import { removeRegisterTable } from "#services/register.service.js";
+import { createRegisterTable } from "#services/auth.service.js";
+
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+removeUserTable();
+removeRegisterTable();
+createUsersTable();
+createRegisterTable();
 
 const app = express();
 

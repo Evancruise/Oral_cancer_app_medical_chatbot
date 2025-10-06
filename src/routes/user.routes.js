@@ -10,7 +10,7 @@ dotenv.config();
 
 const router = express.Router();
 
-router.get('/', authenticateToken, fetchAllUsers);
+router.get('/', fetchAllUsers);
 router.post("/del-user", deleteUserTable);
 router.post("/init-user", initUserTable);
 // router.get('/:id', authenticateToken, getUserByIdController);
