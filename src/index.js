@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import cors from 'cors';
+import helmet from "helmet";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -12,6 +13,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 app.use(cors());
+app.use(
+  helmet({
+    frameguard: false, // 允許 iframe (必要)
+    contentSecurityPolicy: false, // 關閉 CSP 限制 (必要)
+    crossOriginEmbedderPolicy: false, // 防止 COEP 封鎖 (建議)
+  })
+);
+
+app.use(helmet.xssFilter());
+app.use(helmet.noSniff());
+app.use(helmet.hidePoweredBy());
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
