@@ -10,6 +10,9 @@ import { config, default_config } from "#config/config.js";
 import { createRegister } from "#services/auth.service.js";
 import { findRegister, updateRegister } from "#services/register.service.js";
 import { updateUserTableFromRegister, getUser, updateUser } from "#services/user.service.js";
+import { signupSchema, signinSchema } from "#validations/auth.validation.js";
+
+import { createUser } from "#services/auth.service.js";
 
 const config_dir = path.join(process.cwd(), "config");
 let configPath = path.join(process.cwd(), "config", "settings.json");
@@ -56,6 +59,188 @@ function generateSecureSixDigitCode() {
   crypto.getRandomValues(array);
   return (array[0] % 1000000).toString().padStart(6, "0");
 }
+
+export const signup = async (req, res, next) => {
+    try {
+
+      console.log("🔍 signup req.body =", req.body);
+
+      const validationResult = signupSchema.safeParse(req.body);
+
+      console.log("validationResult = ", validationResult);
+
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: validationResult.error.format(),
+        });
+      }
+
+      const { name, email, password, role } = validationResult.data;
+
+      console.log(`req.body.password: ${req.body.password}`);
+      console.log(`req.body.password_2: ${req.body.password_2}`);
+
+      if (req.body.password !== req.body.password_2) {
+          return res.status(401).json({ 
+              success: false,
+              error: "Invalid credentials",
+              message: "Password not the same",
+          });
+      }
+
+      const user = await createUser({ name, email, password, role });
+      console.log("name, email, password, role:", name, email, password, role);
+
+      console.log(`Signing with: ${process.env.JWT_SECRET}`);
+
+      const token = jwt.sign(
+        { id: user.id, email: user.email, password: user.password, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN },
+      );
+
+      console.log(`token: ${token}`);
+
+      res.cookie("token", token, {
+        httpOnly: true,
+        // secure: process.env.NODE_ENV === "development",
+        secure: true,    // 建議上線時開啟
+        sameSite: "strict",
+        path: "/",
+      });
+
+      console.log(`✅ User registered: ${email}`);
+
+      return res.status(201).json({
+        success: true,
+        message: "User registered successfully",
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          password: user.passowrd,
+          role: user.role,
+        },
+      });
+    } catch (e) {
+      logger.error("Signup error:", e);
+      return res.status(409).json({ error: "Email already exists" });
+    }
+};
+
+export const signin = async (req, res, next) => {
+
+  console.log(`sign triggerred!`);
+
+  try {
+
+    console.log(`req.body: ${JSON.stringify(req.body)}`);
+
+    const validationResult = signinSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      return res.status(400).json({
+        error: "Validation failed",
+        details: validationResult.error.format(),
+      });
+    }
+
+    const { name, email, password } = validationResult.data;
+
+    console.log(`email: ${email}`);
+
+    const user = await findUser("email", email);
+    const login_role = req.body.login_role;
+
+    console.log(`User: ${user}`);
+
+    if (!user) {
+      return res.status(401).json({ success: false, error: "Invalid credentials", message: "User not found" });
+    }
+
+    if (name != user.name) {
+      return res.status(401).json({ success: false, error: "Invalid credentials", message: "Wrong name" });
+    }
+
+    if (email != user.email) {
+      return res.status(401).json({ success: false, error: "Invalid credentials", message: "Wrong email" });
+    }
+
+    console.log(`password: ${password}`);
+    console.log(`user.password: ${user.password}`);
+
+    /*
+    const check_allowed_loggin = await check_user_login("name", user.name);
+
+    if (!check_allowed_loggin) {
+        return res.status(403).json({ success: false, message: "Account locked. Try again later." });
+    }
+    */
+
+    console.log(`new Date(user.allowed_loggin_at): ${new Date(user.allowed_loggin_at)} | new Date(): ${new Date()}`);
+  
+    if (new Date(user.allowed_loggin_at) > new Date()) {
+
+      const unlockTime = DateTime.fromJSDate(user.allowed_loggin_at)
+                               .setZone(user.timezone || "UTC")
+                               .toFormat("yyyy-MM-dd HH:mm:ss");
+
+      return res.status(403).json({
+          error: "Account locked. Try again later.",
+          message: `Account locked until ${unlockTime} (${user.timezone})`,
+      });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+        await updateUserPassword(false, "name", user.name);
+        return res.status(401).json({ success: false, message: `Wrong password. Please login again (remaining times: ${user.retry_times})` });
+    } else {
+        await updateUserPassword(true, "name", user.name);
+    }
+
+    console.log(`Signing with: ${process.env.JWT_SECRET}`);
+
+    console.log(`SIGN secret length: ${process.env.JWT_SECRET.length}`);
+    console.log(`SIGN secret hex: ${Buffer.from(process.env.JWT_SECRET).toString("hex")}`);
+
+    const token = jwt.sign(
+      { id: user.id, name: user.name, email: user.email, password: user.password, role: user.role, login_role: login_role },
+      process.env.JWT_SECRET,
+      { expiresIn: config.expireTime },
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,    // 建議上線時開啟
+      sameSite: "strict",
+      path: '/',
+    });
+
+    console.log(`✅ User logged in: ${email}`);
+    console.log(`req.t: ${req.t}`);
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      t: req.t,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: token,
+      },
+    });
+  } catch (e) {
+    logger.error("Signin error", e);
+    return res.status(400).json({
+      success: false, 
+      message: `Login Failed ${e.message}`})
+  }
+};
 
 const send_email = async (email) => {
     //try {
