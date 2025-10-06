@@ -5,10 +5,12 @@ import jwt from "jsonwebtoken";
 import path from "path";
 import sgMail from "@sendgrid/mail";
 import crypto from "crypto";
+import { DateTime } from "luxon";
 
 import { config, default_config } from "#config/config.js";
 import { createRegister } from "#services/auth.service.js";
 import { findRegister, updateRegister } from "#services/register.service.js";
+import { findUser, updateUserPassword } from "#services/user.service.js";
 import { updateUserTableFromRegister, getUser, updateUser } from "#services/user.service.js";
 import { signupSchema, signinSchema } from "#validations/auth.validation.js";
 
@@ -125,7 +127,7 @@ export const signup = async (req, res, next) => {
         },
       });
     } catch (e) {
-      logger.error("Signup error:", e);
+      console.error("Signup error:", e);
       return res.status(409).json({ error: "Email already exists" });
     }
 };
@@ -235,11 +237,54 @@ export const signin = async (req, res, next) => {
       },
     });
   } catch (e) {
-    logger.error("Signin error", e);
+    console.error("Signin error", e);
     return res.status(400).json({
       success: false, 
       message: `Login Failed ${e.message}`})
   }
+};
+
+function priority_from_role(role) {
+  let priority = -1;
+
+  if (role == "tester") {
+    priority = 3;
+  } else if (role == "resource manager") {
+    priority = 2;
+  } else if (role == "system manager") {
+    priority = 1;
+  }
+  console.log(`priority = ${priority}`);
+  return priority;
+};
+
+// dashboard 首頁
+export const dashboard = (req, res) => {
+  try {
+    const token = req.cookies.token;  // 從 cookie 拿 token
+    if (!token) {
+      return res.redirect("/api/auth/loginPage?login_role=professor"); // 沒有 token 回登入頁
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+    console.log(`decoded.name: ${decoded.name}`);
+    console.log(`req.t: ${req.t}`);
+
+    res.render("dashboard", { name: decoded.name, t: req.t, path: "/api/auth/dashboard", priority: priority_from_role(decoded.role), layout: "base" });
+  } catch (err) {
+    console.error("JWT 驗證失敗:", err);
+    return res.redirect("/api/auth/loginPage?login_role=professor");
+  }
+};
+
+export const signout = (req, res) => {
+    res.clearCookie("token");
+    res.clearCookie("Path");
+    res.clearCookie("SameSite");
+    console.log("✅ User signed out");
+    res.status(200).render("homepage", { layout: false, message: "Logged out successfully" });
 };
 
 const send_email = async (email) => {
@@ -298,7 +343,7 @@ export const request = async (req, res) => {
     const code = generateSecureSixDigitCode();
     const code_hash = await bcrypt.hash(code, 10);
 
-    logger.info(`process.env.SENDGRID_API_KEY=${process.env.SENDGRID_API_KEY}`);
+    console.info(`process.env.SENDGRID_API_KEY=${process.env.SENDGRID_API_KEY}`);
     
     await sgMail.send({
       from: process.env.MAIL_FROM,
@@ -307,7 +352,7 @@ export const request = async (req, res) => {
       html: `<p>Your Oral cancer app verification code is ${code}</p>`,
     });
 
-    logger.info(`code: ${code}`);
+    console.info(`code: ${code}`);
     */
 
     return res.status(201).json({ success: true, layout: false, message: "Verification email sent", redirect: `/api/auth/verify?name=${name}&email=${email}&code_hash=${code_hash}&token=${token}` });
@@ -363,7 +408,7 @@ export const scan_result = async (req, res) => {
       if (ws && ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ type: "authenticated", token }));
           activeSockets.delete(qrContent);
-          logger.info(`📡 WebSocket通知已發送 (${qrContent})`);
+          console.info(`📡 WebSocket通知已發送 (${qrContent})`);
       }
       */
       await redis_publisher.publish("qr_auth_notifications", JSON.stringify({ qr_token: qrContent, token }));

@@ -16,7 +16,11 @@ import { lang_get,
          verify,
          verify_register,
          changepwd,
-         verify_changepwd} from '#controllers/auth.controller.js';
+         verify_changepwd,
+         signup,
+         signin,
+         signout,
+         dashboard} from '#controllers/auth.controller.js';
 
 i18next
   .use(Backend)
@@ -50,5 +54,11 @@ router.post("/verify_register", verify_register);
 
 router.get("/changepwd", changepwd);
 router.post("/verify_changepwd", verify_changepwd);
+
+router.post("/sign-up", signup);
+router.post("/sign-in", signin);
+router.get("/sign-out", signout);
+
+router.get("/dashboard", dashboard);
 
 export default router;
