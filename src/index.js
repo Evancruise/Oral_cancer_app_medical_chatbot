@@ -6,6 +6,8 @@ import { fileURLToPath } from "url";
 import cors from 'cors';
 import helmet from "helmet";
 import cookieParser from 'cookie-parser';
+
+import expressLayouts from "express-ejs-layouts";
 import session from "express-session";
 
 dotenv.config();
@@ -41,6 +43,8 @@ app.use(session({
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
 app.use(express.static(path.join(__dirname, "../public")));
+
+app.use(expressLayouts);
 
 app.use("/bootstrap", express.static(path.join(process.cwd(), "node_modules/bootstrap/dist")));
 app.use('/static', express.static('node_modules/bootstrap/dist'));
