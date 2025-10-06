@@ -1,0 +1,31 @@
+<div class="change-pwd-container">
+    <form method="POST" action="/api/auth/verify_quick_changepwd" id="changepwd_form">
+        <div class="form-group">
+            <input type="text" id="name" name="name" value="<%= name %>" hidden>
+            <input type="text" id="email" name="email" value="<%= email %>" hidden>
+
+            <label for="old_password" class="form-label"> <%= t("quick_chgpwd.old_password") %></label>
+            <input type="password" id="old_password" name="old_password" class="form-control" required>
+
+            <label for="new_password" class="form-label"> <%= t("quick_chgpwd.new_password") %></label>
+            <input type="password" id="new_password" name="new_password" class="form-control" required>
+
+            <label for="password" class="form-label"> <%= t("quick_chgpwd.new_password_confirm") %></label>
+            <input type="password" id="password" name="password" class="form-control" required>
+            
+            <input type="text" id="role" name="role" value="user" hidden>
+
+            <button type="submit" class="btn-submit"> <%= t("quick_chgpwd.change_pwd_msg") %> </button>
+        </div>
+    </form>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<div class="center-btn">
+    <a href="/api/auth/dashboard" class="btn-return"> <%= t("return") %> </a>
+</div>
+
+<div class="footer">
+    <a href="#" style="text-decoration:none; font-weight:800; color:#3aa3d1">Mi-tech</a> Copyright © 2019
+</div>

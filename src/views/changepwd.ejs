@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>更改密碼設定</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/modal.css">
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="form-card">
+            <h2>設定密碼</h2>
+            <div class="modal-content">
+                <form method="POST" action="/api/auth/verify_changepwd" id="changepwd_form">
+                    <input type="text" id="name" name="name" value="<%= name %>" hidden>
+                    <input type="text" id="email" name="email" value="<%= email %>" hidden>
+
+                    <div class="form-inline mb-1">
+                        <label for="new_password">密碼：</label>
+                        <input type="password" id="new_password" name="new_password" required>
+                    </div>
+                    
+                    <div class="form-inline mb-1">
+                        <label for="password">再次輸入密碼：</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+
+                    <button type="submit" class="btn-submit">啟用帳號</button>
+                </form>
+
+                <a href="/api/auth/loginPage" class="btn">回登入首頁</a>
+            </div>
+        </div>
+        <div class="footer">
+            <a href="#" style="text-decoration:none; font-weight:800; color:#3aa3d1">Mi-tech</a> Copyright © 2019
+        </div>
+    </div>
+
+    <div id="modal-container"></div>
+    <div id="modal-container-loading"></div>
+    <div id="modal-container-2"></div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/js/changepwd.js"></script>
+</body>
+</html>

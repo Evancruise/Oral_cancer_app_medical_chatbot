@@ -1,0 +1,402 @@
+<div class="card">
+    <div class="bar">
+        <div class="group">
+            <!-- <button class="btn btn-chip" id="btn-setting"><span class="i"></span>系統設定</button> -->
+            <button class="btn btn-chip" id="btn-setting" data-bs-toggle="modal" data-bs-target="#systemSettingModal"><span class="i"></span>系統設定</button>
+            <button class="btn btn-chip" id="btn-setting" data-bs-toggle="modal" data-bs-target="#accountSettingModal"><span class="i"></span>帳號管理</button>
+            <button class="btn btn-green" id="btn-export" name="export"><span class="i"></span>匯出設定</button>
+            <button class="btn btn-red" id="btn-reset" name="reset"><span class="i"></span>系統重設</button>
+            <button class="btn btn-blue" id="btn-restore" name="restore"><span class="i"></span>匯入設定</button>
+            <input type="file" id="configFile" accept=".json" hidden>
+            <button class="btn btn-blue" id="btn-add" data-bs-toggle="modal" data-bs-target="#NewAccountModal"><span class="i"></span>新增使用者</button>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table id="userTable" aria-label="使用者清單">
+            <thead>
+            <tr>
+                <th style="width:9%">帳號</th>
+                <th style="width:8%">姓名</th>
+                <th style="width:8%">密碼</th>
+                <th style="width:15%">單位</th>
+                <th style="width:12%">身分</th>
+                <th style="width:20%">備註</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<div class="center-btn">
+    <a href="/api/auth/dashboard" class="btn-return">回首頁</a>
+</div>
+
+<script id="users-data" type="application/json">
+  <%- JSON.stringify(grouped_accounts) %>
+</script>
+
+<script id="config-data" type="application/json">
+  <%- JSON.stringify(config) %>
+</script>
+
+<div class="modal fade" id="curAccountModal" tabindex="-1" aria-labelledby="curAccountModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+    <form method="POST" enctype="multipart/form-data" action="/api/auth/edit_account" class="card p-4" id="account_form">
+      <div class="modal-header custom-modal-header">
+        <h5 class="modal-title animated-title" id="curAccountModalLabel">
+          <i class="fas fa-edit fa-beat"></i> 編輯使用者
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-inline mb-3">
+          <label class="form-label">帳號</label>
+          <input type="email" name="email" class="form-control" placeholder="輸入帳號">
+        </div>
+        <div class="form-inline mb-3">
+          <label class="form-label">姓名</label>
+          <input type="text" name="name" class="form-control" placeholder="輸入姓名">
+        </div>
+        <div class="form-inline mb-3">
+          <label class="form-label">密碼</label>
+          <input type="password" name="password" class="form-control" id="password-field" placeholder="輸入密碼">
+          <span class="toggle-password" id="toggle-password">👁️</span>
+        </div>
+        <div class="form-inline mb-3">
+          <label class="form-label">單位</label>
+          <input type="text" name="unit" class="form-control" placeholder="輸入單位">
+        </div>
+        <div class="form-inline mb-3">
+          <label class="form-label">身分</label>
+          <select name="role" class="form-select">
+            <option value="system manager">系統管理者</option>
+            <option value="resource manager">資源管理者</option>
+            <option value="tester" selected>試用者</option>
+          </select>
+        </div>
+        <div class="form-inline mb-3">
+          <label class="form-label">狀態</label>
+          <select name="status" class="form-select">
+            <option value="activated">啟用</option>
+            <option value="deactivated">停用</option>
+          </select>
+        </div>
+        <div class="form-inline mb-3">
+          <label class="form-label">備註</label>
+          <textarea name="notes" class="form-control" rows="3" placeholder="輸入備註"></textarea>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="submit" name="action" value="delete" class="btn btn-danger">刪除</button>
+        <button type="submit" name="action" value="save" class="btn btn-primary">儲存</button>
+      </div>
+    </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="NewAccountModal" tabindex="-1" aria-labelledby="NewAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="POST" enctype="multipart/form-data" action="/api/auth/new_account" class="card p-4" id="add_account_form">
+            <div class="modal-header custom-modal-header">
+                <h5 class="modal-title animated-title" id="NewAccountModalLabel">
+                    <i class="fas fa-edit fa-beat"></i> 新增使用者
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-inline mb-3">
+                    <label class="form-label">帳號</label>
+                    <input name="email" class="form-control">
+                </div>
+                <div class="form-inline mb-3">
+                    <label class="form-label">姓名</label>
+                    <input name="name" class="form-control">
+                </div>
+                <div class="form-inline mb-3">
+                    <label class="form-label">密碼</label>
+                    <input name="password" class="form-control">
+                </div>
+                <div class="form-inline mb-3">
+                    <label class="form-label">單位</label>
+                    <input name="unit" class="form-control">
+                </div>
+                <div class="form-inline mb-3">
+                    <label class="form-label">身分</label>
+                    <select name="role" class="form-select">
+                        <option value="system manager">系統管理者</option>
+                        <option value="resource manager">資源管理者</option>
+                        <option value="tester" selected>試用者</option>
+                    </select>
+                </div>
+                <div class="form-inline mb-3">
+                    <label class="form-label">狀態</label>
+                    <select name="status" class="form-select">
+                        <option value="activated">啟用</option>
+                        <option value="deactivated">停用</option>
+                    </select>
+                </div>
+                <div class="form-inline mb-3">
+                    <label class="form-label">備註</label>
+                    <textarea name="notes" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="mt-3 d-flex gap-2 justify-content-end">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+              <button type="submit" class="btn btn-primary">儲存</button>
+            </div>
+        </form>
+      </div>
+    </div>
+</div>
+
+<div class="modal fade" id="systemSettingModal" tabindex="-1" aria-labelledby="systemSettingModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data" action="/api/auth/apply_system_setting" class="card p-4" id="system_setting_form">
+            
+                <!-- 系統設定 Toggle -->
+                <div class="modal-header custom-modal-header">
+                    <h5 class="modal-title animated-title" id="systemSettingModalLabel">
+                      <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#systemSettingCollapse"></i> 系統設定
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <!-- 系統設定內容 -->
+                <div class="modal-body">
+
+                    <!-- 工作站設定 -->
+                    <div class="config-section">
+                      <h5 class="toggle-title">
+                        <i class="fas fa-chevron-down me-2 rotate-icon"></i>
+                        工作站設定
+                      </h5>
+                      <div class="config-subitems">
+                        <div class="mb-3">
+                          <label class="form-label">超時秒數</label>
+                          <input
+                            type="text"
+                            id="expireTime"
+                            name="expireTime"
+                            class="form-control w-auto"
+                            style="width: 25%; display: inline-block;"
+                          />
+                          <span class="ms-2">秒</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- AI模型配置 -->
+                    <div class="config-section">
+                      <h5 class="toggle-title">
+                        <i class="fas fa-chevron-down me-2 rotate-icon"></i>
+                        AI模型配置
+                      </h5>
+                      <div class="config-subitems">
+                        <div class="mb-3">
+                          <label class="form-label">模型版本</label>
+                          <input type="text" id="model_version" name="model_version" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">檢測閾值</label>
+                          <input type="text" id="threshold" name="threshold" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">模型準確度</label>
+                          <input type="text" id="model_accuracy" name="model_accuracy" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">模型更新通知</label>
+                          <input type="checkbox" id="update_inform" name="update_inform" class="form-check-input" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 追蹤與提醒設定 -->
+                    <div class="config-section">
+                      <h5 class="toggle-title">
+                        <i class="fas fa-chevron-down me-2 rotate-icon"></i>
+                        追蹤與提醒設定
+                      </h5>
+                    </div>
+
+                    <!-- 遠程醫療設定 -->
+                    <div class="config-section">
+                      <h5 class="toggle-title">
+                        <i class="fas fa-chevron-down me-2 rotate-icon"></i>
+                        遠程醫療設定
+                      </h5>
+                    </div>
+
+                    <!-- 醫學資料庫管理 -->
+                    <div class="config-section">
+                      <h5 class="toggle-title">
+                        <i class="fas fa-chevron-down me-2 rotate-icon"></i>
+                        醫學資料庫管理
+                      </h5>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                  <!-- <button type="submit" name="action" value="reset" class="btn btn-primary">重設</button> -->
+                  <button type="submit" name="action" value="save" class="btn btn-primary">儲存設定</button>
+                  <!-- <button type="submit" name="action" value="backup" class="btn btn-primary">匯出設定</button> -->
+                  
+                  <!--
+                  <div class="recover-container">
+                    <input type="file" id="configFile" accept=".json">
+                    <button type="submit" name="action" value="backup" id="recover-btn">匯入設定檔</button>
+                    <p id="recover-status"></p>
+                  </div>
+
+                  <button type="submit" name="action" value="recover" class="btn btn-primary">匯入設定</button>
+                  -->
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="accountSettingModal" tabindex="-1" aria-labelledby="accountSettingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data" action="/api/auth/apply_account_setting" class="card p-4" id="account_setting_form">
+                <div class="modal-body">
+                    <!-- 帳號管理 Toggle -->
+                    <div class="modal-header custom-modal-header">
+                        <h5 class="toggle-title">
+                            <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#accountSettingCollapse"></i> 帳號管理
+                        </h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                <!-- 帳號管理內容 -->
+                <div id="accountSettingCollapse" class="collapse show">
+                  <div class="modal-body">
+
+                    <!-- 密碼政策 -->
+                    <div class="config-section">
+                      <h5 class="toggle-title">
+                        <i class="fas fa-chevron-down me-2 rotate-icon"></i>
+                        密碼政策
+                      </h5>
+                      <div class="config-subitems">
+                        <div class="mb-3">
+                          <label class="form-label">最小長度</label>
+                          <input
+                            type="text"
+                            id="minPasswordLength"
+                            name="minPasswordLength"
+                            class="form-control w-auto"
+                            style="width: 50%; display: inline-block;"
+                          />
+                          <span class="ms-2">字元</span>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">複雜度要求</label>
+                          <select id="passwordComplexity" name="passwordComplexity" class="form-select" style="width: 50%; display: inline-block;">
+                            <option value="low">低</option>
+                            <option value="medium">中</option>
+                            <option value="high">高</option>
+                          </select>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label me-2">密碼過期天數</label>
+                          <input
+                            type="text"
+                            id="passwordExpiryDays"
+                            name="passwordExpiryDays"
+                            class="form-control w-auto"
+                            style="width: 50%; display: inline-block;"
+                          />
+                          <span class="ms-2">天</span>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label me-2">帳號鎖定閾值</label>
+                          <input
+                            type="text"
+                            id="accountLockThreshold"
+                            name="accountLockThreshold"
+                            class="form-control w-auto"
+                            style="width: 50%; display: inline-block;"  
+                          />
+                          <span class="ms-2">次失敗嘗試</span>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- 多因素認證 (MFA) -->
+                    <div class="config-section">
+                      <h5 class="toggle-title">
+                        <i class="fas fa-chevron-down me-2 rotate-icon"></i>
+                        多因素認證 (MFA)
+                      </h5>
+                      <div class="config-subitems">
+                        <div class="mb-3">
+                          <label class="form-label me-2">啟用 MFA</label>
+                          <input type="checkbox" id="enableMFA" name="enableMFA"
+                            class="form-check-input" />
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label
+                            me-2">MFA 方法</label>
+                          <select id="mfaMethods" name="mfaMethods" class="form-select" style="width: 50%; display: inline-block;">
+                            <option value="totp">時間基礎一次性密碼 (TOTP)</option>
+                            <option value="sms">簡訊驗證碼</option>
+                            <option value="email">電子郵件驗證碼</option>
+                            <option value="push">推送通知</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- 帳號活動監控 -->
+                    <div class="config-section">
+                      <h5 class="toggle-title">
+                        <i class="fas fa-chevron-down me-2 rotate-icon"></i>
+                        帳號活動監控
+                      </h5>
+                      <div class="config-subitems">
+                        <div class="mb-3">
+                          <label class="form-label me-2">啟用活動監控</label>
+                          <input type="checkbox" id="enableActivityMonitoring" name="enableActivityMonitoring" class="form-check-input" />
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label me-2">異常活動閾值</label>
+                          <input
+                            type="text"
+                            id="anomalyThreshold"
+                            name="anomalyThreshold"
+                            class="form-control w-auto"
+                            style="width: 50%; display: inline-block;"
+                          />
+                          <span class="ms-2">次異常行為</span>
+                        </div>
+                      </div>
+                    </div>  
+                  </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <!-- <button type="submit" name="action" value="reset" class="btn btn-secondary">重設</button> -->
+                <button type="submit" name="action" value="init" class="btn btn-secondary">帳號初始化</button>
+                <button type="submit" name="action" value="save" class="btn btn-primary">儲存設定</button>
+            </div>
+          </form>
+        </div>
+    </div>
+</div>

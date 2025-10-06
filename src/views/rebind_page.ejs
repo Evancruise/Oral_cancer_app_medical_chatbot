@@ -1,0 +1,50 @@
+<div class="rebind-pwd-container">
+    <!-- 電腦版：顯示 QR Code -->
+    <div class="form-group">
+        <img id="qr-image" src="/api/auth/rebind-qr" alt="QR Code" style="width: 250px; align-items: center;" />
+        <div style="margin-top: 0.5rem; font-size: 14px; color: #555;">
+            <%= t("rebind_account.refresh_in") %> <span id="countdown">30</span> <%= t("second") %>
+        </div>
+        <button id="reload-btn" style="margin-bottom: 1rem;">
+            <%= t("rebind_account.regenerate") %>
+        </button>
+    </div>
+
+    <!-- 手機版：掃描 QR Code -->
+    <button
+        id="btn-toggle-scanner"
+        style="
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        background-color: #0d6efd;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        "
+    >
+        <%= t("rebind_account.scan") %>
+    </button>  
+
+    <div id="scanner-container" style="margin-top: 1rem; display: none; align-items: center;">
+        <video id="camera" autoplay playsinline style="width: 300px; border: 1px solid #ccc;"></video>
+        <br>
+        <canvas id="snapshot" style="display: none; width: 300px; border: 1px solid #ccc;"></canvas>
+        
+        <!--
+        <button id="capture-btn" style="margin-top:0.5rem;"> <%= t("rebind_account.capture") %> </button>
+        <div class="scan-btn-row">
+            <button id="send-scan-btn-recap" style="margin-top:0.5rem; text-align: center; align-items: center;"> <%= t("rebind_account.reset") %> </button>
+            <button id="send-scan-btn" style="margin-top:0.5rem; text-align: center; align-items: center;"> <%= t("rebind_account.verify") %> </button>
+        </div>
+        -->
+    </div>
+
+    <p id="scan-result" style="margin-top: 1rem;"></p>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<div class="center-btn">
+    <a href="/api/auth/dashboard" class="btn-return"> <%= t("return") %> </a>
+</div>

@@ -1,0 +1,385 @@
+<% Object.entries(grouped_records).forEach(([date_display, items]) => { %>
+    <div class="date-divider"><%= date_display %></div>
+    <% items.forEach(item => { %>
+        <div class="record-card">
+            <a class="record-link"
+            data-bs-toggle="modal"
+            data-bs-target="#editRecordModal"
+            data-name="<%= item.name %>"
+            data-gender="<%= item.gender %>"
+            data-age="<%= item.age %>"
+            data-patient_id="<%= item.patient_id %>"
+            data-notes="<%= item.notes %>"
+            data-record_id="<%= item.id %>"
+            data-pic1="<%= item.img1 %>"
+            data-pic2="<%= item.img2 %>"
+            data-pic3="<%= item.img3 %>"
+            data-pic4="<%= item.img4 %>"
+            data-pic5="<%= item.img5 %>"
+            data-pic6="<%= item.img6 %>"
+            data-pic7="<%= item.img7 %>"
+            data-pic8="<%= item.img8 %>"
+            data-status="<%= item.status %>">
+                <div class="record-content">
+                    <div class="record-icon">
+                        <i class="<%= item.status === 'pending' 
+                            ? 'fa-solid fa-stethoscope' 
+                            : item.status === 'loading' 
+                                ? 'fa-solid fa-spinner fa-spin' 
+                                : item.status === 'finished' 
+                                ? 'fa-solid fa-notes-medical' 
+                                : 'fa-regular fa-circle-question' %>"></i>
+                    </div>
+                    <div class="record-text">
+                        <div class="record-id"><%= item.patient_id %></div>
+                        <div class="record-time"><%= formatDateTime(item.created_at) %></div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    <% }) %>
+<% }) %>
+
+<div class="pagination" id="pagination"></div>
+
+<div class="center-btn">
+    <a href="/api/auth/dashboard" class="btn-return"> <%= t("return") %> </a>
+</div>
+
+<!-- 浮動新增按鈕，導向「新增頁面」 -->
+<a class="fab" data-bs-toggle="modal" data-bs-target="#newRecordModal">
+    <i class="fas fa-plus"></i>
+</a>
+
+<!-- 新增紀錄的 Modal 彈窗 -->
+<div class="modal fade" id="newRecordModal" tabindex="-1" aria-labelledby="newRecordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" enctype="multipart/form-data" action="/api/auth/new_record" class="modal-content" id="add_form">
+            <div class="modal-header custom-modal-header">
+            <h5 class="modal-title animated-title" id="newRecordModalLabel">
+                <i class="fas fa-plus fa-beat"></i> <%= t("add_modal_title") %>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- 基本資料 -->
+            <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#basicInfoCollapse"
+            role="button" aria-expanded="true" aria-controls="basicInfoCollapse">
+                <h5 class="toggle-title">
+                    <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#basicInfoCollapse"></i> <%= t("record.basic_info") %>
+                </h5>
+            </div>
+
+            <input type="hidden" name="token" id="token" value="<%= token %>">
+
+            <div id="basicInfoCollapse" class="collapse show">
+                <div class="modal-body">
+                    <div class="form-inline mb-3">
+                        <label class="form-label me-2"> <%= t("record.name") %> </label>
+                        <input type="text" name="name" class="form-control" value="<%= name %>" readonly>
+                    </div>
+
+                    <div class="form-inline mb-3">
+                        <label class="form-label me-2"> <%= t("record.gender") %> </label>
+                        <select name="gender" class="form-control">
+                        <option value=""> <%= t("select") %> </option>
+                        <option value="男"> <%= t("male") %> </option>
+                        <option value="女"> <%= t("female") %> </option>
+                        </select>
+                    </div>
+
+                    <div class="form-inline mb-3">
+                        <label class="form-label me-2"> <%= t("record.age") %> </label>
+                        <input type="number" name="age" class="form-control" required>
+                    </div>
+
+                    <div class="form-inline mb-3">
+                        <label class="form-label me-2"> <%= t("record.patient_id") %> </label>
+                        <input type="text" name="patient_id" class="form-control" value="<%= new_patient_id %>" readonly>
+                    </div>
+
+                    <div class="form-inline mb-3" style="align-items: flex-start;">
+                        <label class="form-label me-2"> <%= t("record.note") %> </label>
+                        <textarea name="notes" class="form-control"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 口腔照片 -->
+            <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#imageCollapse"
+            role="button" aria-expanded="true" aria-controls="imageCollapse">
+                <h5 class="toggle-title">
+                    <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#imageCollapse"></i> <%= t("record.picture") %>
+                </h5>
+            </div>
+
+            <div id="imageCollapse" class="collapse show">
+                <div class="image-upload">
+                    <% const parts = [
+                    ["1", t("parts.upper_gum")],
+                    ["2", t("parts.palate")],
+                    ["3", t("parts.right_cheek")],
+                    ["4", t("parts.tongue_right")],
+                    ["5", t("parts.tongue_left")],
+                    ["6", t("parts.left_cheek")],
+                    ["7", t("parts.tongue_under")],
+                    ["8", t("parts.lower_gum")]
+                    ]; %>
+
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <% for (let i = 0; i < parts.length; i += 2) { %>
+                        <div style="display: flex; justify-content: center; gap: 20px;">
+                        <% for (let j = i; j < i + 2 && j < parts.length; j++) {
+                            const code = parts[j][0];
+                            const label = parts[j][1];
+                        %>
+                            <div style="width: 140px; text-align: center;">
+                            <img src="/static/images/<%= code %>.png"
+                                alt="<%= label %>"
+                                style="width: 100%; border-radius: 6px; margin-bottom: 5px;"
+                                id="preview_<%= code %>">
+                            <div style="font-size: 14px; font-weight: 500;"><%= label %></div>
+                            <input type="file" name="pic<%= code %>" id="upload_<%= code %>" hidden>
+                            <input type="text" name="pic<%= code %>_2" id="upload2_<%= code %>" hidden>
+                            <button type="button" id="SelectBtn_<%= code %>"> <%= t("record.upload") %> </button>
+                            </div>
+                        <% } %>
+                        </div>
+                    <% } %>
+                    </div>
+                </div>
+                <br>
+
+                <!-- 動作按鈕 -->
+                <!--
+                <div style="display: flex; justify-content: space-between;">
+                    <button type="submit" id="infer" name="action" value="infer" class="btn btn-secondary btn-lg" style="width: 48%;">
+                    <i class="fas fa-camera-retro"></i> 開始辨識
+                    </button>
+                    <button type="button" 
+                            id="check_result" 
+                            class="btn btn-secondary btn-lg" 
+                            style="width: 48%;" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#resultRecordModal">
+                        <i class="far fa-file-alt"></i>查看辨識結果
+                    </button>
+                </div>
+                -->
+            </div>
+
+            <!-- 底部按鈕 -->
+            <div class="modal-footer-1">
+                <button type="submit" name="action" value="create" class="btn btn-primary btn-lg" style="width: 48%;">
+                    <i class="fas fa-save"></i> <%= t("record.create") %>
+                </button>
+                <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal" style="width: 48%;"> <i class="fa-regular fa-rectangle-xmark"></i> <%= t("cancel") %> </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 編輯 Modal 彈窗 -->
+<div class="modal fade" id="editRecordModal" tabindex="-1" aria-labelledby="editRecordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        <form method="POST" enctype="multipart/form-data" action="/api/auth/edit_record" class="card p-4" id="edit_form">
+            <div class="modal-header custom-modal-header">
+                <h5 class="modal-title animated-title" id="editRecordModalLabel">
+                    <i class="fas fa-edit fa-beat"></i> <%= t("record.edit_modal_title") %>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#basicInfoCollapse"
+                role="button" aria-expanded="true" aria-controls="basicInfoCollapse">
+                <h5 class="toggle-title">
+                    <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#basicInfoCollapse"></i> <%= t("record.basic_info") %>
+                </h5>
+            </div>
+            <input type="hidden" name="token" id="token" value="<%= token %>">
+            <div id="basicInfoCollapse" class="collapse show">
+                <div class="modal-body">
+                    <div class="form-inline mb-3">
+                        <label class="form-label me-2"> <%= t("record.name") %> </label>
+                        <input type="text" name="name" class="form-control" value="<%= name %>" readonly>
+                    </div>
+                    
+                    <div class="form-inline mb-3">
+                        <label class="form-label me-2"> <%= t("record.gender") %> </label>
+                        <select name="gender" class="form-control">
+                        <option value=""> <%= t("select") %> </option>
+                        <option value="男"> <%= t("male") %> </option>
+                        <option value="女"> <%= t("female") %> </option>
+                        </select>
+                    </div>
+                    <div class="form-inline mb-3">
+                        <label class="form-label me-2"> <%= t("record.age") %> </label>
+                        <input type="number" name="age" class="form-control" required>
+                    </div>
+                    <div class="form-inline mb-3">
+                        <label class="form-label me-2"> <%= t("record.patient_id") %> </label>
+                        <input type="text" name="patient_id" class="form-control" value="<%= patient_id %>" readonly>
+                    </div>
+                    <div class="form-inline mb-3" style="align-items: flex-start;">
+                        <label class="form-label me-2"> <%= t("record.note") %></label>
+                        <textarea name="notes" class="form-control"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#imageCollapse"
+            role="button" aria-expanded="true" aria-controls="imageCollapse">
+                <h5 class="toggle-title">
+                    <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#imageCollapse"></i> <%= t("record.picture") %>
+                </h5>
+            </div>
+            <div id="imageCollapse" class="collapse show">
+                <div class="image-upload">
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <% for (let i = 0; i < parts.length; i += 2) { %>
+                        <div style="display: flex; justify-content: center; gap: 20px;">
+                        <% for (let j = i; j < i + 2 && j < parts.length; j++) {
+                            const code = parts[j][0];
+                            const label = parts[j][1];
+                        %>
+                            <div style="width: 140px; text-align: center;">
+                            <img src="/static/images/<%= code %>.png"
+                                alt="<%= label %>"
+                                style="width: 100%; border-radius: 6px; margin-bottom: 5px;"
+                                id="preview_edit_<%= code %>">
+                            <div style="font-size: 14px; font-weight: 500;"><%= label %></div>
+                            <input type="file" name="pic<%= code %>" id="upload_edit_<%= code %>" hidden>
+                            <input type="text" name="pic<%= code %>_2" id="upload2_edit_<%= code %>" hidden>
+                            <button type="button" id="SelectBtn_edit_<%= code %>"> <%= t("record.upload") %> </button>
+                            </div>
+                        <% } %>
+                        </div>
+                    <% } %>
+                    </div>
+                </div>
+                <br>
+                
+                <!-- 動作按鈕 -->
+                <div style="display: flex; justify-content: space-between;">
+                    <button type="submit" 
+                            id="infer" 
+                            name="action" 
+                            value="infer" 
+                            class="btn btn-secondary btn-lg" 
+                            style="width: 48%;">
+                        <i class="fas fa-camera-retro"></i> <%= t("record.start_test") %>
+                    </button>
+                    <button type="button" 
+                            id="check_result_edit" 
+                            class="btn btn-secondary btn-lg" 
+                            style="width: 48%;" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#resultRecordModal">
+                        <i class="far fa-file-alt"></i> <%= t("record.view_result") %>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer-1">
+                <button type="submit" name="action" value="save" class="btn btn-primary btn-lg" style="width: 48%;">
+                    <i class="fas fa-save"></i> <%= t("save") %>
+                </button>
+                <button type="submit" name="action" value="delete" class="btn btn-secondary btn-lg" style="width: 48%;">
+                    <i class="fa-solid fa-trash"></i> <%= t("delete") %>
+                </button>
+                <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal" style="width: 48%;"> <i class="fa-regular fa-rectangle-xmark"></i> <%= t("cancel") %> </button>
+            </div>            
+        </form>
+        </div>
+    </div>
+</div>
+
+<!-- 辨識結果 Modal 彈窗 -->
+<div class="modal fade" id="resultRecordModal" tabindex="-1" aria-labelledby="resultRecordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        <form method="POST" enctype="multipart/form-data" action="/record/result/{{ user_id }}" class="card p-4" id="result_form">
+            <div class="modal-header custom-modal-header">
+                <h5 class="modal-title animated-title" id="resultRecordModalLabel">
+                    <i class="fas fa-envelope-open-text fa-beat"></i> <%= t("record.result_modal_title") %>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#visualResultCollapse"
+                role="button" aria-expanded="true" aria-controls="visualResultCollapse">
+                <h5 class="toggle-title">
+                    <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#visualResultCollapse"></i> <%= t("record.picture") %>
+                </h5>
+            </div>
+
+            <div id="visualResultCollapse" class="collapse show">
+                <div class="image-upload">
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <% for (let i = 0; i < parts.length; i += 2) { %>
+                        <div style="display: flex; justify-content: center; gap: 20px;">
+                            <% for (let j = i; j < i + 2 && j < parts.length; j++) {
+                                const code = parts[j][0];
+                                const label = parts[j][1];
+                            %>
+                            <div style="width: 140px; text-align: center;">
+                                <img src="/static/images/<%= code %>.png"
+                                    alt="<%= label %>"
+                                    style="width: 100%; border-radius: 6px; margin-bottom: 5px;"
+                                    id="preview_result_<%= code %>">
+                                <div style="font-size: 14px; font-weight: 500;"><%= label %></div>
+                            </div>
+                            <% } %>
+                        </div>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#descResultCollapse"
+                role="button" aria-expanded="true" aria-controls="descResultCollapse">
+                <h5 class="toggle-title">
+                    <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#descResultCollapse"></i> <%= t("record.diag_report") %>
+                </h5>
+            </div>
+
+            <div id="descResultCollapse" class="collapse show">
+                <div class="modal-body">
+                    <div class="mb-3 text-center">
+                        <label class="form-label"> <%= t("record.category_result") %> </label>
+                        <div class="risk-level">
+                            <span class="risk-light red"></span>
+                            <span class="risk-light yellow"></span>
+                            <span class="risk-light green"></span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"> <%= t("record.diag_explain") %> </label>
+                        <textarea name="results" class="form-control"></textarea>
+                    </div>
+                    <br>
+                    <div class="mb-3">
+                        <label class="form-label"> <%= t("record.suggestion") %> </label>
+                        <textarea name="suggestion" class="form-control"></textarea>
+                    </div>
+                    <br>
+                    <div>
+                        <p class="text-start"> <%= t("suggestion") %> </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer-1">
+                <button type="button" 
+                        id="btnGoBack" 
+                        class="btn btn-primary">
+                    <i class="fas fa-arrow-alt-circle-left"></i> <%= t("return") %>
+                </button>
+
+                <!-- 確認 / 上傳 -->
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-cloud-upload-alt"></i> <%= t("record.upload_img_appoint") %>
+                </button>
+            </div>
+        </form>
+        </div>
+    </div>
+</div>

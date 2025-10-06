@@ -9,7 +9,9 @@ import { lang_get,
          loginPage,
          homepage,
          processing,
-         generate_qr} from '#src/controllers/auth.controller.js';
+         generate_qr,
+         register,
+         request} from '#controllers/auth.controller.js';
 
 i18next
   .use(Backend)
@@ -29,9 +31,11 @@ router.use("/static", express.static(path.join(process.cwd(), "public")));
 
 router.get("/lang/:lng", lang_get);
 
+router.get("/register", register);
 router.get("/loginPage", loginPage);
 router.get("/generate_qr", generate_qr);
 router.get("/homepage", homepage);
 router.post("/processing", processing);
+router.post("/request", request);
 
 export default router;

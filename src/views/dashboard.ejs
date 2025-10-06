@@ -1,0 +1,84 @@
+<!-- <h2><%= t("dashboard.content_1") %>, <%= name %></h2> -->
+
+<div class="container mt-4">
+  <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+
+    <!-- 📸 立即檢測 -->
+    <div class="col">
+      <div class="card dashboard-card text-center">
+        <div class="icon-circle bg-primary text-white">
+          <i class="fa-solid fa-camera-retro"></i>
+        </div>
+        <h6>📸 <%= t("dashboard.scan_now") %></h6>
+        <a href="/scan" class="stretched-link"></a>
+      </div>
+    </div>
+
+    <!-- 📝 我的檢測紀錄 -->
+    <div class="col">
+      <div class="card dashboard-card text-center">
+        <div class="icon-circle bg-success text-white">
+          <i class="fa-solid fa-file-medical"></i>
+        </div>
+        <h6>📝 <%= t("record.title") %></h6>
+        <a href="/api/auth/record" class="stretched-link"></a>
+      </div>
+    </div>
+    
+    <!-- 📝 快速密碼修改 -->
+    <div class="col">
+      <div class="card dashboard-card text-center">
+        <div class="icon-circle bg-success text-white">
+          <i class="fa-solid fa-file-medical"></i>
+        </div>
+        <h6><i class="fas fa-key"></i> <%= t("quick_chgpwd.title") %></h6>
+        <a href="/api/auth/quick_changepwd" class="stretched-link"></a>
+      </div>
+    </div>
+    
+    <!-- 📝 重新綁定 -->
+    <div class="col">
+      <div class="card dashboard-card text-center">
+        <div class="icon-circle bg-success text-white">
+          <i class="fa-solid fa-file-medical"></i>
+        </div>
+        <h6><i class="fas fa-link"></i> <%= t("rebind_account.title") %></h6>
+        <a href="/api/auth/rebind_page" class="stretched-link"></a>
+      </div>
+    </div>
+
+    <!-- 📅 回診提醒 -->
+    <div class="col">
+      <div class="card dashboard-card text-center">
+        <div class="icon-circle bg-warning text-white">
+          <i class="fa-solid fa-calendar-check"></i>
+        </div>
+        <h6>📅 <%= t("reminder.title") %></h6>
+        <a href="/reminder" class="stretched-link"></a>
+      </div>
+    </div>
+
+    <!-- 📊 健康追蹤 -->
+    <div class="col">
+      <div class="card dashboard-card text-center">
+        <div class="icon-circle bg-danger text-white">
+          <i class="fa-solid fa-heart-pulse"></i>
+        </div>
+        <h6>📊 <%= t("tracking.title") %></h6>
+        <a href="/tracking" class="stretched-link"></a>
+      </div>
+    </div>
+
+    <!-- 🎥 口腔衛教 -->
+    <div class="col">
+      <div class="card dashboard-card text-center">
+        <div class="icon-circle bg-info text-white">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <h6>🎥 <%= t("education.title") %></h6>
+        <a href="/education" class="stretched-link"></a>
+      </div>
+    </div>
+
+  </div>
+</div>

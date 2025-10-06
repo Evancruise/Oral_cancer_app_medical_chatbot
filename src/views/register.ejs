@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>註冊</title>
+    <link rel="stylesheet" href="/css/register.css">
+    <link rel="stylesheet" href="/css/modal.css">
+    <link rel="stylesheet" href="/css/loginpage.css">
+    <link rel="stylesheet" href="/css/homepage.css">
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="register-container">
+        <div class="login-header">
+            <img src="/static/images/logo.png" alt="App Logo" class="logo" />
+            <h1>註冊帳號</h1>
+        </div>
+
+        <div class="register-box">
+            <form method="POST" action="/api/auth/request" id="request_form">
+            <div class="form-group">
+                <label for="name">👤 姓名</label>
+                <input type="text" id="name" name="name" placeholder="請輸入姓名" required />
+            </div>
+
+            <div class="form-group">
+                <label for="email">📧 帳號 (Email)</label>
+                <input type="email" id="email" name="email" placeholder="請輸入 Email" required />
+            </div>
+
+            <button type="submit" class="btn-primary">立即註冊</button>
+
+            <p class="tos-text">
+                註冊即代表你同意
+                <a href="#">使用條款</a> 與 <a href="#">隱私政策</a>
+            </p>
+
+            <a class="login-link" href="/api/auth/loginPage">已經有帳號？登入</a>
+            </form>
+        </div>
+
+        <footer class="footer">
+            <a href="#" class="brand">Mi-tech</a> Copyright © 2019
+        </footer>
+    </div>
+
+    <div id="modal-container"></div>
+    <div id="modal-container-loading"></div>
+    <div id="modal-container-2"></div>
+    
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/js/register.js"></script>
+</body>
+</html>

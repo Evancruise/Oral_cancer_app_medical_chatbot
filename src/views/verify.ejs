@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>驗證</title>
+    <link rel="stylesheet" href="/css/register.css">
+    <link rel="stylesheet" href="/css/modal.css">
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="register-container">
+        <h2>📝 驗證帳號</h2>
+        <form method="POST" action="/api/auth/verify_register" id="verify_form">
+            
+            <label for="name">請輸入驗證碼 (請從信箱<%= email %>索取)：</label>
+            <input type="hidden" id="name" name="name" value="<%= name %>">
+            <input type="hidden" id="email" name="email" value="<%= email %>">
+            <input type="hidden" id="token" name="token" value="<%= token %>">
+            <input type="text" id="code" name="code" placeholder="6-digit code" required>
+            <input type="hidden" id="code_hash" name="code_hash" value="<%= code_hash %>">
+
+            <button type="submit" class="verify-btn">驗證</button>
+        </form>
+        <br>
+        <form method="POST" action="/api/auth/resend" id="resend_form">
+            <input type="hidden" id="name" name="name" value="<%= name %>">
+            <input type="hidden" id="email" name="email" value="<%= email %>">
+            <input type="hidden" id="token" name="token" value="<%= token %>">
+            <button type="submit" class="resend-btn">重新發送驗證碼</button>
+        </form>
+        <a class="login-link" href="/api/auth/loginPage">返回登入頁</a>
+    </div>
+
+    <div id="modal-container"></div>
+    <div id="modal-container-loading"></div>
+    <div id="modal-container-2"></div>
+    
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/js/verify.js"></script>
+</body>
+</html>
