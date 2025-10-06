@@ -11,9 +11,9 @@
 </head>
 <body>
     <div class="login-container">
-        <div class="login-header">
-            <img src="/static/images/logo.png" alt="App Logo" class="logo">
-            <!-- <h1>口腔癌 AI 檢測系統</h1> -->
+        
+        <div class="header">
+            <img src="/static/images/logo.png" alt="App Logo" class="logo" />
         </div>
 
         <div class="login-form-professor <%= login_role === 'professor' ? '' : 'hidden' %>" id="professor">
@@ -44,6 +44,8 @@
                     <label for="password">密碼</label>
                     <input type="password" id="password" name="password" required />
                 </div>
+
+                <button type="submit" class="btn-primary">登入</button>
             </form>
 
             <a href="/api/auth/changepwd" class="link-forgot"> 忘記密碼？ </a>

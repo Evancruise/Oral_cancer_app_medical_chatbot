@@ -11,7 +11,12 @@ import { lang_get,
          processing,
          generate_qr,
          register,
-         request} from '#controllers/auth.controller.js';
+         request,
+         resend,
+         verify,
+         verify_register,
+         changepwd,
+         verify_changepwd} from '#controllers/auth.controller.js';
 
 i18next
   .use(Backend)
@@ -36,6 +41,14 @@ router.get("/loginPage", loginPage);
 router.get("/generate_qr", generate_qr);
 router.get("/homepage", homepage);
 router.post("/processing", processing);
+
 router.post("/request", request);
+router.post("/resend", resend);
+
+router.get("/verify", verify);
+router.post("/verify_register", verify_register);
+
+router.get("/changepwd", changepwd);
+router.post("/verify_changepwd", verify_changepwd);
 
 export default router;

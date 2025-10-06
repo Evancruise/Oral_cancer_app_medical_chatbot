@@ -2,8 +2,18 @@ import { v4 as uuidv4 } from "uuid";
 import QRCode from "qrcode";
 import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
+import path from "path";
 import sgMail from "@sendgrid/mail";
+
+import { config, default_config } from "#config/config.js";
 import { createRegister } from "#services/auth.service.js";
+import { findRegister, updateRegister } from "#services/register.service.js";
+import { updateUserTableFromRegister, getUser, updateUser } from "#services/user.service.js";
+
+const config_dir = path.join(process.cwd(), "config");
+let configPath = path.join(process.cwd(), "config", "settings.json");
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 export const lang_get = (req, res) => {
   res.json({
@@ -40,87 +50,52 @@ export const loginPage = async (req, res) => {
     res.render("loginPage", { layout: false, login_role: login_role, name: name, email: email });
 };
 
+function generateSecureSixDigitCode() {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return (array[0] % 1000000).toString().padStart(6, "0");
+}
+
 const send_email = async (email) => {
-    try {
+    //try {
         // 寄信
         const code = generateSecureSixDigitCode();
         const code_hash = await bcrypt.hash(code, 10);
 
+        console.log(`code: ${code}`);
+        console.log(`process.env.SENDGRID_API_KEY=${process.env.SENDGRID_API_KEY}`);
+    
         await sgMail.send({
           from: process.env.MAIL_FROM,
           to: email,
           subject: "Verify email from Oral cancer template",
-          html: `<!doctype html>
-                  <html>
-                    <head>
-                      <meta charset="utf-8">
-                      <meta name="viewport" content="width=device-width,initial-scale=1">
-                      <title>驗證碼</title>
-                    </head>
-                    <body style="margin:0;padding:0;background:#f3f6fb;font-family:Arial,Helvetica,sans-serif;">
-                      <table role="presentation" width="100%" style="padding:30px 0">
-                        <tr>
-                          <td align="center">
-                            <table role="presentation" width="600" style="background:#fff;border-radius:10px;padding:28px;box-shadow:0 6px 20px rgba(0,0,0,.06)">
-                              <!-- header / logo -->
-                              <tr>
-                                <td style="text-align:center;padding-bottom:18px">
-                                  <img src="/static/images/logo.png" alt="Oral-AI" width="96" style="display:block;margin:0 auto 12px">
-                                  <h2 style="margin:0;font-size:20px;color:#0b3b4a">Oral-AI 驗證碼</h2>
-                                </td>
-                              </tr>
-
-                              <!-- body -->
-                              <tr>
-                                <td style="padding:12px 24px;color:#222;font-size:15px;line-height:1.5">
-                                  <p style="margin:0 0 12px">您好，</p>
-                                  <p style="margin:0 0 16px">您正在進行口腔癌 AI 檢測系統的驗證。請在 <strong>10 分鐘</strong> 內使用以下 6 位數驗證碼：</p>
-
-                                  <!-- verification code box -->
-                                  <div style="text-align:center;margin:18px 0">
-                                    <div style="display:inline-block;padding:18px 22px;border-radius:8px;background:#f8fbff;border:1px solid #e1eff8">
-                                      <span style="font-size:28px;letter-spacing:5px;font-weight:700;color:#0b5f7a;font-family: 'Courier New', monospace;">
-                                        ${code}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <p style="margin:0 0 10px;color:#555">若不是你本人要求，請忽略此信或聯絡我們。</p>
-                                  <p style="margin:0 0 0;color:#777;font-size:13px">此驗證碼只可使用一次，並在過期後失效。</p>
-                                </td>
-                              </tr>
-
-                              <!-- CTA / footer -->
-                              <tr>
-                                <td style="padding:18px 24px;text-align:center">
-                                  <a href="https://yourdomain.com/support" style="display:inline-block;padding:10px 16px;border-radius:8px;background:#3aa3d1;color:#fff;text-decoration:none;font-weight:600">需要協助？聯絡我們</a>
-                                </td>
-                              </tr>
-
-                              <tr>
-                                <td style="padding:8px 24px;font-size:12px;color:#999;text-align:center">
-                                  <div>Oral-AI • 你的醫療影像檢測夥伴</div>
-                                  <div style="margin-top:6px">若需取消驗證請忽略本郵件</div>
-                                </td>
-                              </tr>
-
-                            </table>
-                          </td>
-                        </tr>
-                      </table>
-                    </body>
-                  </html>`,
+          html: `<div style="background:#f3f6fb;font-family:Arial,sans-serif;padding:30px;">
+                  <div style="max-width:600px;margin:auto;background:#fff;border-radius:10px;padding:28px;box-shadow:0 6px 20px rgba(0,0,0,.06)">
+                    <div style="text-align:center;padding-bottom:18px">
+                      <h2 style="margin:0;color:#0b3b4a">Oral-AI 驗證碼</h2>
+                    </div>
+                    <p style="color:#333;font-size:15px;">您好，請於 10 分鐘內輸入以下驗證碼：</p>
+                    <div style="text-align:center;margin:20px;">
+                      <span style="font-size:28px;font-weight:700;letter-spacing:5px;background:#f8fbff;padding:12px 20px;border-radius:6px;display:inline-block;color:#0b5f7a;font-family:'Courier New',monospace;">
+                        ${code}
+                      </span>
+                    </div>
+                    <p style="color:#777;font-size:13px;text-align:center;">若非本人操作請忽略此信。</p>
+                  </div>
+                </div>`,
         });
 
+        console.log(`code: ${code}`);
+        console.log(`[send_email] code_hash: ${code_hash}`);
         return code_hash;
-    } catch (err) {
-        return null;
-    }
+    //} catch (err) {
+        //return null;
+    //}
 };
 
 export const request = async (req, res) => {
 
-  try {
+  //try {
     const { name, email } = req.body;
 
     const token = jwt.sign(
@@ -150,9 +125,9 @@ export const request = async (req, res) => {
     */
 
     return res.status(201).json({ success: true, layout: false, message: "Verification email sent", redirect: `/api/auth/verify?name=${name}&email=${email}&code_hash=${code_hash}&token=${token}` });
-  } catch (err) {
-    return res.status(401).json({ success: false, message: err.message });
-  }    
+  //} catch (err) {
+  //  return res.status(401).json({ success: false, message: err.message });
+  //}    
 }
 
 export const generate_qr = async (req, res) => {
@@ -245,3 +220,115 @@ export const scan_result = async (req, res) => {
 export const verify = async(req, res) => {
     return res.status(201).render("verify", { layout: false, name: req.query.name, email: req.query.email, code_hash: req.query.code_hash, token: req.query.token });
 }
+
+export const verify_register = async (req, res) => {
+    try {
+        const token = req.body.token;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        console.log(`decoded: ${JSON.stringify(decoded)}`);
+
+        if (req.body.email !== decoded.email) {
+          return res.status(401).json({ success: true, message: "Wrong email" });
+        }
+
+        const name = decoded.name;
+        const email = decoded.email;
+        const register = await findRegister({ email });
+        
+        console.log(`register: ${JSON.stringify(register)}`);
+
+        console.log(`req.body.code: ${req.body.code}`);
+        console.log(`req.body.code_hash: ${req.body.code_hash}`);
+
+        const id = register.id;
+        let updated = null;
+        const validCode = await bcrypt.compare(req.body.code, req.body.code_hash);
+
+        if (!validCode) {
+              return res.status(401).json({ 
+              success: false,
+              error: "Invalid credentials",
+              message: "Code not correct",
+          });
+        }
+
+        if (register && register.status == "pending") {
+            // check code verification
+            // req.body.code
+            // update status into user database
+            register.status = "complete";
+            updated = updateRegister("id", id, register);
+            updateUserTableFromRegister(id, name);
+        }
+
+        return res.status(200).json({ success: true, message: "Verify register complete", redirect: `/api/auth/changepwd?name=${name}&email=${email}` });
+    } catch (err) {
+        console.error("verify_register error:", err);
+        return res.status(401).json({ success: false, message: err.message });
+    }
+};
+
+export const resend = async (req, res) => {
+  try {
+    const { name, email, token } = req.body;
+
+    console.log(`name: ${name}`);
+    console.log(`email: ${email}`);
+    console.log(`token: ${token}`);
+
+    const code_hash = await send_email(email);
+
+    console.log(`[resend] code_hash: ${code_hash}`);
+
+    return res.status(201).json({ success: true, layout: false, message: "Verification email sent", redirect: `/api/auth/verify?name=${name}&email=${email}&code_hash=${code_hash}&token=${token}` });
+  } catch (err) {
+    return res.status(401).json({ success: false, message: err.message });
+  }    
+};
+
+export const changepwd = (req, res) => {
+    console.log(`body: ${JSON.stringify(req.query)}`);
+    return res.status(200).render("changepwd", { layout: false, name: req.query.name, email: req.query.email });
+};
+
+export const verify_changepwd = async (req, res) => {
+
+    console.log(`req.body: ${JSON.stringify(req.body)}`);
+
+    const userIdByName = await getUser("name", req.body.name);
+    const userIdByEmail = await getUser("email", req.body.email);
+
+    console.log(`userIdByName: ${JSON.stringify(userIdByName)}`);
+    console.log(`userIdByEmail: ${JSON.stringify(userIdByEmail)}`);
+
+    if (!userIdByName || !userIdByEmail) {
+      return res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          message: "User not found",
+      });
+    }
+
+    const id = userIdByEmail.id;
+
+    if (userIdByEmail.id !== userIdByName.id) {
+      return res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          message: "User id not the same (by name/email)",
+      });
+    }
+
+    if (req.body.new_password !== req.body.password) {
+      return res.status(401).json({ 
+          success: false,
+          error: "Invalid credentials",
+          message: "Password not the same",
+      });
+    }
+
+    const updated = updateUser("id", id, req.body);
+
+    return res.status(200).json({ success: true, layout: false, message: "Verify changepwd success!", redirect: `/api/auth/loginPage?login_role=${userIdByEmail.login_role}` });
+};

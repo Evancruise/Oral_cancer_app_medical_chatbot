@@ -27,9 +27,16 @@ body {
   margin-bottom: 10px;
 }
 
-.logo {
-  width: 80px;
+.header .logo {
+  width: 200px;
+  height: auto;
   margin-bottom: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.header h2 {
+  color: #0b3b4a;
+  margin-bottom: 5px;
 }
 
 .login-form-patient {

@@ -1,123 +1,106 @@
-body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f6f8;
-    display: flex;
-    height: 100vh;
+.changepwd-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f7fafc 0%, #e4f2f9 100%);
+  font-family: "Segoe UI", Arial, sans-serif;
 }
 
-.change-pwd-container {
-    max-width: 420px;
-    margin: 2rem auto;
-    padding: 2rem;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    font-family: "Segoe UI", Arial, sans-serif;
+.changepwd-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
+  padding: 40px 50px;
+  width: 380px;
+  text-align: center;
+  transition: all 0.2s ease-in-out;
 }
 
-.change-pwd-container h2 {
-    text-align: center;
-    margin-bottom: 1.5rem;
-    color: #333;
+.changepwd-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
 }
 
-.change-pwd-container .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+.header .logo {
+  width: 200px;
+  height: auto;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
-.change-pwd-container .form-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #444;
-    margin-bottom: 0.3rem;
+.header h2 {
+  color: #0b3b4a;
+  margin-bottom: 8px;
 }
 
-.change-pwd-container .form-control {
-    padding: 0.6rem 0.8rem;
-    border: 1px solid #d0d7de;
-    border-radius: 6px;
-    font-size: 14px;
-    color: #333;
-    background: #f9fafb;
-    transition: border 0.2s ease, box-shadow 0.2s ease;
-}
-
-.change-pwd-container .form-control:focus {
-    border-color: #409eff;
-    box-shadow: 0 0 6px rgba(64,158,255,0.35);
-    outline: none;
-    background: #fff;
-}
-
-/* 按鈕樣式 */
-.change-pwd-container .btn-submit {
-    margin-top: 1rem;
-    padding: 0.7rem;
-    font-size: 15px;
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    background: #409eff;
-    color: #fff;
-    cursor: pointer;
-    transition: transform 0.15s ease, opacity 0.2s ease;
-}
-
-.change-pwd-container .btn-submit:hover {
-    transform: translateY(-1px);
-    opacity: 0.9;
-}
-
-h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    color: #333;
+.subtitle {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 25px;
 }
 
 .form-group {
-    display: flex;
-    flex-direction: column;
+  text-align: left;
+  margin-bottom: 18px;
 }
 
-.form-label {
-    margin: 8px 0 4px;
-    color: #555;
-    font-weight: bold;
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #0b3b4a;
 }
 
-.form-control {
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 0.2s ease;
+.form-group input[type="password"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cfdbe3;
+  border-radius: 8px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.form-control:focus {
-    border-color: #007BFF;
+.form-group input[type="password"]:focus {
+  border-color: #3aa3d1;
+  box-shadow: 0 0 3px rgba(58, 163, 209, 0.3);
 }
 
-.btn-submit {
-    margin-top: 15px;
-    padding: 10px;
-    background-color: #007BFF;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.2s ease;
+.btn-primary {
+  background-color: #3aa3d1;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 5px;
+  transition: background-color 0.2s ease;
 }
 
-.btn-submit:hover {
-    background-color: #0056b3;
+.btn-primary:hover {
+  background-color: #2f91ba;
 }
 
-/* 手機響應式 */
-@media (max-width: 480px) {
-    .change-pwd-container {
-        padding: 1.2rem;
-    }
+.login-link {
+  display: inline-block;
+  margin-top: 20px;
+  color: #3aa3d1;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+}
+
+.footer {
+  margin-top: 25px;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
 }

@@ -35,6 +35,18 @@ body {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
+.header .logo {
+  width: 200px;
+  height: auto;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.header h2 {
+  color: #0b3b4a;
+  margin-bottom: 5px;
+}
+
 .register-box form {
   display: flex;
   flex-direction: column;

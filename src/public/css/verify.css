@@ -1,38 +1,38 @@
-.register-container {
+.verify-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   min-height: 100vh;
   background: linear-gradient(135deg, #f7fafc 0%, #e4f2f9 100%);
   font-family: "Segoe UI", Arial, sans-serif;
-  padding: 20px;
 }
 
-.register-card {
-  background: #fff;
+.verify-card {
+  background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
   padding: 40px 50px;
   width: 380px;
   text-align: center;
-  transition: all 0.25s ease-in-out;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.register-card:hover {
+.verify-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
 }
 
 .header .logo {
-  width: 90px;
+  width: 200px;
   height: auto;
-  margin-bottom: 10px;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
 .header h2 {
   color: #0b3b4a;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
 }
 
 .subtitle {
@@ -42,29 +42,28 @@
 }
 
 .form-group {
+  margin-bottom: 20px;
   text-align: left;
-  margin-bottom: 18px;
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 6px;
   font-weight: 600;
   color: #0b3b4a;
+  display: block;
+  margin-bottom: 6px;
 }
 
-.form-group input[type="text"],
-.form-group input[type="email"] {
+input[type="text"] {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #cfdbe3;
   border-radius: 8px;
   font-size: 16px;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease;
 }
 
-.form-group input:focus {
+input[type="text"]:focus {
   border-color: #3aa3d1;
   box-shadow: 0 0 3px rgba(58, 163, 209, 0.3);
 }
@@ -87,25 +86,26 @@
   background-color: #2f91ba;
 }
 
-.tos-text {
-  margin-top: 16px;
-  color: #666;
-  font-size: 13px;
-}
-
-.tos-text .link {
+.btn-secondary {
+  background-color: #f5f7fa;
   color: #3aa3d1;
-  text-decoration: none;
   font-weight: 600;
+  padding: 10px 14px;
+  border: 1px solid #c9e2f2;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 10px;
+  transition: all 0.2s ease;
 }
 
-.tos-text .link:hover {
-  text-decoration: underline;
+.btn-secondary:hover {
+  background-color: #eaf6fc;
 }
 
 .login-link {
   display: inline-block;
-  margin-top: 18px;
+  margin-top: 20px;
   color: #3aa3d1;
   font-weight: 600;
   text-decoration: none;
@@ -120,10 +120,4 @@
   text-align: center;
   font-size: 13px;
   color: #888;
-}
-
-.footer .brand {
-  text-decoration: none;
-  font-weight: 800;
-  color: #3aa3d1;
 }

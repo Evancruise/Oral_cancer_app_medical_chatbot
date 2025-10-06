@@ -18,6 +18,7 @@ import { homepage } from "#controllers/auth.controller.js";
 
 import authRoutes from "#routes/auth.routes.js";
 import userRoutes from "#routes/user.routes.js";
+import registerRoutes from "#routes/register.routes.js";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -81,6 +82,7 @@ app.get("/", homepage);
 
 app.use('/api/auth', authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/registers", registerRoutes);
 
 app.listen(process.env.PORT || 7860, "0.0.0.0", () =>
   console.log(`🚀 Server running on port ${process.env.PORT || 7860}`)
