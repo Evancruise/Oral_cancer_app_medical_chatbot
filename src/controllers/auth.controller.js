@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import path from "path";
 import sgMail from "@sendgrid/mail";
+import crypto from "crypto";
 
 import { config, default_config } from "#config/config.js";
 import { createRegister } from "#services/auth.service.js";
