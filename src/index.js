@@ -10,11 +10,31 @@ import cookieParser from 'cookie-parser';
 import expressLayouts from "express-ejs-layouts";
 import session from "express-session";
 
+import i18next from "i18next";
+import i18nextMiddleware from "i18next-http-middleware";
+import Backend from "i18next-fs-backend";
+
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+i18next
+    .use(Backend) 
+    .use(i18nextMiddleware.LanguageDetector)
+    .init({
+        fallbackLng: "en",
+        preload: ["en", "zh"],
+        backend: {
+            loadPath: "./src/locale/{{lng}}/translation.json"
+        },
+        detection: {
+            order: ["querystring", "cookie", "header"],
+            caches: ["cookie"]
+        }
+    });
+app.use(i18nextMiddleware.handle(i18next));
 
 app.use(cors());
 app.use(
@@ -45,12 +65,13 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use(expressLayouts);
+app.set("layout", "base");
 
 app.use("/bootstrap", express.static(path.join(process.cwd(), "node_modules/bootstrap/dist")));
 app.use('/static', express.static('node_modules/bootstrap/dist'));
 
 app.get("/", (req, res) => {
-  res.render("login", { title: "Oral Cancer Webapp" });
+  res.render("login", { title: "Oral Cancer Webapp", layout: false });
 });
 
 app.listen(process.env.PORT || 7860, "0.0.0.0", () =>
