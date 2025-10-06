@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title> 醫快拍 </title>
+    <link rel="stylesheet" href="/css/table.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" href="/css/header.css">
+    <link rel="stylesheet" href="/css/modal.css">
+    <link rel="stylesheet" href="/css/record.css">
+    <link rel="stylesheet" href="/css/record_search.css">
+    <link rel="stylesheet" href="/css/quick_changepwd.css">
+    <link rel="stylesheet" href="/css/account_management.css">
+    <link rel="stylesheet" href="/css/rebind_qr.css">
+    <link rel="stylesheet" href="/css/sidebar.css">
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <!-- 側邊選單 -->
+    <div class="sidebar" name="sidebar">
+        <div class="user-info">
+            <p> <%= t("title") %> </p>
+            <img src="/static/images/logo.png" alt="icon" class="user-icon">
+        </div>
+        <ul class="menu">
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/dashboard') ? 'active' : '' %>" href="/api/auth/dashboard">
+                    <i class="fas fa-home"></i> <%= t("dashboard.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/record') ? 'active' : '' %>" href="/api/auth/record">
+                    <i class="fa-regular fa-user"></i> <%= t("record.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/record_search') ? 'active' : '' %>"
+                    style="display: <%= (priority === 1) ? 'flex' : 'none' %>"
+                    href="/api/auth/record_search">
+                    <i class="fa-duotone fa-thin fa-calendar"></i> <%= t("record_search.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/account_management') ? 'active' : '' %>"
+                    style="display: <%= (priority === 1) ? 'flex' : 'none' %>"
+                    href="/api/auth/account_management">
+                    <i class="fas fa-history"></i> <%= t("account_management.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/recycle_bin') ? 'active' : '' %>" href="/api/auth/recycle_bin">
+                    <i class="fas fa-trash"></i> <%= t("recycle_bin.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/quick_changepwd') ? 'active' : '' %>" href="/api/auth/quick_changepwd">
+                    <i class="fas fa-key"></i> <%= t("quick_chgpwd.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/rebind_page') ? 'active' : '' %>" href="/api/auth/rebind_page">
+                    <i class="fas fa-link"></i> <%= t("rebind_account.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" href="/api/auth/sign-out">
+                    <i class="fas fa-sign-out-alt"></i> <%= t("logout") %>
+                </a>
+            </li>
+        </ul>
+        <div class="version">ver 1.0</div>
+    </div>
+
+    <!-- 主內容區 -->
+    <main>
+        <!-- 頁首 -->
+        <header class="app-header">
+            <!-- 左側：Logo + 標題 -->
+            <div class="header-left">
+                <span class="toggle-btn" id="sidebarToggle">☰</span>
+                <div class="header-title">
+                    <small><%= t("app_name") %></small>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="lang-switch">
+                    <a href="?lng=zh" class="lang-link">中文</a>
+                    <a href="?lng=en" class="lang-link">English</a>
+                </div>
+                <nav class="header-nav">
+                    <a class="nav-link" href="/api/auth/sys_setting">
+                        <i class="fa-regular fa-gear"></i> <%= t("setting") %>
+                    </a>
+                    <a class="nav-link" href="/api/auth/privacy">
+                        <i class="fa-solid fa-user-lock"></i> <%= t("privacy") %>
+                    </a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- 主內容 -->
+        <section class="app-body">
+            <%- body %>
+        </section>
+
+        <!-- 頁尾 -->
+        <footer class="app-footer">
+            <a href="#">Mi-tech</a> Copyright © 2019
+        </footer>
+    </main>
+
+    <div id="modal-container"></div>
+    <div id="modal-container-loading"></div>
+    <div id="modal-container-2"></div>
+
+    <script src="/js/jsQR.js"></script>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/js/quick_changepwd.js"></script>
+    <script type="module" src="/js/record.js"></script>
+    <script type="module" src="/js/record_search.js"></script>
+    <script type="module" src="/js/recycle_bin.js"></script>
+    <script type="module" src="/js/account_management.js"></script>
+    <script type="module" src="/js/rebind_qr.js"></script>
+    <script type="module" src="/js/utils.js"></script>
+    <script type="module" src="/js/sidebar.js"></script>
+</body>
