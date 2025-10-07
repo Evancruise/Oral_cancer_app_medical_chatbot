@@ -291,10 +291,12 @@ document.addEventListener("DOMContentLoaded", () => {
                         return;
                     }
 
+                    console.log(`data.user.token: ${data.user.token}`);
+
                     showModal(`${data.message}`, () => {
-                        window.location.href = "/api/auth/dashboard"; // 這邊 huggingface 會閃退
+                        window.location.href = `/api/auth/dashboard?token=${data.user.token}`; // 這邊 huggingface 會閃退
                     }, () => {
-                        window.location.href = "/api/auth/dashboard"; // 這邊 huggingface 會閃退
+                        window.location.href = `/api/auth/dashboard?token=${data.user.token}`; // 這邊 huggingface 會閃退
                     });
                     
                 } catch (err) {

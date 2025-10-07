@@ -220,6 +220,8 @@ export const signin = async (req, res, next) => {
       path: '/',
     });
 
+    console.log(`✅ secure: ${process.env.NODE_ENV === "production"}`);
+    console.log(`✅ sameSite: ${process.env.NODE_ENV === "production" ? "strict" : "lax"}`);
     console.log(`✅ User logged in: ${email}`);
     console.log(`req.t: ${req.t}`);
     
@@ -260,7 +262,10 @@ function priority_from_role(role) {
 // dashboard 首頁
 export const dashboard = (req, res) => {
   try {
-    const token = req.cookies.token;  // 從 cookie 拿 token
+    const token = req.query.token;  // 從 cookie 拿 token
+
+    console.log(`token: ${token}`);
+
     if (!token) {
       return res.redirect("/api/auth/loginPage?login_role=professor"); // 沒有 token 回登入頁
     }
