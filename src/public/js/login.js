@@ -283,7 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(body),
                     });
-
+                    
                     const data = await res.json();
 
                     if (!data.success) {
@@ -292,9 +292,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
 
                     showModal(`${data.message}`, () => {
-                        window.location.href = "/api/auth/dashboard"; // 如何引入data.user.name
+                        window.location.href = "/api/auth/dashboard"; // 這邊 huggingface 會閃退
                     }, () => {
-                        window.location.href = "/api/auth/dashboard"; // 如何引入data.user.name
+                        window.location.href = "/api/auth/dashboard"; // 這邊 huggingface 會閃退
                     });
                     
                 } catch (err) {

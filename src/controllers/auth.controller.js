@@ -215,14 +215,14 @@ export const signin = async (req, res, next) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true,    // 建議上線時開啟
-      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production", // 本地 false，上線 true
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       path: '/',
     });
 
     console.log(`✅ User logged in: ${email}`);
     console.log(`req.t: ${req.t}`);
-
+    
     return res.status(200).json({
       success: true,
       message: "Login successful",
@@ -432,7 +432,8 @@ export const scan_result = async (req, res) => {
           sameSite: "strict",
           path: "/",
         });
-        return res.render("dashboard", { 
+        
+        res.render("dashboard", { 
           name: "customer", 
           t: req.t, 
           path: "/api/auth/dashboard", 
