@@ -288,7 +288,7 @@ export const signout = (req, res) => {
     res.clearCookie("Path");
     res.clearCookie("SameSite");
     console.log("✅ User signed out");
-    res.status(200).render("homepage", { layout: false, message: "Logged out successfully" });
+    res.status(200).render("homePage", { layout: false, message: "Logged out successfully" });
 };
 
 const send_email = async (email) => {
