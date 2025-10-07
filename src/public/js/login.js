@@ -291,7 +291,12 @@ document.addEventListener("DOMContentLoaded", () => {
                         return;
                     }
 
-                    window.location.href = "/api/auth/dashboard"; // 如何引入data.user.name
+                    showModal(`${data.message}`, () => {
+                        window.location.href = "/api/auth/dashboard"; // 如何引入data.user.name
+                    }, () => {
+                        window.location.href = "/api/auth/dashboard"; // 如何引入data.user.name
+                    });
+                    
                 } catch (err) {
                     showModal(`伺服器錯誤: ${err.message}`);
                 }

@@ -156,9 +156,8 @@ export const signin = async (req, res, next) => {
     const user = await findUser("email", email);
     const login_role = req.body.login_role;
 
-    console.log(`User: ${user}`);
-
     if (!user) {
+      console.log()
       return res.status(401).json({ success: false, error: "Invalid credentials", message: "User not found" });
     }
 
