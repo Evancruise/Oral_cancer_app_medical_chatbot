@@ -115,8 +115,8 @@ const upload_temp = multer({ storage: storage_temp });
 const upload = multer({ storage: storage_upload });
 const upload_gb = multer({ storage: storage_upload_gb });
 
-const config_dir = path.join(process.cwd(), "config");
-let configPath = path.join(process.cwd(), "config", "settings.json");
+const config_dir = path.join(process.cwd(), "tmp/config");
+let configPath = path.join(process.cwd(), "tmp/config/settings.json");
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -900,7 +900,7 @@ export const apply_account_setting = async (req, res) => {
             return res.status(201).json({ success: true, message: "Init system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
         }
     } catch (e) {
-        logger.error("apply_account_setting error:", e);
+        console.error("apply_account_setting error:", e);
         return res.status(409).json({ success: false, message: "Apply account setting failed" });
     }
 };
@@ -1535,7 +1535,7 @@ export const check_has_login = async (req, res) => {
         });
         
     } catch (err) {
-        logger.error("❌ Status check error:", err);
+        console.error("❌ Status check error:", err);
         return res.status(500).json({ success: false, message: "伺服器錯誤" });
     }
 };

@@ -31,7 +31,8 @@ import { lang_get,
          verify_quick_changepwd,
          rebind_page,
          rebind_qr,
-         scan_result} from '#controllers/auth.controller.js';
+         scan_result,
+         temp_upload} from '#controllers/auth.controller.js';
 
 import multer from "multer";
 import i18next from "i18next";
@@ -79,6 +80,7 @@ router.get("/sign-out", signout);
 router.get("/dashboard", dashboard);
 
 router.get("/record", record);
+router.post("/temp_upload", temp_upload);
 router.post("/new_record", new_record);
 router.post("/edit_record", edit_record);
 
