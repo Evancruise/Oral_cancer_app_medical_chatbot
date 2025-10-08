@@ -5,21 +5,29 @@ import { renderUserPagination } from "./pagination.js";
 loadModal("modal-container");
 loadModal("modal-container-2");
 
-const account_form = document.getElementById("account_form");
-const add_account_form = document.getElementById("add_account_form");
-const account_setting_form = document.getElementById("account_setting_form");
-const account_setting_modal = document.getElementById("accountSettingModal");
-const system_setting_form = document.getElementById("system_setting_form");
-const system_setting_modal = document.getElementById("systemSettingModal");
-const table_wraps = document.querySelectorAll(".table-wrap");
-const toggleBtn = document.getElementById("toggle-password");
-const btn_export = document.getElementById("btn-export");
-const btn_reset = document.getElementById("btn-reset");
-const btn_restore = document.getElementById("btn-restore");
-const fileInput = document.getElementById("configFile");
-
 document.addEventListener("DOMContentLoaded", () => {
+    const account_form = document.getElementById("account_form");
+    const add_account_form = document.getElementById("add_account_form");
+    const account_setting_form = document.getElementById("account_setting_form");
+    const account_setting_modal = document.getElementById("accountSettingModal");
+    const system_setting_form = document.getElementById("system_setting_form");
+    const system_setting_modal = document.getElementById("systemSettingModal");
+    const table_wraps = document.querySelectorAll(".table-wrap");
+    const toggleBtn = document.getElementById("toggle-password");
+    const btn_export = document.getElementById("btn-export");
+    const btn_reset = document.getElementById("btn-reset");
+    const btn_restore = document.getElementById("btn-restore");
+    const fileInput = document.getElementById("configFile");
+
     const configTag = document.getElementById("config-data");
+    const tokenTag = document.getElementById("page-token");
+    let token = null;
+    
+    if (tokenTag) {
+        token = JSON.parse(tokenTag.textContent);
+    }
+    const modal = document.getElementById("curAccountModal");
+    
     let config = null;
     if (configTag) { config = JSON.parse(configTag.textContent); }
     const user_data = document.getElementById("users-data");
@@ -65,16 +73,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 const { fAccount, fName, fPassword, fUnit, fRole, fStatus, fNote } = btn.dataset;
 
                 console.log(fAccount, fName, fPassword, fUnit, fRole, fStatus, fNote);
-
+            
                 const modal = document.getElementById("curAccountModal");
 
-                modal.querySelector("input[name='email']").value = fAccount || '';
-                modal.querySelector("input[name='name']").value    = fName    || '';
-                modal.querySelector("input[name='password']").value    = fPassword    || '';
-                modal.querySelector("input[name='unit']").value    = fUnit    || '';
-                modal.querySelector("select[name='role']").value    = fRole    || 'tester';
-                modal.querySelector("select[name='status']").value = fStatus  || 'deactivated';
-                modal.querySelector("textarea[name='notes']").value = fNote    || '';
+                const form = modal.querySelector("#account_form");
+                form.querySelector("input[name='email']").value = fAccount || '';
+                form.querySelector("input[name='name']").value = fName || '';
+                form.querySelector("input[name='password']").value = fPassword || '';
+                form.querySelector("input[name='unit']").value = fUnit || '';
+                form.querySelector("select[name='role']").value = fRole || 'tester';
+                form.querySelector("select[name='status']").value = fStatus || 'deactivated';
+                form.querySelector("textarea[name='notes']").value = fNote || '';
+                form.querySelector("input[name='token']").value = token || '';
+
+                // const bsModal = new bootstrap.Modal(modal);
+                // bsModal.show();
             });
         });
     }
@@ -115,37 +128,47 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("anomalyThreshold").value = config.anomalyThreshold || "";
     }
 
-    if (account_form) {
-        account_form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+    if (account_form && modal) {
 
-            const formData = new FormData(account_form);
-            
-            // 把觸發的按鈕補進 formData
-            if (e.submitter) {
-                formData.append(e.submitter.name, e.submitter.value);
-            }
+        modal.addEventListener('shown.bs.modal', () => {
+            account_form.addEventListener('submit', async (e) => {
+                e.preventDefault();
 
-            const res = await fetch('/api/auth/edit_account', {
-                method: 'POST',
-                body: formData,
-            });
+                const form = modal.querySelector("#account_form"); // ✅ 再取一次最新 form
+                const formData = new FormData(form); // ✅ 使用 form 內的最新值
+                            
+                // 把觸發的按鈕補進 formData
+                if (e.submitter) {
+                    formData.append(e.submitter.name, e.submitter.value);
+                }
 
-            const data = await res.json();
+                for (const [k, v] of formData.entries()) {
+                    console.log(`${k}: ${v}`); // ✅ Debug: 確認資料都有帶
+                }
 
-            if (!data.success) {
-                showModal(`${data.message}`);
-                return;
-            }
+                console.log(`formData: ${JSON.stringify(formData)}`);
 
-            showModal(data.message, () => {
-                setTimeout(() => {
-                    window.location.href = data.redirect; // 怎麼引入 data.name?
-                }, 1500);
-            }, () => {
-                setTimeout(() => {
-                    window.location.href = data.redirect; // 怎麼引入 data.name?
-                }, 1500);
+                const res = await fetch('/api/auth/edit_account', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await res.json();
+
+                if (!data.success) {
+                    showModal(`${data.message}`);
+                    return;
+                }
+
+                showModal(data.message, () => {
+                    setTimeout(() => {
+                        window.location.href = data.redirect; // 怎麼引入 data.name?
+                    }, 1500);
+                }, () => {
+                    setTimeout(() => {
+                        window.location.href = data.redirect; // 怎麼引入 data.name?
+                    }, 1500);
+                });
             });
         });
     }

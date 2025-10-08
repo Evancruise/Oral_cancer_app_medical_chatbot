@@ -9,17 +9,21 @@ import { DateTime } from "luxon";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
+import ExcelJS from "exceljs";
 
 import { config, default_config } from "#config/config.js";
 import { createUser, createRegister } from "#services/auth.service.js";
 import { findRegister, updateRegister } from "#services/register.service.js";
-import { findUser, updateUserPassword } from "#services/user.service.js";
+import { findUser, updateUserPassword, updateUserTableFromRegister, 
+         getUser, getAllUsers, updateUser, deleteUser } from "#services/user.service.js";
 import { findRecord, createRecord, updateRecord, deleteRecord, getAllRecords,
          findDiscardRecord, deleteDiscardRecord, recoverRecord} from "#services/record.service.js";
-import { updateUserTableFromRegister, getUser, updateUser } from "#services/user.service.js";
 import { signupSchema, signinSchema } from "#validations/auth.validation.js";
-import { generateToken } from "#middleware/users.middleware.js";
+// import { generateToken } from "#middleware/users.middleware.js";
 import { movefiles, deletefiles } from "#utils/func.js";
+
+import { removeUserTable, createUsersTable } from "#services/user.service.js";
+import { removeRegisterTable, createRegisterTable } from "#services/register.service.js";
 
 const upload = multer({ dest: "uploads/" });
 const upload_gb = multer({ dest: "uploads_gb/" });
@@ -276,7 +280,7 @@ export const dashboard = (req, res) => {
 
     if (!token) {
       if (!decoded) {
-        return res.redirect(`/api/auth/homePage`);
+        return res.redirect(`/api/auth/homepage`);
       }
       return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
     }
@@ -288,7 +292,7 @@ export const dashboard = (req, res) => {
     res.render("dashboard", { name: decoded.name, t: req.t, path: "/api/auth/dashboard", priority: priority_from_role(decoded.role), token: token, layout: "base" });
   } catch (err) {
     console.error("JWT 驗證失敗:", err);
-    return res.redirect(`/api/auth/homePage`);
+    return res.redirect(`/api/auth/homepage`);
   }
 };
 
@@ -305,7 +309,7 @@ export const record = async (req, res) => {
 
     if (!token) {
       if (!decoded) {
-        return res.redirect(`/api/auth/homePage`);
+        return res.redirect(`/api/auth/homepage`);
       }
       return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
     }
@@ -367,7 +371,7 @@ export const new_record = [
   async (req, res) => {
     const body = req.body;
     const files = req.files;
-    generateToken(body);
+    // generateToken(body);
 
     console.log("req.headers:", req.headers);
     console.log("body:", body);
@@ -375,7 +379,7 @@ export const new_record = [
 
     const token = body.token;
     if (!token) {
-      return res.redirect("/api/auth/loginPage");
+      return res.redirect("/api/auth/homepage");
     }
 
     const action = body.action;  
@@ -445,7 +449,7 @@ export const edit_record = [
   async (req, res) => {
     const body = req.body;
     const files = req.files;
-    generateToken(body);
+    // generateToken(body);
 
     console.log("req.headers:", req.headers);
     console.log("body:", body);
@@ -453,7 +457,7 @@ export const edit_record = [
 
     const token = body.token;
     if (!token) {
-      return res.redirect("/api/auth/loginPage");
+      return res.redirect("/api/auth/homepage");
     }
 
     const action = body.action;
@@ -543,7 +547,7 @@ export const record_search = async (req, res) => {
 
     if (!token) {
       if (!decoded) {
-        return res.redirect(`/api/auth/homePage`);
+        return res.redirect(`/api/auth/homepage`);
       }
       return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
     }
@@ -591,6 +595,280 @@ export const record_search = async (req, res) => {
       token: token });
 };
 
+export const export_data = async (req, res) => {
+    try {
+        console.log(`export_data req.body: ${JSON.stringify(req.body)}`);
+        const rows = JSON.parse(req.body.tableData || "[]");
+
+        if (!rows.length) {
+            return res.status(400).json({ success: false, message: "No data to export" });  
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Records');
+
+        worksheet.columns = [
+          { header: "影像案例編號", key: "patient_id", width: 20 },
+          { header: "建立日期", key: "created_at", width: 15 },
+          { header: "上傳日期", key: "updated_at", width: 15 },
+          { header: "上傳人員", key: "name", width: 15 },
+          { header: "分析狀態", key: "status", width: 15 },
+          { header: "備註", key: "notes", width: 30 }
+        ];
+
+        // 加入資料
+        rows.forEach((r) => worksheet.addRow(r));
+
+        // 設定回應 headers → 讓瀏覽器自動下載
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.setHeader("Content-Disposition", "attachment; filename=records.xlsx");
+
+        // 把 workbook 寫到 response stream
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (e) {
+        console.error("export_data error:", e);
+        return res.status(500).json({ success: false, message: "Export data failed" });
+    }
+};
+
+export const account_management = async (req, res) => {
+    try {
+      const token = req.query.token;  // 從 cookie 拿 token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      console.log(`decoded: ${JSON.stringify(decoded)}`);
+      console.log(`decoded.role: ${decoded.role}`);
+
+      if (!token) {
+        if (!decoded) {
+          return res.redirect(`/api/auth/homepage`);
+        }
+        return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+      }
+
+      const allUsers = await getAllUsers();
+      console.log(`allUsers: ${JSON.stringify(allUsers)}`);
+
+      let length = 0;
+
+      let grouped = {};
+
+      if (allUsers) {
+          // 1. 排序 (依 created_at 從新到舊)
+          allUsers.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+          // 假設 record 是陣列
+          length = Object.keys(allUsers).length;
+
+          // 2. 分組 (key = YYYY-MM-DD)
+          grouped = allUsers.reduce((acc, item) => {
+            const dateName = item.name
+            console.log(`dateName: ${dateName}`);
+
+            if (!acc[dateName]) {
+              acc[dateName] = [];
+            }
+            acc[dateName].push(item);
+            return acc;
+          }, {});
+          console.log(`grouped: ${JSON.stringify(grouped)}`);
+      }
+
+      console.log(`config: ${JSON.stringify(config)}`);
+      let fileContent = null;
+      let cur_config = null;
+      
+      if (fs.existsSync(configPath)) {
+          fileContent = fs.readFileSync(configPath, "utf-8");
+          cur_config = JSON.parse(fileContent);
+      }
+
+      return res.status(201).render("account_management", 
+      { layout: "base",  
+        grouped_accounts: grouped, 
+        today_date: (new Date()).toISOString().split("T")[0],
+        priority: priority_from_role(decoded.role), 
+        path: "/api/auth/account_management", 
+        token: token,
+        t: req.t,
+        config: cur_config});
+    } catch(err) {
+      console.log("account_management error: ", err.message);
+      return res.redirect("/api/auth/homepage");
+    }
+};
+
+export const new_account = async (req, res) => {
+  // try {
+    const body = req.body;
+
+    console.log(`body: ${body}`);
+
+    const token = body.token;  
+
+    // generateToken(body);
+
+    const { name, email, password, role, unit, notes } = body;
+
+    console.log("body:", body);
+
+    const user = await createUser({ name, email, password, role, unit, notes });
+    
+    console.log(`user: ${JSON.stringify(user)}`);
+    console.log(`redirect: /api/auth/account_management?token=${token}`);
+
+    return res.status(201).json({ success: true, message: "Create new account successfully", redirect: `/api/auth/account_management?token=${token}` });
+  // } catch (e) {
+  //  console.error("new_account error:", e);
+  //  return res.status(409).json({ success: false, message: "Email already exists" });
+  //}
+};
+
+export const edit_account = async (req, res) => {
+  // try {  
+    const body = req.body;
+    
+    console.log("body:", body);
+
+    const token = body.token;
+
+    // generateToken(body);
+
+    const action = body.action;
+
+    if (action === "save") {
+        const user = await updateUser("name", body.name, body);
+        console.log(`user: ${JSON.stringify(user)}`);
+        return res.status(201).json({ success: true, message: "Edit account successfully", redirect: `/api/auth/account_management?token=${token}` });
+    } else if (action === "delete") {
+        const user = await deleteUser("name", body.name);
+        console.log(`user: ${JSON.stringify(user)}`);
+        return res.status(201).json({ success: true, message: "Delete account successfully", redirect: `/api/auth/account_management?token=${token}` });
+    }
+  // } catch (e) {
+  //  console.error("edit_account error:", e);
+  //  return res.status(409).json({ success: false, message: "Edit account failed" });
+  // }
+};
+
+export const apply_account_setting = async (req, res) => {
+    try {  
+        const body = req.body;
+        const token = body.token;
+        const action = body.action;
+
+        console.log("body:", body);
+        // generateToken(body);
+
+        if (action == "save") {
+          
+            let oldConfig = {};
+
+            if (!fs.existsSync(config_dir)) {
+                fs.mkdirSync(config_dir, { recursive: true });
+            } else if (fs.existsSync(configPath)) {
+                const raw = fs.readFileSync(configPath, "utf-8");
+                oldConfig = JSON.parse(raw);
+            }
+
+            const newConfig = { ...oldConfig, ...body, updated_at: new Date().toISOString() };
+            
+            fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), "utf-8");
+
+            return res.status(201).json({ success: true, message: "Update system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+        } else if (action === "reset") {
+            fs.writeFileSync(configPath, JSON.stringify(default_config, null, 2));
+            return res.status(201).json({ success: true, message: "Reset system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+        } else if (action === "init") {
+            removeUserTable();    
+            createUsersTable();
+            removeRegisterTable();
+            createRegisterTable();
+            return res.status(201).json({ success: true, message: "Init system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+        }
+    } catch (e) {
+        logger.error("apply_account_setting error:", e);
+        return res.status(409).json({ success: false, message: "Apply account setting failed" });
+    }
+};
+
+export const apply_system_setting = async (req, res) => {
+    try {  
+        const body = req.body;
+        const token = body.token;
+        const action = body.action;
+        
+        const updateInform = req.body.update_inform === "on";
+
+        if (action === "save") {
+
+            let oldConfig = {};
+
+            if (!fs.existsSync(config_dir)) {
+                fs.mkdirSync(config_dir, { recursive: true });
+            } else {
+                const raw = fs.readFileSync(configPath, "utf-8");
+                oldConfig = JSON.parse(raw);
+            }
+
+            const newConfig = { ...oldConfig, ...body, updated_at: new Date().toISOString() };
+
+            console.log(`newConfig: ${JSON.stringify(newConfig)}`);
+
+            fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), "utf-8");
+    
+            return res.status(201).json({ success: true, message: "Apply system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+        } else if (action === "reset") {
+            fs.writeFileSync(configPath, JSON.stringify(default_config, null, 2));
+            return res.status(201).json({ success: true, message: "Reset system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+        } else if (action === "backup") {
+
+            let oldConfig = {};
+
+            if (!fs.existsSync(config_dir)) {
+                fs.mkdirSync(config_dir, { recursive: true });
+            } else if (fs.existsSync(configPath)) {
+                const raw = fs.readFileSync(configPath, "utf-8");
+                oldConfig = JSON.parse(raw);
+            }
+
+            const newConfig = { ...oldConfig, ...body, updated_at: new Date().toISOString() };
+
+            console.log(`newConfig: ${JSON.stringify(newConfig)}`);
+
+            fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), "utf-8");
+
+            const jsonStr = JSON.stringify(newConfig, null, 2);
+
+            // 設定 response header 讓瀏覽器觸發下載
+            res.setHeader("Content-Disposition", "attachment; filename=settings.json");
+            res.setHeader("Content-Type", "application/json");
+            res.send(jsonStr);
+
+        } else if (action === "recover") {
+
+            const fileContent = fs.readFileSync(configPath, "utf-8");
+          
+            if (!fs.existsSync(configPath)) {
+                return res.json({ success: false, message: "No config file found" });
+            }
+
+            const settings = JSON.parse(fileContent);
+
+            console.log("匯入設定:", settings);
+
+            fs.writeFileSync(configPath, JSON.stringify(settings, null, 2));
+
+            return res.status(201).json({ success: true, redirect: `/api/auth/account_management?token=${token}` });
+        }
+
+    } catch (e) {
+        console.error("apply_system_setting error:", e);
+        return res.status(409).json({ success: false, message: "Apply system setting failed" });
+    }
+};
+
 export const recycle_bin = async (req, res) => {
     try {
         const token = req.query.token;  // 從 cookie 拿 token
@@ -598,7 +876,7 @@ export const recycle_bin = async (req, res) => {
         
         if (!token) {
           if (!decoded) {
-            return res.redirect(`/api/auth/homePage`);
+            return res.redirect(`/api/auth/homepage`);
           }
           return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
         }
@@ -658,7 +936,7 @@ export const recycle_record = [
       try {
           const body = req.body;
 
-          generateToken(body);
+          // generateToken(body);
 
           const files = req.files;
 
@@ -952,6 +1230,86 @@ export const verify_register = async (req, res) => {
     }
 };
 
+export const quickchangepwd = (req, res) => {
+  try {
+    const token = req.query.token;  // 從 cookie 拿 token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!token) {
+      if (!decoded) {
+        return res.redirect(`/api/auth/homepage`);
+      }
+      return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+    }
+
+    return res.status(200).render(
+        "quick_changepwd", { 
+            path: "/api/auth/quick_changepwd", 
+            priority: priority_from_role(decoded.role), 
+            layout: "base", 
+            name: decoded.name,
+            email: decoded.email,
+            token: token,
+            t: req.t });
+  } catch (err) {
+    console.error("quickchangepwd error:", err.message);
+    return res.redirect("/api/auth/homepage");
+  }
+};
+
+export const verify_quick_changepwd = async (req, res) => {
+  try {
+    const user = await getUser("name", req.body.name);
+    const id = user.id;
+
+    const token = req.body.token;
+
+    if (!token) {
+      return res.redirect("/api/auth/homepage"); // 沒有 token 回登入頁
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log(`req.body: ${JSON.stringify(req.body)}`);
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+
+    const validPassword = await bcrypt.compare(req.body.old_password, decoded.password);
+
+    if (!validPassword) {
+      return res.status(401).json({ 
+          success: false,
+          error: "Invalid credentials",
+          message: "Password not correct",
+      });
+    }
+
+    if (req.body.password !== req.body.new_password) {
+      return res.status(401).json({ 
+          success: false,
+          error: "Invalid credentials",
+          message: "New password not the same",
+      });
+    }
+
+    const updated = updateUser("id", id, req.body);
+
+    return res.status(200).json({ 
+        success: true, 
+        layout: "layout", 
+        path: "/api/auth/quick_changepwd", 
+        message: "Verify changepwd success!" 
+    });
+  } catch (err) {
+    return res.status(400).json({
+        success: false, 
+        layout: "layout",
+        path: "/api/auth/quick_changepwd",
+        error: "Validation failed",
+        message: "User id not the same (by name/email)",
+    });
+  }
+};
+
 export const resend = async (req, res) => {
   try {
     const { name, email, token } = req.body;
@@ -1014,4 +1372,86 @@ export const verify_changepwd = async (req, res) => {
     const updated = updateUser("id", id, req.body);
 
     return res.status(200).json({ success: true, layout: false, message: "Verify changepwd success!", redirect: `/api/auth/loginPage?login_role=${userIdByEmail.login_role}` });
+};
+
+export const rebind_page = async (req, res) => {
+    try {
+        const token = req.query.token;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        if (!token) {
+          if (!decoded) {
+            return res.redirect(`/api/auth/homepage`);
+          }
+          return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+        }
+
+        console.log(`decoded: ${JSON.stringify(decoded)}`);
+        console.log(`decoded.role: ${decoded.role}`);
+
+        return res.status(201).render("rebind_page", { layout: "base", priority: priority_from_role(decoded.role), path: "/api/auth/rebind_page", token: token, t: req.t });
+    } catch (err) {
+        console.log(`rebind_page error: `, err.message);
+        return res.redirect("/api/auth/homepage");
+    }
+};
+
+export const rebind_qr = async (req, res) => {
+    try {
+      const qr_token = uuidv4();
+      const qrImage = await QRCode.toDataURL(qr_token);
+
+      const img = qrImage.replace(/^data:image\/png;base64,/, "");
+      const imgBuffer = Buffer.from(img, "base64");
+      res.setHeader("Content-Type", "image/png");
+      res.send(imgBuffer);
+    } catch (e) {
+      res.status(500).send("QR code generation failed");
+    }
+};
+
+export const check_has_login = async (req, res) => {
+    try {
+        const { qr_token } = req.params;
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.flushHeaders();
+
+        redis_subscriber.on("message", (ch, msg) => {
+            const { qr_token: t, token } = JSON.parse(msg);
+            if (t === qr_token) res.write(`data: ${token}\n\n`);
+        });
+        
+    } catch (err) {
+        logger.error("❌ Status check error:", err);
+        return res.status(500).json({ success: false, message: "伺服器錯誤" });
+    }
+};
+
+export const stream_fallback = async (req, res) => {
+    const { qr_token } = req.params;
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.flushHeaders();
+
+    console.log(`👂 SSE 連線建立 (${qr_token})`);
+
+    const handler = (channel, message) => {
+      if (channel === "qr_auth_notifications") {
+        const data = JSON.parse(message);
+        if (data.qr_token === qr_token) {
+          res.write(`data: ${JSON.stringify(data)}\n\n`);
+          redis_subscriber.removeListener("message", handler);
+        }
+      }
+    };
+
+    redis_subscriber.on("message", handler);
+
+    req.on("close", () => {
+      redis_subscriber.removeListener("message", handler);
+      res.end();
+      console.log(`SSE 關閉 (${qr_token})`);
+    });
 };

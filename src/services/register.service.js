@@ -66,6 +66,37 @@ export const removeRegisterTable = async() => {
 
 /*********************************
  
+Create functions
+
+*********************************/
+
+export const createRegisterTable = async () => {
+  try {
+    console.log("🔍 建立 registers 資料表中...");
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS registers (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password TEXT,
+        role VARCHAR(50) DEFAULT 'tester',
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        expired_at TIMESTAMP DEFAULT NOW(),
+        timezone VARCHAR(50) DEFAULT 'UTC'
+      )
+    `;
+
+    console.log("✅ registers 資料表建立完成");
+  } catch (e) {
+    console.error("❌ 建立 registers 資料表失敗:", e);
+    throw e;
+  }
+};
+
+/*********************************
+ 
 Update functions
 
 *********************************/

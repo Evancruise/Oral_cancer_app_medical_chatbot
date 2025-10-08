@@ -43,10 +43,14 @@
   <%- JSON.stringify(config) %>
 </script>
 
+<script id="page-token" type="application/json">
+  "<%= token %>"
+</script>
+
 <div class="modal fade" id="curAccountModal" tabindex="-1" aria-labelledby="curAccountModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-    <form method="POST" enctype="multipart/form-data" action="/api/auth/edit_account" class="card p-4" id="account_form">
+    <form method="POST" enctype="multipart/form-data" class="card p-4" id="account_form">
       <div class="modal-header custom-modal-header">
         <h5 class="modal-title animated-title" id="curAccountModalLabel">
           <i class="fas fa-edit fa-beat"></i> 編輯使用者
@@ -91,6 +95,8 @@
           <label class="form-label">備註</label>
           <textarea name="notes" class="form-control" rows="3" placeholder="輸入備註"></textarea>
         </div>
+        
+        <input type="hidden" name="token" id="token_edit" value="<%= token %>">
       </div>
 
       <div class="mt-3 d-flex gap-2 justify-content-end">
@@ -150,6 +156,7 @@
                     <label class="form-label">備註</label>
                     <textarea name="notes" class="form-control" rows="3"></textarea>
                 </div>
+                <input type="hidden" name="token_new" id="token" value="<%= token %>">
             </div>
             <div class="mt-3 d-flex gap-2 justify-content-end">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
@@ -246,6 +253,7 @@
                         醫學資料庫管理
                       </h5>
                     </div>
+                    <input type="hidden" name="token" id="token_system" value="<%= token %>">
                 </div>
 
                 <!-- Footer -->
@@ -387,12 +395,14 @@
                     </div>  
                   </div>
                 </div>
+
+                <input type="hidden" name="token" id="token_account" value="<%= token %>">
             </div>
 
             <!-- Footer -->
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <!-- <button type="submit" name="action" value="reset" class="btn btn-secondary">重設</button> -->
+                <button type="submit" name="action" value="reset" class="btn btn-secondary">重設</button>
                 <button type="submit" name="action" value="init" class="btn btn-secondary">帳號初始化</button>
                 <button type="submit" name="action" value="save" class="btn btn-primary">儲存設定</button>
             </div>

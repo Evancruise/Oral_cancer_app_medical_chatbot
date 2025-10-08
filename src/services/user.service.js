@@ -1,5 +1,6 @@
 import { sql } from "#config/database.js";
 import bcrypt from "bcrypt";
+import { createUser } from "#services/auth.service.js";
 
 /***************************************
   
@@ -34,6 +35,47 @@ export const deleteUser = async (fieldname, value) => {
       await sql`DELETE FROM users WHERE email = ${value}`;
     }
     return { message: `User deleted successfully` };
+};
+
+/***************************************
+  
+Create functions
+
+****************************************/
+
+export const createUsersTable = async () => {
+  try {
+    console.log("🔍 建立 users 資料表中...");
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) UNIQUE,
+        email VARCHAR(255) UNIQUE,
+        password TEXT,
+        retry_times INTEGER DEFAULT 5,
+        role VARCHAR(50) DEFAULT 'tester',
+        login_role VARCHAR(50) DEFAULT 'patient',
+        unit VARCHAR(100) DEFAULT 'personal',
+        is_used BOOLEAN DEFAULT false,
+        note TEXT,
+        qr_token VARCHAR(255) UNIQUE,
+        status VARCHAR(50) DEFAULT 'deactivated',
+        created_at TIMESTAMPTZ DEFAULT NOW(), 
+        expired_at TIMESTAMPTZ,
+        updated_at TIMESTAMPTZ DEFAULT NOW(),      
+        allowed_loggin_at TIMESTAMPTZ DEFAULT NOW(),
+        timezone VARCHAR(50) DEFAULT 'UTC'          
+      )
+    `;
+
+    const admin_user = await createUser({ name: process.env.NAME, email: process.env.ACCOUNT, password: process.env.DB_PASSWORD, role: "system manager", note: "none" });
+
+    console.log("✅ users 資料表建立完成");
+  } catch (e) {
+    console.error("❌ 建立 users 資料表失敗:", e);
+    throw e;
+  }
 };
 
 /***************************************

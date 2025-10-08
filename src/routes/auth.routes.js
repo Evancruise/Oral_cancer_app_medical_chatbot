@@ -21,7 +21,17 @@ import { lang_get,
          edit_record,
          recycle_bin,
          recycle_record,
-         record_search} from '#controllers/auth.controller.js';
+         record_search,
+         export_data,
+         account_management,
+         edit_account,
+         apply_account_setting,
+         apply_system_setting,
+         quickchangepwd,
+         verify_quick_changepwd,
+         rebind_page,
+         rebind_qr,
+         scan_result} from '#controllers/auth.controller.js';
 
 import multer from "multer";
 import i18next from "i18next";
@@ -75,5 +85,18 @@ router.get("/recycle_bin", recycle_bin);
 router.post("/recycle_record", recycle_record);
 
 router.get("/record_search", record_search);
+router.post("/export_data", upload.none(), export_data);
+
+router.get("/account_management", account_management);
+router.post("/edit_account", upload.none(), edit_account);
+router.post("/apply_account_setting", upload.none(), apply_account_setting);
+router.post("/apply_system_setting", upload.none(), apply_system_setting);
+
+router.get("/quick_changepwd", quickchangepwd);
+router.post("/verify_quick_changepwd", verify_quick_changepwd);
+
+router.get("/rebind_page", rebind_page);
+router.get("/rebind-qr", rebind_qr);
+router.post("/scan_result", scan_result);
 
 export default router;
