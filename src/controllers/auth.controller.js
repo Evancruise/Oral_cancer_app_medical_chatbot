@@ -241,7 +241,7 @@ export const signin = async (req, res, next) => {
     console.error("Signin error", e);
     return res.status(400).json({
       success: false, 
-      message: `Login Failed ${e.message}`})
+      message: `Login Failed ${e.message}`});
   }
 };
 
@@ -263,14 +263,16 @@ function priority_from_role(role) {
 export const dashboard = (req, res) => {
   try {
     const token = req.query.token;  // 從 cookie 拿 token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     console.log(`token: ${token}`);
 
     if (!token) {
-      return res.redirect("/api/auth/loginPage?login_role=professor"); // 沒有 token 回登入頁
+      if (!decoded) {
+        return res.redirect(`/api/auth/homePage`);
+      }
+      return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
     }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     console.log(`decoded: ${JSON.stringify(decoded)}`);
     console.log(`decoded.name: ${decoded.name}`);
@@ -279,7 +281,7 @@ export const dashboard = (req, res) => {
     res.render("dashboard", { name: decoded.name, t: req.t, path: "/api/auth/dashboard", priority: priority_from_role(decoded.role), layout: "base" });
   } catch (err) {
     console.error("JWT 驗證失敗:", err);
-    return res.redirect("/api/auth/loginPage?login_role=professor");
+    return res.redirect(`/api/auth/homePage`);
   }
 };
 
