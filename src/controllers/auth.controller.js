@@ -14,7 +14,7 @@ import { config, default_config } from "#config/config.js";
 import { createUser, createRegister } from "#services/auth.service.js";
 import { findRegister, updateRegister } from "#services/register.service.js";
 import { findUser, updateUserPassword } from "#services/user.service.js";
-import { findRecord, createRecord, updateRecord, deleteRecord,
+import { findRecord, createRecord, updateRecord, deleteRecord, getAllRecords,
          findDiscardRecord, deleteDiscardRecord, recoverRecord} from "#services/record.service.js";
 import { updateUserTableFromRegister, getUser, updateUser } from "#services/user.service.js";
 import { signupSchema, signinSchema } from "#validations/auth.validation.js";
@@ -536,6 +536,60 @@ export const edit_record = [
     }
   }
 ];
+
+export const record_search = async (req, res) => {
+    const token = req.query.token;  // 從 cookie 拿 token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!token) {
+      if (!decoded) {
+        return res.redirect(`/api/auth/homePage`);
+      }
+      return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+    }
+
+    let grouped = {};
+
+    const allRecords = await getAllRecords();
+
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+    console.log(`decoded.role: ${decoded.role}`);
+
+    console.log(`allRecords: ${JSON.stringify(allRecords)}`);
+
+    let length = 0;
+
+    if (allRecords) {
+        // 1. 排序 (依 created_at 從新到舊)
+        allRecords.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // 假設 record 是陣列
+        length = Object.keys(allRecords).length;
+
+        // 2. 分組 (key = YYYY-MM-DD)
+        grouped = allRecords.reduce((acc, item) => {
+          console.log(`item.created_at: ${item.created_at}`);
+          const dateKey = item.created_at.toISOString().split("T")[0] // Date → YYYY-MM-DD
+          console.log(`dateKey: ${dateKey}`);
+
+          if (!acc[dateKey]) {
+            acc[dateKey] = [];
+          }
+          acc[dateKey].push(item);
+          return acc;
+        }, {});
+        console.log(`grouped: ${JSON.stringify(grouped)}`);
+    }
+
+    return res.status(201).render("record_search", 
+    { layout: "base",  
+      grouped_records: grouped, 
+      today_date: (new Date()).toISOString().split("T")[0],
+      priority: priority_from_role(decoded.role), 
+      path: "/api/auth/record_search", 
+      t: req.t,
+      token: token });
+};
 
 export const recycle_bin = async (req, res) => {
     try {

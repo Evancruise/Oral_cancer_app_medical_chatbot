@@ -20,7 +20,8 @@ import { lang_get,
          new_record,
          edit_record,
          recycle_bin,
-         recycle_record} from '#controllers/auth.controller.js';
+         recycle_record,
+         record_search} from '#controllers/auth.controller.js';
 
 import multer from "multer";
 import i18next from "i18next";
@@ -72,5 +73,7 @@ router.post("/edit_record", edit_record);
 
 router.get("/recycle_bin", recycle_bin);
 router.post("/recycle_record", recycle_record);
+
+router.get("/record_search", record_search);
 
 export default router;

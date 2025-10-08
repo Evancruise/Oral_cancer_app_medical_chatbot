@@ -38,14 +38,14 @@
             <li>
                 <a class="nav-link <%= (path === '/api/auth/record_search') ? 'active' : '' %>"
                     style="display: <%= (priority === 1) ? 'flex' : 'none' %>"
-                    href="/api/auth/record_search">
+                    href="/api/auth/record_search?token=<%= token %>">
                     <i class="fa-duotone fa-thin fa-calendar"></i> <%= t("record_search.title") %>
                 </a>
             </li>
             <li>
                 <a class="nav-link <%= (path === '/api/auth/account_management') ? 'active' : '' %>"
                     style="display: <%= (priority === 1) ? 'flex' : 'none' %>"
-                    href="/api/auth/account_management">
+                    href="/api/auth/account_management?token=<%= token %>">
                     <i class="fas fa-history"></i> <%= t("account_management.title") %>
                 </a>
             </li>
@@ -55,12 +55,12 @@
                 </a>
             </li>
             <li>
-                <a class="nav-link <%= (path === '/api/auth/quick_changepwd') ? 'active' : '' %>" href="/api/auth/quick_changepwd">
+                <a class="nav-link <%= (path === '/api/auth/quick_changepwd') ? 'active' : '' %>" href="/api/auth/quick_changepwd?token=<%= token %>">
                     <i class="fas fa-key"></i> <%= t("quick_chgpwd.title") %>
                 </a>
             </li>
             <li>
-                <a class="nav-link <%= (path === '/api/auth/rebind_page') ? 'active' : '' %>" href="/api/auth/rebind_page">
+                <a class="nav-link <%= (path === '/api/auth/rebind_page') ? 'active' : '' %>" href="/api/auth/rebind_page?token=<%= token %>">
                     <i class="fas fa-link"></i> <%= t("rebind_account.title") %>
                 </a>
             </li>

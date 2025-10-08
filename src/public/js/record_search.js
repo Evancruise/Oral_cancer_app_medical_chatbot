@@ -24,19 +24,82 @@ document.addEventListener("DOMContentLoaded", () => {
     const pageSize = 5;
     let currentPage = 1;
 
-    function update() {
-        renderTable(rowsArray, pageSize, currentPage);
-        renderPagination(rowsArray, pageSize, currentPage, (newPage) => {
-        currentPage = newPage;
-        update();
+    function filterRows() {
+        const dateRange = document.getElementById("dateRange").value.trim();
+        const uploader = document.getElementById("uploader").value;
+        const status = document.getElementById("status").value;
+        const category = document.getElementById("category").value;
+
+        let filtered = [...rowsArray];
+
+        console.log(`filtered (before daterange): ${filtered}`);
+
+        // 🗓 篩選日期區間
+        if (dateRange.includes("~")) {
+            const [start, end] = dateRange.split("~").map(s => s.trim());
+            
+            console.log(`start: ${start}`);
+            console.log(`end: ${end}`);
+
+            const startDate = new Date(start);
+            const endDate = new Date(end);
+
+            console.log(`startDate: ${startDate}`);
+            console.log(`endDate: ${endDate}`);
+
+            filtered = filtered.filter(item => {
+                console.log(`item: ${JSON.stringify(item)}`);
+
+                console.log('updated_at raw:', item[0].updated_at);
+                console.log('type:', typeof item[0].updated_at);
+
+                // item.updated_at: 2025-10-08T12:10:35.584Z
+                const uploadDate = new Date(item[0].updated_at.split("T")[0]);
+
+                console.log(`uploadDate: ${uploadDate}`);
+                console.log(`uploadDate >= startDate && uploadDate <= endDate: ${uploadDate >= startDate && uploadDate <= endDate}`);
+                return uploadDate >= startDate && uploadDate <= endDate;
+            });
+        }
+
+        console.log(`filtered (after daterange): ${JSON.stringify(filtered)}`);
+
+        console.log(`uploader: ${uploader}`);
+        console.log(`status: ${status}`);
+        console.log(`category: ${category}`);
+
+        // 👤 篩選上傳帳號
+        if (uploader !== "all") {
+            filtered = filtered.filter(item => item[0].name === uploader);
+        }
+        
+        if (status !== "all") {
+            filtered = filtered.filter(item => item[0].status === null || item[0].status === status);
+        }
+
+        // 🏷 篩選分類結果
+        if (category !== "all") {
+            filtered = filtered.filter(item => item[0].result === null || item[0].result === category);
+        }
+
+        return filtered;
+    }
+
+    function update(filteredData = rowsArray) {
+        renderTable(filteredData, pageSize, currentPage);
+        renderPagination(filteredData, pageSize, currentPage, (newPage) => {
+            currentPage = newPage;
+            update(filteredData);
         });
     }
 
     // 綁定查詢按鈕
     if (btn_search) {
-        btn_search.addEventListener('click', ()=> {
+        btn_search.addEventListener("click", () => {
             currentPage = 1;
-            update();
+            const filtered = filterRows();
+            console.log("Filtered results:", filtered);
+            update(filtered);
         });
     }
 

@@ -55,6 +55,8 @@ export const getAllRecords = async () => {
             updated_at,
             result,
             notes,
+            status,
+            result,
             img1,
             img2,
             img3,
@@ -441,14 +443,14 @@ export const createRecord = async (body) => {
     }
 
     console.log(`
-      INSERT INTO records (name, gender, age, patient_id, notes, updated_at, img1, img2, img3, img4, img5, img6, img7, img8)
-      VALUES (${body.name}, ${body.gender}, ${body.age}, ${body.patient_id}, ${body.notes}, NOW(), ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
+      INSERT INTO records (name, gender, age, patient_id, notes, updated_at, status, img1, img2, img3, img4, img5, img6, img7, img8)
+      VALUES (${body.name}, ${body.gender}, ${body.age}, ${body.patient_id}, ${body.notes}, NOW(), "not_started", ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
       RETURNING name, gender, age, patient_id, notes, created_at, updated_at, img1, img2, img3, img4, img5, img6, img7, img8
     `);
 
     const newRecord = await sql`
-      INSERT INTO records (name, gender, age, patient_id, notes, updated_at, img1, img2, img3, img4, img5, img6, img7, img8)
-      VALUES (${body.name}, ${body.gender}, ${body.age}, ${body.patient_id}, ${body.notes}, NOW(), ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
+      INSERT INTO records (name, gender, age, patient_id, notes, updated_at, status, img1, img2, img3, img4, img5, img6, img7, img8)
+      VALUES (${body.name}, ${body.gender}, ${body.age}, ${body.patient_id}, ${body.notes}, NOW(), "not_started", ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
       RETURNING name, gender, age, patient_id, notes, created_at, updated_at, img1, img2, img3, img4, img5, img6, img7, img8
     `;
 
