@@ -2,20 +2,27 @@ import { v4 as uuidv4 } from "uuid";
 import QRCode from "qrcode";
 import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
-import path from "path";
 import sgMail from "@sendgrid/mail";
 import crypto from "crypto";
 import { DateTime } from "luxon";
 
+import fs from "fs";
+import path from "path";
+import multer from "multer";
+
 import { config, default_config } from "#config/config.js";
-import { createRegister } from "#services/auth.service.js";
+import { createUser, createRegister } from "#services/auth.service.js";
 import { findRegister, updateRegister } from "#services/register.service.js";
 import { findUser, updateUserPassword } from "#services/user.service.js";
+import { findRecord, createRecord, updateRecord, deleteRecord,
+         findDiscardRecord, deleteDiscardRecord, recoverRecord} from "#services/record.service.js";
 import { updateUserTableFromRegister, getUser, updateUser } from "#services/user.service.js";
 import { signupSchema, signinSchema } from "#validations/auth.validation.js";
+import { generateToken } from "#middleware/users.middleware.js";
+import { movefiles, deletefiles } from "#utils/func.js";
 
-import { createUser } from "#services/auth.service.js";
-
+const upload = multer({ dest: "uploads/" });
+const upload_gb = multer({ dest: "uploads_gb/" });
 const config_dir = path.join(process.cwd(), "config");
 let configPath = path.join(process.cwd(), "config", "settings.json");
 
@@ -278,12 +285,396 @@ export const dashboard = (req, res) => {
     console.log(`decoded.name: ${decoded.name}`);
     console.log(`req.t: ${req.t}`);
 
-    res.render("dashboard", { name: decoded.name, t: req.t, path: "/api/auth/dashboard", priority: priority_from_role(decoded.role), layout: "base" });
+    res.render("dashboard", { name: decoded.name, t: req.t, path: "/api/auth/dashboard", priority: priority_from_role(decoded.role), token: token, layout: "base" });
   } catch (err) {
     console.error("JWT 驗證失敗:", err);
     return res.redirect(`/api/auth/homePage`);
   }
 };
+
+function formatDateTime(date) {
+    if (!(date instanceof Date)) date = new Date(date);
+    const iso = date.toISOString();
+    const [day, time] = iso.split("T");
+    return `${day} ${time.split(".")[0]}`;
+}
+
+export const record = async (req, res) => {
+    const token = req.query.token;  // 從 cookie 拿 token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!token) {
+      if (!decoded) {
+        return res.redirect(`/api/auth/homePage`);
+      }
+      return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+    }
+    
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+    console.log(`decoded.name: ${decoded.name}`);
+
+    const record = await findRecord("name", decoded.name);
+    let length = 0;
+
+    console.log(`record: ${JSON.stringify(record)}`);
+
+    let grouped = {};
+
+    if (record) {
+        // 1. 排序 (依 created_at 從新到舊)
+        record.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        console.log(`record (sorted): ${JSON.stringify(record)}`);
+
+        // 假設 record 是陣列
+        length = Object.keys(record).length;
+        
+        // 2. 分組 (key = YYYY-MM-DD)
+        grouped = record.reduce((acc, item) => {
+          console.log(`item.created_at: ${item.created_at}`);
+
+          const dateKey = DateTime.fromJSDate(item.created_at)
+                               .setZone(item.timezone || "UTC")
+                               .toFormat("yyyy-MM-dd");
+
+          // const dateKey = item.created_at.toISOString().split("T")[0] // Date → YYYY-MM-DD
+          console.log(`dateKey: ${dateKey}`);
+
+          if (!acc[dateKey]) {
+            acc[dateKey] = [];
+          }
+          acc[dateKey].push(item);
+          return acc;
+        }, {});
+        console.log(`grouped: ${JSON.stringify(grouped)}`);
+    }
+
+    return res.status(201).render("record", 
+    { layout: "base", 
+      grouped_records: grouped, 
+      priority: priority_from_role(decoded.role), 
+      path: "/api/auth/record", 
+      id: decoded.id, 
+      patient_id: `${decoded.id}-${length}`,
+      new_patient_id: `${decoded.id}-${length+1}`,
+      name: decoded.name,
+      token: token, 
+      t: req.t,
+      formatDateTime });
+};
+
+export const new_record = [
+  upload.any(),  // multer 處理 multipart/form-data
+  async (req, res) => {
+    const body = req.body;
+    const files = req.files;
+    generateToken(body);
+
+    console.log("req.headers:", req.headers);
+    console.log("body:", body);
+    console.log("files:", JSON.stringify(files, null, 2));
+
+    const token = body.token;
+    if (!token) {
+      return res.redirect("/api/auth/loginPage");
+    }
+
+    const action = body.action;  
+    const patientId = body.patient_id;
+
+    // 確保 patient_id 資料夾存在
+    const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // 儲存檔案到 patient_id 資料夾
+    for (const file of files) {
+      const targetPath = path.join(uploadDir, file.originalname);
+      fs.renameSync(file.path, targetPath);
+    }
+
+    let newRecord = null;
+
+    if (action === "create") {
+      /* 
+      update current new add user file into records table from body
+      */
+      newRecord = await createRecord(body);
+
+      // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
+      return res.status(200).json({
+        layout: false,
+        success: true,
+        redirect: `/api/auth/record?token=${token}`,
+        message: "Create new record successfully",
+        patient_id: patientId,
+        files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
+      });
+    } else if (action === "infer") {
+      /* 
+      update current new add user file into records table from body
+      */
+      newRecord = await createRecord(body);
+
+      return res.status(200).json({
+        layout: false,
+        success: true,
+        redirect: `/api/auth/record?token=${token}`,
+        message: "inference complete"
+      });
+    } else if (action === "check_result") {
+        return res.status(200).json({
+          success: true,
+          message: "檢查結果完成",
+          patient_id: patientId,
+          redirect: `/api/auth/record?token=${token}`,
+          files: savedFiles,
+        });
+    } else {
+        return res.status(400).json({
+          layout: false,
+          success: false,
+          message: "unknown action"
+        });
+    }
+  }
+];
+
+export const edit_record = [
+  upload.any(),
+  async (req, res) => {
+    const body = req.body;
+    const files = req.files;
+    generateToken(body);
+
+    console.log("req.headers:", req.headers);
+    console.log("body:", body);
+    console.log("files:", JSON.stringify(files, null, 2));
+
+    const token = body.token;
+    if (!token) {
+      return res.redirect("/api/auth/loginPage");
+    }
+
+    const action = body.action;
+    const patientId = body.patient_id;
+
+    const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
+    const uploadDir_gb = path.join(process.cwd(), "public", "uploads_gb", patientId);
+
+    console.log(`uploadDir: ${uploadDir}`);
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    if (action === "save") {
+        const savedFiles = [];
+        for (const file of files) {
+          const targetPath = path.join(uploadDir, file.originalname);
+          fs.renameSync(file.path, targetPath);
+          savedFiles.push(`/uploads/${patientId}/${file.originalname}`);
+        }
+
+        // 儲存檔案到 patient_id 資料夾
+        const imgUpdates = {};
+        for (let i = 1; i <= 8; i++) {
+          const fieldName = `pic${i}_2`;
+          const file = files.find(f => f.fieldname === fieldName);
+          console.log(`body[pic${i}_2]=`, body[`pic${i}_2`]);
+
+          if (file) {
+            // 有新檔 → 搬移到 patient_id 資料夾
+            const newPath = path.join(uploadDir, file.originalname);
+            await fs.promises.rename(file.path, newPath);
+
+            // 存 DB 用的相對路徑 (假設 uploads 在 public/static 底下)
+            const relativePath = path.relative("public", newPath).replace(/\\/g, "/");
+            imgUpdates[fieldName] = "/" + relativePath;
+          } else {
+            // 沒新檔 → 用 hidden input 傳來的舊路徑
+            imgUpdates[fieldName] = body[`pic${i}_2`] || null;
+          }
+        }
+
+        console.log("imgUpdates:", imgUpdates);
+    
+        const editRecord = await updateRecord(body, imgUpdates);
+
+        // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
+        return res.status(200).json({
+          layout: false,
+          success: true,
+          redirect: `/api/auth/record?token=${token}`,
+          message: "Edit new record successfully",
+          patient_id: patientId,
+          files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
+        });
+    } else if (action === "delete") {
+        await deleteRecord(body);
+
+        if (!fs.existsSync(uploadDir_gb)) {
+          fs.mkdirSync(uploadDir_gb, { recursive: true });
+        }
+
+        if (fs.existsSync(uploadDir_gb)) {
+          // move the files from folder with gb to that with original ones
+          const moveOk = await movefiles(uploadDir, uploadDir_gb);
+          if (moveOk == false) {
+            return res.status(401).json({ success: false, message: "Files transfer failed" })
+          }
+        }
+
+        // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
+        return res.status(200).json({
+          layout: false,
+          success: true,
+          redirect: `/api/auth/record?token=${token}`,
+          message: "Delete record successfully",
+          patient_id: patientId
+        });
+    }
+  }
+];
+
+export const recycle_bin = async (req, res) => {
+    try {
+        const token = req.query.token;  // 從 cookie 拿 token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        if (!token) {
+          if (!decoded) {
+            return res.redirect(`/api/auth/homePage`);
+          }
+          return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+        }
+
+        console.log(`decoded: ${JSON.stringify(decoded)}`);
+        console.log(`decoded.name: ${decoded.name}`);
+
+        const record = await findDiscardRecord("name", decoded.name);
+        let length = 0;
+
+        console.log(`record: ${JSON.stringify(record)}`);
+
+        let grouped = {};
+
+        if (record) {
+            // 1. 排序 (依 created_at 從新到舊)
+            record.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            // 假設 record 是陣列
+            length = Object.keys(record).length;
+
+            // 2. 分組 (key = YYYY-MM-DD)
+            grouped = record.reduce((acc, item) => {
+              console.log(`item.created_at: ${item.created_at}`);
+              const dateKey = item.created_at.toISOString().split("T")[0] // Date → YYYY-MM-DD
+              console.log(`dateKey: ${dateKey}`);
+
+              if (!acc[dateKey]) {
+                acc[dateKey] = [];
+              }
+              acc[dateKey].push(item);
+              return acc;
+            }, {});
+            console.log(`grouped: ${JSON.stringify(grouped)}`);
+        }
+
+        return res.status(201).render("recycle_bin", 
+        { layout: "base", 
+          grouped_records: grouped, 
+          priority: priority_from_role(decoded.role), 
+          path: "/api/auth/recycle_bin", 
+          id: decoded.id, 
+          patient_id: `${decoded.id}-${length}`,
+          name: decoded.name,
+          token: token, 
+          t: req.t,
+          formatDateTime });
+    } catch (err) {
+        console.log("recycle bin error: ", err.message);
+        return res.redirect("/api/auth/homepage");
+    }
+};
+
+export const recycle_record = [
+    upload_gb.any(), 
+    async (req, res) => {
+      try {
+          const body = req.body;
+
+          generateToken(body);
+
+          const files = req.files;
+
+          let token = body.token;
+
+          if (!token) {
+            return res.redirect("/api/auth/homepage");
+          }
+
+          const action = body.action;
+          const patientId = body.patient_id;
+
+          if (action == "resume") {
+
+              const uploadDir_gb = path.join(process.cwd(), "public", "uploads_gb", patientId);
+              const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
+
+              if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+              }
+
+              if (fs.existsSync(uploadDir_gb)) {
+                // move the files from folder with gb to that with original ones
+                const moveOk = await movefiles(uploadDir_gb, uploadDir);
+                if (moveOk == false) {
+                  return res.status(401).json({ success: false, message: "Files transfer failed" })
+                }
+              }
+
+              for (const file of files) {
+                const targetPath = path.join(uploadDir, file.originalname);
+                fs.renameSync(file.path, targetPath);
+              }
+
+              // 儲存檔案到 patient_id 資料夾
+              for (let i = 1; i <= 8; i++) {
+                const fieldName = `pic${i}_2`;
+                const file = files.find(f => f.fieldname === fieldName);
+                console.log(`body[pic${i}_2]=`, body[`pic${i}_2`]);
+
+                if (file) {
+                  // 有新檔 → 搬移到 patient_id 資料夾
+                  const newPath = path.join(uploadDir, file.originalname);
+                  await fs.promises.rename(file.path, newPath);
+                }
+              }
+              
+              // recover the info in database records_gb accordingly
+              const record = await recoverRecord(body);
+
+              return res.status(201).json({ "success": true, "message": "Recover files successfully", redirect: `/api/auth/recycle_bin?token=${token}` });
+
+          } else if (action === "delete") {
+              const uploadDir_gb = path.join(process.cwd(), "public", "uploads_gb", patientId);
+              if (fs.existsSync(uploadDir_gb)) {
+                  // remove the files from folder with gb
+                  await deletefiles(uploadDir_gb);
+              }
+              
+              // remove the info in database records_gb accordingly
+              const record = await deleteDiscardRecord(body);
+
+              return res.status(201).json({ "success": true, "message": "Delete files successfully", redirect: `/api/auth/recycle_bin?token=${token}` });
+          }
+      } catch (err) {
+          console.log("recycle bin error: ", err.message);
+          return res.redirect("/api/auth/homepage");
+      }
+  }
+];
 
 export const signout = (req, res) => {
     res.clearCookie("token");
@@ -445,7 +836,7 @@ export const scan_result = async (req, res) => {
           t: req.t, 
           path: "/api/auth/dashboard", 
           priority: priority_from_role("tester"), 
-          layout: "layout" 
+          layout: "base" 
         });
       }
 

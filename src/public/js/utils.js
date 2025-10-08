@@ -8,9 +8,9 @@ function startLogoutTimer(minutes) {
     clearTimeout(logoutTimer);
     logoutTimer = setTimeout(() => {
         showModal("登入已過期，請重新登入！", () => {
-            window.location.href = "/api/auth/loginPage";
+            window.location.href = "/api/auth/homepage";
         }, () => {
-            window.location.href = "/api/auth/loginPage";
+            window.location.href = "/api/auth/homepage";
         });
     }, minutes * 60 * 1000);
 };

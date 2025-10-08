@@ -1,10 +1,5 @@
 import express from 'express';
 import path from 'path';
-
-import multer from "multer";
-import i18next from "i18next";
-import i18nextMiddleware from "i18next-http-middleware";
-import Backend from "i18next-fs-backend";
 import { lang_get,
          loginPage,
          homepage,
@@ -20,7 +15,17 @@ import { lang_get,
          signup,
          signin,
          signout,
-         dashboard} from '#controllers/auth.controller.js';
+         dashboard,
+         record,
+         new_record,
+         edit_record,
+         recycle_bin,
+         recycle_record} from '#controllers/auth.controller.js';
+
+import multer from "multer";
+import i18next from "i18next";
+import i18nextMiddleware from "i18next-http-middleware";
+import Backend from "i18next-fs-backend";
 
 i18next
   .use(Backend)
@@ -60,5 +65,12 @@ router.post("/sign-in", signin);
 router.get("/sign-out", signout);
 
 router.get("/dashboard", dashboard);
+
+router.get("/record", record);
+router.post("/new_record", new_record);
+router.post("/edit_record", edit_record);
+
+router.get("/recycle_bin", recycle_bin);
+router.post("/recycle_record", recycle_record);
 
 export default router;
