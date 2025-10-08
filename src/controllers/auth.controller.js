@@ -25,8 +25,96 @@ import { movefiles, deletefiles } from "#utils/func.js";
 import { removeUserTable, createUsersTable } from "#services/user.service.js";
 import { removeRegisterTable, createRegisterTable } from "#services/register.service.js";
 
-const upload = multer({ dest: "uploads/" });
-const upload_gb = multer({ dest: "uploads_gb/" });
+const uploadDir = path.join(process.cwd(), "/tmp/public/uploads");
+const uploadDir_gb = path.join(process.cwd(), "/tmp/public/uploads_gb");
+
+const storage_temp = multer.diskStorage({ // cb(null, tempDir)
+  destination: (req, file, cb) => {
+    const { patient_id } = req.query;
+
+    if (!patient_id) return cb(new Error("Missing patient_id"));
+
+    const patientDir = path.join(uploadRoot, patient_id);
+    fs.mkdirSync(patientDir, { recursive: true });
+    cb(null, patientDir);
+  },
+  filename: (req, file, cb) => {
+    try {
+      const { patient_id, code } = req.query;  // <-- 注意是 req.query
+      
+      if (!patient_id || !code) {
+        return cb(new Error("Missing patient_id or code"));
+      }
+
+      // const ext = path.extname(file.originalname);
+      const safePatientId = patient_id.replace("-", "_") || "unknown";
+      const safeCode = code || "x";
+      const prefix = safePatientId + "-" + safeCode;
+
+      const patientDir = path.join(uploadRoot, patient_id);
+      const filename = `${safePatientId}-${safeCode}-${file.originalname}`;
+      const filepath = path.join(uploadRoot, patient_id, filename);
+
+      const files = fs.readdirSync(patientDir);
+
+      for (const file of files) {
+        if (file.startsWith(prefix)) {
+          const targetPath = path.join(patientDir, file);
+          fs.unlinkSync(targetPath);
+          console.log(`🗑️ Delete old file (prefix match): ${targetPath}`);
+        }
+      }
+
+      /*
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+        console.log(`Delete old file: ${filepath}`);
+      }
+      */
+
+      cb(null, filename);
+    } catch (err) {
+      cb(err);
+    }
+  }
+});
+
+const storage_upload = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // 假設前端有傳 patient_id
+    const patientId = req.body.patient_id || "unknown";
+
+    // 動態建立子資料夾
+    const uploadDir_sub = path.join(uploadDir, patientId);
+    fs.mkdirSync(uploadDir_sub, { recursive: true }); // 若不存在則建立
+
+    cb(null, uploadDir_sub);
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname); // 直接保留原檔名
+  }
+});
+
+const storage_upload_gb = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // 假設前端有傳 patient_id
+    const patientId = req.body.patient_id || "unknown";
+
+    // 動態建立子資料夾
+    const uploadDir_sub = path.join(uploadDir_gb, patientId);
+    fs.mkdirSync(uploadDir_sub, { recursive: true }); // 若不存在則建立
+
+    cb(null, uploadDir_sub);
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname); // 直接保留原檔名
+  }
+});
+
+const upload_temp = multer({ storage: storage_temp });
+const upload = multer({ storage: storage_upload });
+const upload_gb = multer({ storage: storage_upload_gb });
+
 const config_dir = path.join(process.cwd(), "config");
 let configPath = path.join(process.cwd(), "config", "settings.json");
 
@@ -365,6 +453,30 @@ export const record = async (req, res) => {
       t: req.t,
       formatDateTime });
 };
+
+export const temp_upload = [
+    upload_temp.single("file"),
+    async (req, res) => {
+      try {
+        const file = req.file;
+
+        if (!file) return res.status(400).json({ success: false, message: "No file uploaded" });
+
+        const tempPath = file.path.replace(/\\/g, "/");
+
+        // console.log(`patient_id: ${patient_id}, code: ${code}`);
+        console.log("📸 Temp uploaded:", tempPath);
+        console.log("File saved at:", file.path);
+
+        const filename = path.basename(tempPath);
+
+        return res.status(201).json({ success: true, filename: filename });
+      } catch (err) {
+        console.error("temp_upload error:", err);
+        return res.status(500).json({ success: false, message: "Server error" });
+      }
+    }
+];
 
 export const new_record = [
   upload.any(),  // multer 處理 multipart/form-data

@@ -87,6 +87,7 @@ app.set("layout", "base");
 // app.use("/bootstrap", express.static(path.join(process.cwd(), "node_modules/bootstrap/dist")));
 app.use('/bootstrap', express.static('node_modules/bootstrap/dist'));
 app.use('/static', express.static('node_modules/bootstrap/dist'));
+app.use("/static", express.static(path.join(__dirname, "tmp")));
 app.use("/static", express.static(path.join(__dirname, "public")));
 
 app.get("/", homepage);

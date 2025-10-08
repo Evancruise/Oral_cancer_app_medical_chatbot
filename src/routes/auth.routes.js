@@ -53,6 +53,7 @@ const router = express.Router();
 const upload = multer();
 
 router.use("/static", express.static(path.join(process.cwd(), "public")));
+router.use("/static", express.static(path.join(process.cwd(), "tmp")));
 
 router.get("/lang/:lng", lang_get);
 

@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         // 當使用者選擇圖片後，更新預覽圖
-        input.addEventListener("change", (event) => {
+        input.addEventListener("change", async (event) => {
           const file = event.target.files[0];
           const patient_id = newModal.querySelector("input[name='patient_id']").value;
 
@@ -47,8 +47,28 @@ document.addEventListener("DOMContentLoaded", () => {
               console.log(`preview.src=${preview.src}`);
             };
             reader.readAsDataURL(file);
-            btn.innerText = uploaded_msg;
-            input2.value = `static/uploads/${patient_id}/${file.name}`;
+
+            // 上傳到後端暫存
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("patient_id", patient_id);
+            formData.append("code", code);
+
+            const res = await fetch(`/api/auth/temp_upload?patient_id=${patient_id}&code=${code}`, {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+            console.log("Temp upload result:", data);
+
+            if (data.success == true) {
+                console.log(`data.temp_path: ${data.temp_path}`);
+                btn.innerText = uploaded_msg;
+                input2.value = `tmp/public/uploads/${patient_id}/${file.name}`;
+            } else {
+                showModal("上傳失敗，請再上傳一次");
+            }
           }
         });
       }
@@ -67,20 +87,42 @@ document.addEventListener("DOMContentLoaded", () => {
           input.click();
         });
 
-        input.addEventListener("change", (event) => {
+        // 當使用者選擇圖片後，更新預覽圖
+        input.addEventListener("change", async (event) => {
           const file = event.target.files[0];
+          const patient_id = newModal.querySelector("input[name='patient_id']").value;
+
+          console.log("file:", file.name);
           if (file) {
             const reader = new FileReader();
-            const patient_id = editModal.querySelector("input[name='patient_id']").value;
-
             reader.onload = e => {
               preview.src = e.target.result;
               console.log(`preview.src=${preview.src}`);
             };
             reader.readAsDataURL(file);
-            btn.innerText = uploaded_msg;
-            console.log(`btn.innerText: ${btn.innerText}`);
-            input2.value = `static/uploads/${patient_id}/${file.name}`;
+
+            // 上傳到後端暫存
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("patient_id", patient_id);
+            formData.append("code", code);
+
+            const res = await fetch(`/api/auth/temp_upload?patient_id=${patient_id}&code=${code}`, {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+            console.log("Temp upload result:", data);
+
+            if (data.success == true) {
+                console.log(`data.filename: ${data.filename}`);
+                btn.innerText = uploaded_msg;
+                input2.value = `tmp/public/uploads/${patient_id}/${data.filename}`;
+                console.log(`input2.value: ${input2.value}`);
+            } else {
+                showModal("上傳失敗，請再上傳一次");
+            }
           }
         });
       }
@@ -96,6 +138,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (e.submitter) {
                 formData.append(e.submitter.name, e.submitter.value);
             }
+
+            console.log(`formData: ${formData}`);
 
             const res = await fetch("/api/auth/new_record", {
                 method: "POST",
@@ -165,7 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
         newModal.addEventListener("show.bs.modal", (e) => {
             // Trigger modal=record-link element
             const link = e.relatedTarget;
-
             // fetch data-* attributes' value
             const name = link.getAttribute("data-name");
             const gender = link.getAttribute("data-gender");
@@ -173,13 +216,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const patient_id = link.getAttribute("data-patient_id");
             const notes = link.getAttribute("data-notes");
             const record_id = link.getAttribute("data-record_id");
-
             // filling the form
             newModal.querySelector("input[name='name']").value = name;
             newModal.querySelector("select[name='gender']").value = gender;
             newModal.querySelector("input[name='age']").value = age;
             newModal.querySelector("textarea[name='notes']").value = notes;
-
             let hiddenId = newModal.querySelector("input[name='record_id']");
             if (!hiddenId) {
                 hiddenId = document.createElement("input");
@@ -188,15 +229,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 newModal.querySelector("form").appendChild(hiddenId);
             }
             hiddenId.value = record_id;
-
             // 口腔圖片
             for (let i = 1; i <= 8; i++) {
                 const picVal = link.getAttribute(`data-pic${i}`);  // 原本的檔案路徑
                 const input = newModal.querySelector(`#upload2_edit_${i}`); // hidden input
                 const img = newModal.querySelector(`#preview_edit_${i}`);  // 預覽 <img>
-
                 console.log("picVal:", picVal);
-
                 if (input && img) {
                     input.value = picVal || "";
                     img.src = picVal ? picVal : `/static/images/${i}.png`; // 如果沒有就顯示預設圖
