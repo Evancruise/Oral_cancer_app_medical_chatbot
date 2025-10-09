@@ -1,0 +1,6 @@
+flask
+pillow
+transformers
+torch
+langchain
+openai

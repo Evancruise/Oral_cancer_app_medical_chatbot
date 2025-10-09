@@ -1,17 +1,39 @@
-import { loadModal, showModal } from "./modal.js";
+import { loadModal, loadInferenceStageModal, showModal } from "./modal.js";
 
 loadModal('modal-container');
 
-const add_form = document.getElementById("add_form");
-const newModal = document.getElementById("newRecordModal");
-const edit_form = document.getElementById("edit_form");
-const editModal = document.getElementById("editRecordModal");
-const resultModal = document.getElementById("resultRecordModal");
-const goBackBtn = document.getElementById("btnGoBack");
-
 document.addEventListener("DOMContentLoaded", () => {
+    const add_form = document.getElementById("add_form");
+    const newModal = document.getElementById("newRecordModal");
+    const edit_form = document.getElementById("edit_form");
+    const editModal = document.getElementById("editRecordModal");
+    const resultModal = document.getElementById("resultRecordModal");
+    const goBackBtn = document.getElementById("btnGoBack");
+    const inferenceModal = loadInferenceStageModal("modal-infer-container");
+
     let uploaded_msg = null;
     let infer_again_msg = null;
+    let interval = null;
+    let progress = document.getElementById("progress-bar");
+
+    async function check_progress(task_id) {
+
+        console.log(`task_id: ${task_id}`);
+
+        const res = await fetch(`/api/auth/get_inference_status/${task_id}`);
+        const data = await res.json();
+
+        if (progress) {
+            progress.innerText = `${data.progress}%`;
+        }
+
+        if (data.status == "completed") {
+            clearInterval(interval);
+            // render_result(data.result);
+        }
+
+        return data;
+    };
 
     fetch("/api/auth/lang/zh")
     .then(res => res.json())
@@ -65,7 +87,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (data.success == true) {
                 console.log(`data.temp_path: ${data.temp_path}`);
                 btn.innerText = uploaded_msg;
-                input2.value = `tmp/public/uploads/${patient_id}/${file.name}`;
+                input2.value = `tmp/public/uploads/${patient_id}/${data.filename}`;
+                console.log(`input2.value: ${input2.value}`);
             } else {
                 showModal("上傳失敗，請再上傳一次");
             }
@@ -116,7 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("Temp upload result:", data);
 
             if (data.success == true) {
-                console.log(`data.filename: ${data.filename}`);
+                console.log(`data.temp_path: ${data.temp_path}`);
                 btn.innerText = uploaded_msg;
                 input2.value = `tmp/public/uploads/${patient_id}/${data.filename}`;
                 console.log(`input2.value: ${input2.value}`);
@@ -177,30 +200,66 @@ document.addEventListener("DOMContentLoaded", () => {
                 formData.append(e.submitter.name, e.submitter.value);
             }
 
-            console.log("formData:", formData.entries());
+            for (let i = 1; i <= 8; i++) {
+                formData.append(`pic${i}`, document.querySelector(`#upload2_edit_${i}`).value);
+            }
+            formData.append("patient_id", document.querySelector("input[name='patient_id']").value);
 
-            const res = await fetch("/api/auth/edit_record", {
-                method: "POST",
-                body: formData,
-            });
-
-            const data = await res.json();
-            console.log(data);
-        
-            if (!data.success) {
-                showModal(`編輯病例失敗: ${data.message}`);
-                return;
+            for (const [key, value] of formData.entries()) {
+                console.log(key, value);
             }
 
-            showModal(data.message, () => {
-                setTimeout(() => {
-                    window.location.href = data.redirect; // 怎麼引入 data.name?
-                }, 1500);
-            }, () => {
-                setTimeout(() => {
-                    window.location.href = data.redirect; // 怎麼引入 data.name?
-                }, 1500);
-            });
+            if (e.submitter.value === "infer") {
+                const res = await fetch("/api/auth/analyze", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await res.json();
+                if (!data) {
+                    showModal("Cannot retrieve data content");
+                    return;
+                }
+
+                inferenceModal.show(); // 顯示 modal
+
+                interval = setInterval(async () => {
+                    const data_p = await check_progress(data.task_id);
+
+                    if (data_p.status === "running") {
+                        inferenceModal.updateProgress(data_p.progress, data_p.message);
+                    } else if (data_p.status === "completed") {
+                        inferenceModal.complete("Report Ready");
+                        clearInterval(interval);
+                    } else if (data_p.status === "failed") {
+                        inferenceModal.updateProgress(100, "Failed");
+                        clearInterval(interval);
+                    }
+                }, 2000);
+            } else {
+                const res = await fetch("/api/auth/edit_record", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await res.json();
+                console.log(data);
+            
+                if (!data.success) {
+                    showModal(`編輯病例失敗: ${data.message}`);
+                    return;
+                }
+
+                showModal(data.message, () => {
+                    setTimeout(() => {
+                        window.location.href = data.redirect; // 怎麼引入 data.name?
+                    }, 1500);
+                }, () => {
+                    setTimeout(() => {
+                        window.location.href = data.redirect; // 怎麼引入 data.name?
+                    }, 1500);
+                });
+            }
         });
     }
 
@@ -292,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("infer").style.width = "100%";
                 document.getElementById("check_result_edit").style.display = "none";
             } else {
-                document.getElementById("infer").innerText = infer_again_msg;
+                document.getElementById("infer").innerText = check_result_edit;
                 document.getElementById("infer").style.width = "48%";
                 document.getElementById("check_result_edit").style.display = true;
                 document.getElementById("check_result_edit").style.width = "48%";

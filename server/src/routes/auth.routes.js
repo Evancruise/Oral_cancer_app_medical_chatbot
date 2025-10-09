@@ -32,7 +32,9 @@ import { lang_get,
          rebind_page,
          rebind_qr,
          scan_result,
-         temp_upload} from '#controllers/auth.controller.js';
+         temp_upload,
+         analyze,
+         get_inference_status} from '#controllers/auth.controller.js';
 
 import multer from "multer";
 import i18next from "i18next";
@@ -53,8 +55,12 @@ i18next
 const router = express.Router();
 const upload = multer();
 
+router.use(express.json()); // OK，但要在 multer routes 之後
 router.use("/static", express.static(path.join(process.cwd(), "public")));
 router.use("/static", express.static(path.join(process.cwd(), "tmp")));
+
+router.use("/public", express.static(path.join(process.cwd(), "public")));
+router.use("/tmp", express.static(path.join(process.cwd(), "tmp")));
 
 router.get("/lang/:lng", lang_get);
 
@@ -83,6 +89,8 @@ router.get("/record", record);
 router.post("/temp_upload", temp_upload);
 router.post("/new_record", new_record);
 router.post("/edit_record", edit_record);
+router.post("/analyze", analyze);
+router.get("/get_inference_status/:task_id", get_inference_status);
 
 router.get("/recycle_bin", recycle_bin);
 router.post("/recycle_record", recycle_record);

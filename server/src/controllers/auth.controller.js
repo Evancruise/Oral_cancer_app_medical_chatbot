@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import sgMail from "@sendgrid/mail";
 import crypto from "crypto";
 import { DateTime } from "luxon";
+import { fileURLToPath } from "url";
 
 import fs from "fs";
 import path from "path";
@@ -34,7 +35,7 @@ const storage_temp = multer.diskStorage({ // cb(null, tempDir)
 
     if (!patient_id) return cb(new Error("Missing patient_id"));
 
-    const patientDir = path.join(uploadRoot, patient_id);
+    const patientDir = path.join(uploadDir, patient_id);
     fs.mkdirSync(patientDir, { recursive: true });
     cb(null, patientDir);
   },
@@ -51,9 +52,9 @@ const storage_temp = multer.diskStorage({ // cb(null, tempDir)
       const safeCode = code || "x";
       const prefix = safePatientId + "-" + safeCode;
 
-      const patientDir = path.join(uploadRoot, patient_id);
+      const patientDir = path.join(uploadDir, patient_id);
       const filename = `${safePatientId}-${safeCode}-${file.originalname}`;
-      const filepath = path.join(uploadRoot, patient_id, filename);
+      const filepath = path.join(uploadDir, patient_id, filename);
 
       const files = fs.readdirSync(patientDir);
 
@@ -392,6 +393,7 @@ function formatDateTime(date) {
 }
 
 export const record = async (req, res) => {
+  try {
     const token = req.query.token;  // 從 cookie 拿 token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -452,6 +454,10 @@ export const record = async (req, res) => {
       token: token, 
       t: req.t,
       formatDateTime });
+  } catch (err) {
+    console.error("Internal error");
+    return res.redirect("/api/auth/homepage");
+  }
 };
 
 export const temp_upload = [
@@ -578,6 +584,7 @@ export const edit_record = [
     const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
     const uploadDir_gb = path.join(process.cwd(), "public", "uploads_gb", patientId);
 
+    console.log(`action: ${action}`);
     console.log(`uploadDir: ${uploadDir}`);
 
     if (!fs.existsSync(uploadDir)) {
@@ -623,6 +630,7 @@ export const edit_record = [
           success: true,
           redirect: `/api/auth/record?token=${token}`,
           message: "Edit new record successfully",
+          event: action,
           patient_id: patientId,
           files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
         });
@@ -647,11 +655,85 @@ export const edit_record = [
           success: true,
           redirect: `/api/auth/record?token=${token}`,
           message: "Delete record successfully",
+          event: action,
+          patient_id: patientId
+        });
+    } else if (action == "infer") {
+        return res.status(200).json({
+          layout: false,
+          success: true,
+          message: "Begin inferencing",
+          event: action,
           patient_id: patientId
         });
     }
   }
 ];
+
+export const analyze = [
+  upload.any(),
+  async (req, res) => {
+
+      console.log("🧾 Received fields:", Object.keys(req.body));
+
+    //try {
+      const formData = new FormData();
+      formData.append("patient_id", String(req.body.patient_id));
+
+      const logEntries = [];
+      logEntries.push(["patient_id", req.body.patient_id]);
+
+      for (let i = 1; i <= 8; i++) {
+        const imgPath = req.body[`pic${i}`];
+        if (imgPath && fs.existsSync(imgPath)) {
+          const absPath = path.resolve(imgPath);
+          console.log(`✅ Appending file: ${absPath}`);
+          formData.append(`pic${i}`, fs.createReadStream(absPath));
+        } else {
+          console.log(`⚠️ File not found or empty: pic${i}`);
+        }
+      }
+
+      // 手動列印出所有 append 的內容
+      console.log("📦 Sending to Flask:");
+      for (const [key, value] of logEntries) {
+        console.log(`  ${key}:`, value?.path || value?.name || value);
+      }
+
+      const response = await fetch(`${process.env.FLASK_API_URL}/api/predict`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      console.log("result:", result);
+
+      if (result.status == "ok") {
+        return res.status(201).json({ success: true, message: "Inference started", task_id: result.task_id });
+      } else {
+        return res.status(401).json({ success: false, message: "Failed to start inference" });
+      }
+
+    //} catch (err) {
+    //  console.error("Error starting inference");
+    //  return res.status(500).json({ success: false, message: "Server error" });
+    //}
+  }
+]; 
+
+export const get_inference_status = async (req, res) => {
+    const { task_id } = req.params;
+
+    try {
+      const response = await fetch(`${process.env.FLASK_API_URL}/api/status/${task_id}`);
+      const result = await response.json();
+      return res.status(200).json(result);
+    } catch (err) {
+      console.error("Error getting inference status:", err);
+      res.status(500).json({ success: false, message: "Unable to get status" });
+    }
+};
 
 export const record_search = async (req, res) => {
     const token = req.query.token;  // 從 cookie 拿 token

@@ -18,14 +18,16 @@
     "#validations/*": "./src/validations/*"
   },
   "scripts": {
-    "dev": "node --watch src/index.js",
+    "start:flask": "cd ../flask_api && python app.py",
+    "dev:node": "node --watch src/index.js",
+    "dev": "concurrently \"npm run start:flask\" \"npm run start\"",
     "vercel": "vercel dev",
     "vercel:prod": "vercel --prod",
     "dev:docker": "node scripts/dev.js",
     "prod:docker": "node scripts/prod.js",
-    "node": "node src/index.js",
+    "node": "node ./src/index.js",
     "check-logger": "node src/check-logger.js",
-    "start": "node index.js",
+    "start": "node ./src/index.js",
     "db:push": "drizzle-kit push",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -61,6 +63,7 @@
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.2",
     "express-validator": "^7.2.1",
+    "fs-extra": "^11.3.2",
     "helmet": "^8.1.0",
     "i18next": "^25.5.2",
     "i18next-fs-backend": "^2.6.0",
@@ -73,9 +76,9 @@
     "pg": "^8.16.3",
     "qrcode": "^1.5.4",
     "uuid": "^13.0.0",
-    "fs-extra": "^11.3.2",
     "winston": "^3.17.0",
-    "zod": "^4.1.8"
+    "zod": "^4.1.8",
+    "concurrently": "^8.2.2"
   },
   "devDependencies": {
     "body-parser": "^2.2.0",
