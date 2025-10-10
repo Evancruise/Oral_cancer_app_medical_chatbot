@@ -12,7 +12,10 @@ model = AutoModel.from_pretrained("facebook/dinov2-base")
 processor = AutoProcessor.from_pretrained("facebook/dinov2-base")
 tasks_list = {}
 
-def run_inference(task_id, images_path_list):
+def run_inference(task_id, patient_id, images_path_list):
+
+    print("Running inference...", flush=True)
+
     '''
     inputs = processor(images=image, return_tensors="pt")
     features = model(**inputs).last_hidden_state.mean(dim=1)
@@ -32,11 +35,11 @@ def run_inference(task_id, images_path_list):
     stages = [
         ("Loading model weights...", 10),
         ("Extracting DINOv2 features...", 40),
-        ("Analyzing lesion patterns...", 70),
+        ("Analyzing lesion patterns...", 60),
         ("Generating LangChain report...", 100)
     ]
 
-    tasks_list[task_id] = {"status": "running", "progress": 0, "stage": "Starting..."}
+    tasks_list[task_id] = {"patient_id": patient_id, "status": "running", "progress": 0, "stage": "Starting..."}
 
     try:
         for stage, progress in stages:
@@ -72,6 +75,7 @@ def predict():
     for key, value in request.form.items():
         print(f"{key}: {value}", flush=True)
 
+    patient_id = request.form["patient_id"]
     images_path_list = []
 
     for i in range(1, 9):
@@ -89,10 +93,10 @@ def predict():
     task_id = str(uuid.uuid4())
 
     print("------ [Flask] task_id ------", task_id, flush=True)
-    
-    threading.Thread(target=run_inference, args=(task_id, images_path_list)).start()
+
+    threading.Thread(target=run_inference, args=(task_id, patient_id, images_path_list)).start()
     # run_inference(task_id, images_path_list)
-    return jsonify({ "status": "ok", "task_id": task_id })
+    return jsonify({ "status": "ok", "task_id": task_id, "patient_id": patient_id })
 
 @app.route("/api/status/<task_id>", methods=["GET"])
 def status(task_id):

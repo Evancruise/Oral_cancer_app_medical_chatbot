@@ -120,17 +120,19 @@ export const getAllDiscardRecords = async () => {
     }
 };
 
-export const findRecord = async (key, value) => {
+export const getRecord = async (key, value) => {
     let result = null;
     if (key === "name") {
         result = await sql`SELECT * FROM records WHERE name = ${value}`;
     } else if (key === "id") {
         result = await sql`SELECT * FROM records WHERE id = ${value}`;
+    } else if (key == "patient_id") {
+        result = await sql`SELECT * FROM records WHERE patient_id = ${value}`;
     }
     return result;
 };
 
-export const findDiscardRecord = async (key, value) => {
+export const getDiscardRecord = async (key, value) => {
     let result = null;
     if (key === "name") {
         result = await sql`SELECT * FROM records_gb WHERE name = ${value}`;
@@ -512,10 +514,11 @@ Update functions
 
 *******************************/
 
-export const updateRecord = async (body, imgUpdates) => {
+export const updateRecord = async (body = null, imgUpdates = null) => {
   try {
     // raw SQL 查詢
     const existingRecord = await sql`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
+    // const existingRecord = await getRecord(fieldname, value);
 
     console.log("✅ Step 1 結果:", existingRecord);
 
@@ -547,6 +550,30 @@ export const updateRecord = async (body, imgUpdates) => {
     return editRecord[0];
   } catch (e) {
     console.error("❌ createRecord 發生錯誤:", e);
+    throw e;
+  }
+};
+
+export const updateRecordStatus = async (patient_id, fieldname, value) => {
+  try {
+    const existingRecord = await getRecord("patient_id", patient_id);
+
+    if (existingRecord.length === 0) {
+      throw new Error(`Record with patient_id ${body.patient_id} not exists`);
+    }
+
+    const editRecord = await sql`
+      UPDATE records
+      SET
+        status = ${value}
+      WHERE patient_id = ${patient_id}
+      RETURNING *
+    `;
+
+    console.log("✅ Step 2 完成:", editRecord[0]);
+    return editRecord[0];
+  } catch (e) {
+    console.error("❌ updateRecordStatus 發生錯誤:", e);
     throw e;
   }
 };

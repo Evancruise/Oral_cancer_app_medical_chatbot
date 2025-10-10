@@ -14,11 +14,11 @@ import ExcelJS from "exceljs";
 
 import { config, default_config } from "#config/config.js";
 import { createUser, createRegister } from "#services/auth.service.js";
-import { findRegister, updateRegister } from "#services/register.service.js";
-import { findUser, updateUserPassword, updateUserTableFromRegister, 
+import { getRegister, updateRegister } from "#services/register.service.js";
+import { updateUserPassword, updateUserTableFromRegister, 
          getUser, getAllUsers, updateUser, deleteUser } from "#services/user.service.js";
-import { findRecord, createRecord, updateRecord, deleteRecord, getAllRecords,
-         findDiscardRecord, deleteDiscardRecord, recoverRecord} from "#services/record.service.js";
+import { getRecord, createRecord, updateRecord, updateRecordStatus, deleteRecord, getAllRecords,
+         getDiscardRecord, deleteDiscardRecord, recoverRecord} from "#services/record.service.js";
 import { signupSchema, signinSchema } from "#validations/auth.validation.js";
 // import { generateToken } from "#middleware/users.middleware.js";
 import { movefiles, deletefiles } from "#utils/func.js";
@@ -26,8 +26,12 @@ import { movefiles, deletefiles } from "#utils/func.js";
 import { removeUserTable, createUsersTable } from "#services/user.service.js";
 import { removeRegisterTable, createRegisterTable } from "#services/register.service.js";
 
-const uploadDir = path.join(process.cwd(), "/tmp/public/uploads");
-const uploadDir_gb = path.join(process.cwd(), "/tmp/public/uploads_gb");
+console.log(`process.cwd(): ${process.cwd()}`);
+
+const uploadDir = path.join(process.cwd(), "../tmp/public/uploads");
+const uploadDir_gb = path.join(process.cwd(), "../tmp/public/uploads_gb");
+const config_dir = path.join(process.cwd(), "../tmp/config");
+let configPath = path.join(process.cwd(), "../tmp/config/settings.json");
 
 const storage_temp = multer.diskStorage({ // cb(null, tempDir)
   destination: (req, file, cb) => {
@@ -115,9 +119,6 @@ const storage_upload_gb = multer.diskStorage({
 const upload_temp = multer({ storage: storage_temp });
 const upload = multer({ storage: storage_upload });
 const upload_gb = multer({ storage: storage_upload_gb });
-
-const config_dir = path.join(process.cwd(), "tmp/config");
-let configPath = path.join(process.cwd(), "tmp/config/settings.json");
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -253,7 +254,7 @@ export const signin = async (req, res, next) => {
 
     console.log(`email: ${email}`);
 
-    const user = await findUser("email", email);
+    const user = await getUser("email", email);
     const login_role = req.body.login_role;
 
     if (!user) {
@@ -296,10 +297,10 @@ export const signin = async (req, res, next) => {
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-        await updateUserPassword(false, "name", user.name);
+        // await updateUserPassword(false, "name", user.name);
         return res.status(401).json({ success: false, message: `Wrong password. Please login again (remaining times: ${user.retry_times})` });
     } else {
-        await updateUserPassword(true, "name", user.name);
+        // await updateUserPassword(true, "name", user.name);
     }
 
     console.log(`Signing with: ${process.env.JWT_SECRET}`);
@@ -407,7 +408,8 @@ export const record = async (req, res) => {
     console.log(`decoded: ${JSON.stringify(decoded)}`);
     console.log(`decoded.name: ${decoded.name}`);
 
-    const record = await findRecord("name", decoded.name);
+    const record = await getRecord("name", decoded.name);
+    
     let length = 0;
 
     console.log(`record: ${JSON.stringify(record)}`);
@@ -581,6 +583,8 @@ export const edit_record = [
     const action = body.action;
     const patientId = body.patient_id;
 
+    console.log("patientId:", patientId);
+
     const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
     const uploadDir_gb = path.join(process.cwd(), "public", "uploads_gb", patientId);
 
@@ -662,6 +666,7 @@ export const edit_record = [
         return res.status(200).json({
           layout: false,
           success: true,
+          redirect: `/api/auth/record?token=${token}`,
           message: "Begin inferencing",
           event: action,
           patient_id: patientId
@@ -675,6 +680,7 @@ export const analyze = [
   async (req, res) => {
 
       console.log("🧾 Received fields:", Object.keys(req.body));
+      const token = req.body.token;
 
     //try {
       const formData = new FormData();
@@ -710,7 +716,7 @@ export const analyze = [
       console.log("result:", result);
 
       if (result.status == "ok") {
-        return res.status(201).json({ success: true, message: "Inference started", task_id: result.task_id });
+        return res.status(201).json({ success: true, message: "Inference started", task_id: result.task_id, patient_id: result.patient_id, redirect: `/api/auth/record?token=${token}` });
       } else {
         return res.status(401).json({ success: false, message: "Failed to start inference" });
       }
@@ -724,16 +730,36 @@ export const analyze = [
 
 export const get_inference_status = async (req, res) => {
     const { task_id } = req.params;
+    console.log(`Fetch get_inference_status...`);
 
-    try {
+    //try {
       const response = await fetch(`${process.env.FLASK_API_URL}/api/status/${task_id}`);
       const result = await response.json();
+
+      console.log(`[get_inference_status] result=${JSON.stringify(result)}`);
+
+      if (result && result.status == "completed") {
+        console.log(`Inference complete for task_id: ${task_id}`);
+        const updated = await updateRecordStatus(result.patient_id, "status", "completed");
+      }
+
       return res.status(200).json(result);
-    } catch (err) {
-      console.error("Error getting inference status:", err);
-      res.status(500).json({ success: false, message: "Unable to get status" });
-    }
+    //} catch (err) {
+    //  console.error("Error getting inference status:", err);
+    //  res.status(500).json({ success: false, message: "Unable to get status" });
+    //}
 };
+
+export const chatbot = async (req, res) => {
+    const userMsg = req.body.message;
+
+    // 模擬回應 (日後可以串接 Flask + LangChain)
+    console.log("[Chatbot] User:", userMsg);
+    
+    const mockReply = `AI 助理回覆：已收到「${userMsg}」，將分析相關口腔資訊。`;
+    
+    res.json({ reply: mockReply });
+}
 
 export const record_search = async (req, res) => {
     const token = req.query.token;  // 從 cookie 拿 token
@@ -827,12 +853,13 @@ export const export_data = async (req, res) => {
 };
 
 export const account_management = async (req, res) => {
-    try {
+    //try {
       const token = req.query.token;  // 從 cookie 拿 token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       console.log(`decoded: ${JSON.stringify(decoded)}`);
       console.log(`decoded.role: ${decoded.role}`);
+      console.log(`token: ${token}`);
 
       if (!token) {
         if (!decoded) {
@@ -887,21 +914,21 @@ export const account_management = async (req, res) => {
         token: token,
         t: req.t,
         config: cur_config});
-    } catch(err) {
-      console.log("account_management error: ", err.message);
-      return res.redirect("/api/auth/homepage");
-    }
+    //} catch(err) {
+    //  console.log("account_management error: ", err.message);
+    //  return res.redirect("/api/auth/homepage");
+    //}
 };
 
 export const new_account = async (req, res) => {
   // try {
-    const body = req.body;
+    console.log("new_account event triggerred!");
 
-    console.log(`body: ${body}`);
+    const body = req.body;
 
     const token = body.token;  
 
-    // generateToken(body);
+    console.log(`token: ${token}`);
 
     const { name, email, password, role, unit, notes } = body;
 
@@ -926,6 +953,8 @@ export const edit_account = async (req, res) => {
     console.log("body:", body);
 
     const token = body.token;
+
+    console.log("token:", token);
 
     // generateToken(body);
 
@@ -985,6 +1014,63 @@ export const apply_account_setting = async (req, res) => {
         console.error("apply_account_setting error:", e);
         return res.status(409).json({ success: false, message: "Apply account setting failed" });
     }
+};
+
+export const sys_import = async (req, res) => {
+    
+  try{
+
+    const fileContent = req.file.buffer.toString("utf-8");
+    const settings = JSON.parse(fileContent);
+    const token = req.body.token;
+
+    console.log("匯入設定:", settings);
+
+    fs.writeFileSync(configPath, JSON.stringify(settings, null, 2));
+
+    return res.status(201).json({ success: true, message: "匯入檔案成功", redirect: `/api/auth/account_management?token=${token}` });
+  } catch (err) {
+    return res.status(401).json({ success: false, message: `sys_import err: ${err.message}`, redirect: "/api/auth/homepage" });
+  }
+};
+
+export const reset = async (req, res) => {
+    const token = req.body.token;
+    console.log(`token: ${token}`);
+    fs.writeFileSync(configPath, JSON.stringify(default_config, null, 2));
+    return res.status(201).json({ success: true, message: "Reset system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+};
+
+export const sys_export = async (req, res) => {
+  try {  
+    
+    let oldConfig = {};
+
+    if (!fs.existsSync(config_dir)) {
+        fs.mkdirSync(config_dir, { recursive: true });
+
+        const newConfig = { ...oldConfig, ...config, updated_at: new Date().toISOString() };
+
+        console.log(`newConfig: ${JSON.stringify(newConfig)}`);
+
+        fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), "utf-8");
+
+    } else {
+        const old_raw = fs.readFileSync(configPath, "utf-8");
+        oldConfig = JSON.parse(old_raw);
+    }
+
+    const raw = fs.readFileSync(configPath, "utf-8");
+    const jsonStr = JSON.parse(raw);
+
+    // 設定 response header 讓瀏覽器觸發下載
+    res.setHeader("Content-Disposition", "attachment; filename=settings.json");
+    res.setHeader("Content-Type", "application/json");
+    res.send(jsonStr);
+  } catch (err) {
+    console.error(`sys_export error: $(err.message)`);
+    return res.status(401).json({ "success": false, "message": err.message });
+  }
 };
 
 export const apply_system_setting = async (req, res) => {
@@ -1078,7 +1164,7 @@ export const recycle_bin = async (req, res) => {
         console.log(`decoded: ${JSON.stringify(decoded)}`);
         console.log(`decoded.name: ${decoded.name}`);
 
-        const record = await findDiscardRecord("name", decoded.name);
+        const record = await getDiscardRecord("name", decoded.name);
         let length = 0;
 
         console.log(`record: ${JSON.stringify(record)}`);
@@ -1389,7 +1475,7 @@ export const verify_register = async (req, res) => {
 
         const name = decoded.name;
         const email = decoded.email;
-        const register = await findRegister({ email });
+        const register = await getRegister("email", email);
         
         console.log(`register: ${JSON.stringify(register)}`);
 

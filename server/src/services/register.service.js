@@ -26,11 +26,6 @@ export const getAllRegisters = async () => {
     }
 };
 
-export const findRegister = async ({email}) => {
-    const result = await sql`SELECT * FROM registers WHERE email = ${email}`;
-    return result[0] || null;
-};
-
 export const getRegister = async (fieldname, value) => {
     console.log(`Search for ${fieldname}=${value}`);
     let result = null;

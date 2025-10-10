@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/css/account_management.css">
     <link rel="stylesheet" href="/css/rebind_qr.css">
     <link rel="stylesheet" href="/css/sidebar.css">
+    <link rel="stylesheet" href="/css/chatbot.css">
     <link rel="stylesheet" href="/css_bootstrap/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -39,14 +40,14 @@
                 <a class="nav-link <%= (path === '/api/auth/record_search') ? 'active' : '' %>"
                     style="display: <%= (priority === 1) ? 'flex' : 'none' %>"
                     href="/api/auth/record_search?token=<%= token %>">
-                    <i class="fa-duotone fa-thin fa-calendar"></i> <%= t("record_search.title") %>
+                    <i class="fa-regular fa-camera"></i> <%= t("record_search.title") %>
                 </a>
             </li>
             <li>
                 <a class="nav-link <%= (path === '/api/auth/account_management') ? 'active' : '' %>"
                     style="display: <%= (priority === 1) ? 'flex' : 'none' %>"
                     href="/api/auth/account_management?token=<%= token %>">
-                    <i class="fas fa-history"></i> <%= t("account_management.title") %>
+                    <i class="fa-solid fa-bars-progress"></i> <%= t("account_management.title") %>
                 </a>
             </li>
             <li>
@@ -106,6 +107,26 @@
             <%- body %>
         </section>
 
+        <a id="chatbot-fab" class="fab">
+            <i class="fas fa-comments"></i>
+        </a>
+
+        <div id="chatbot-box" class="chatbot-box hidden">
+            <div class="chat-header">
+                <strong>🩺 Oral AI 助理</strong>
+                <button id="chatbot-close" class="chat-close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="chatbot-body" class="chat-body">
+                <div class="bot-msg">您好，我是口腔醫療 AI 助理，請問今天要協助什麼？</div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="chatbot-input" placeholder="輸入訊息..." />
+                <button id="chatbot-send" class="btn-send">送出</button>
+            </div>
+        </div>
+
         <!-- 頁尾 -->
         <footer class="app-footer">
             <a href="#">Mi-tech</a> Copyright © 2019
@@ -127,4 +148,5 @@
     <script type="module" src="/js/rebind_qr.js"></script>
     <script type="module" src="/js/utils.js"></script>
     <script type="module" src="/js/sidebar.js"></script>
+    <script type="module" src="/js/chatbot.js"></script>
 </body>

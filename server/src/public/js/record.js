@@ -23,6 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const res = await fetch(`/api/auth/get_inference_status/${task_id}`);
         const data = await res.json();
 
+        console.log(`[check_progress] data: ${JSON.stringify(data)}`);
+
         if (progress) {
             progress.innerText = `${data.progress}%`;
         }
@@ -203,8 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
             for (let i = 1; i <= 8; i++) {
                 formData.append(`pic${i}`, document.querySelector(`#upload2_edit_${i}`).value);
             }
-            formData.append("patient_id", document.querySelector("input[name='patient_id']").value);
-
+            
             for (const [key, value] of formData.entries()) {
                 console.log(key, value);
             }
@@ -225,11 +226,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 interval = setInterval(async () => {
                     const data_p = await check_progress(data.task_id);
+                    
+                    console.log(`data_p: ${JSON.stringify(data_p)}`);
 
                     if (data_p.status === "running") {
                         inferenceModal.updateProgress(data_p.progress, data_p.message);
                     } else if (data_p.status === "completed") {
-                        inferenceModal.complete("Report Ready");
+                        inferenceModal.complete("Report Ready", data.redirect);
                         clearInterval(interval);
                     } else if (data_p.status === "failed") {
                         inferenceModal.updateProgress(100, "Failed");
@@ -304,9 +307,20 @@ document.addEventListener("DOMContentLoaded", () => {
     */
 
     if (editModal) {
+
+        document.querySelectorAll(".record-link").forEach(el => {
+            el.addEventListener("click", e => {
+                console.log("Clicked record_id:", e.currentTarget.dataset.record_id);
+            });
+        });
+
         editModal.addEventListener("show.bs.modal", (e) => {
             // Trigger modal=record-link element
             const link = e.relatedTarget;
+
+            console.log(`link: ${link}`);
+
+            // const { name, gender, age, patient_id, notes, record_id } = link.dataset;
 
             // fetch data-* attributes' value
             const name = link.getAttribute("data-name");
@@ -315,12 +329,20 @@ document.addEventListener("DOMContentLoaded", () => {
             const patient_id = link.getAttribute("data-patient_id");
             const notes = link.getAttribute("data-notes");
             const record_id = link.getAttribute("data-record_id");
+            
+            console.log(`name: ${name}`);
+            console.log(`gender: ${gender}`);
+            console.log(`age: ${age}`);
+            console.log(`patient_id: ${patient_id}`);
+            console.log(`notes: ${notes}`);
+            console.log(`record_id: ${record_id}`);
 
             // filling the form
             editModal.querySelector("input[name='name']").value = name;
             editModal.querySelector("select[name='gender']").value = gender;
             editModal.querySelector("input[name='age']").value = age;
             editModal.querySelector("textarea[name='notes']").value = notes;
+            editModal.querySelector("input[name='patient_id']").value = patient_id;
 
             let hiddenId = editModal.querySelector("input[name='record_id']");
             if (!hiddenId) {
@@ -346,12 +368,14 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const status = link.getAttribute(`data-status`);
+
+            console.log(`status: ${status}`);
             
-            if (status !== "finished") {
+            if (status !== "completed") {
                 document.getElementById("infer").style.width = "100%";
                 document.getElementById("check_result_edit").style.display = "none";
             } else {
-                document.getElementById("infer").innerText = check_result_edit;
+                // document.getElementById("infer").innerText = check_result_edit;
                 document.getElementById("infer").style.width = "48%";
                 document.getElementById("check_result_edit").style.display = true;
                 document.getElementById("check_result_edit").style.width = "48%";

@@ -1,0 +1,147 @@
+/* === 初始隱藏狀態 === */
+.hidden {
+  display: none !important;
+}
+
+/* === Chatbot 主容器 === */
+.chatbot-box {
+  position: fixed;
+  bottom: 100px;
+  right: 30px;
+  width: 500px;
+  height: 480px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 10000;
+  opacity: 0;
+  transform: translateY(25px);
+  transition: all 0.3s ease-in-out;
+}
+
+/* === 顯示時動畫 === */
+.chatbot-box:not(.hidden) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* === Header 標題列 === */
+.chat-header {
+  background: linear-gradient(90deg, #0288d1 0%, #039be5 100%);
+  color: #fff;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.chat-header strong {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 8px;
+  cursor: pointer;
+  opacity: 0.8;
+  width: 10px;
+}
+
+.chat-close:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* === 對話內容區 === */
+.chat-body {
+  flex: 1;
+  padding: 12px 14px;
+  background: #f6f9fb;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* === AI（左側訊息） === */
+.bot-msg {
+  background: #e3f2fd;
+  color: #222;
+  padding: 8px 12px;
+  border-radius: 12px 12px 12px 0;
+  align-self: flex-start;
+  max-width: 80%;
+  font-size: 14px;
+  line-height: 1.6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* === 使用者訊息（右側） === */
+.user-msg {
+  background: #0288d1;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 10px 10px 0 10px;
+  align-self: flex-end;
+  max-width: 80%;
+  font-size: 14px;
+  line-height: 1.5;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* === 輸入區 === */
+.chat-input {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-top: 1px solid #ddd;
+  background: #fff;
+  gap: 8px;
+}
+
+.chat-input input {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.chat-input input:focus {
+  outline: none;
+  border-color: #0288d1;
+  box-shadow: 0 0 3px rgba(2, 136, 209, 0.4);
+}
+
+/* === 送出按鈕 === */
+.btn-send {
+  background: #0288d1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  width: 100px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.btn-send:hover {
+  background: #0277bd;
+}
+
+.btn-send:active {
+  transform: scale(0.95);
+}

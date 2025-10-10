@@ -34,7 +34,10 @@ import { lang_get,
          scan_result,
          temp_upload,
          analyze,
-         get_inference_status} from '#controllers/auth.controller.js';
+         get_inference_status,
+         chatbot,
+         reset,
+         new_account} from '#controllers/auth.controller.js';
 
 import multer from "multer";
 import i18next from "i18next";
@@ -99,9 +102,11 @@ router.get("/record_search", record_search);
 router.post("/export_data", upload.none(), export_data);
 
 router.get("/account_management", account_management);
+router.post("/new_account", upload.none(), new_account);
 router.post("/edit_account", upload.none(), edit_account);
 router.post("/apply_account_setting", upload.none(), apply_account_setting);
 router.post("/apply_system_setting", upload.none(), apply_system_setting);
+router.post("/reset", upload.none(), reset);
 
 router.get("/quick_changepwd", quickchangepwd);
 router.post("/verify_quick_changepwd", verify_quick_changepwd);
@@ -109,5 +114,7 @@ router.post("/verify_quick_changepwd", verify_quick_changepwd);
 router.get("/rebind_page", rebind_page);
 router.get("/rebind-qr", rebind_qr);
 router.post("/scan_result", scan_result);
+
+router.post("/chatbot", chatbot);
 
 export default router;

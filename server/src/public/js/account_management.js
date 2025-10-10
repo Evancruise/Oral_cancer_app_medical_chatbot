@@ -20,12 +20,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const fileInput = document.getElementById("configFile");
 
     const configTag = document.getElementById("config-data");
-    const tokenTag = document.getElementById("page-token");
-    let token = null;
+    const token = document.getElementById("token").value || document.getElementById("page-token")?.innerText;
     
-    if (tokenTag) {
-        token = JSON.parse(tokenTag.textContent);
-    }
     const modal = document.getElementById("curAccountModal");
     
     let config = null;
@@ -304,9 +300,12 @@ document.addEventListener("DOMContentLoaded", () => {
             showModal("確定要系統重設?", () => {
                 return;
             }, async () => {
-                const res = await fetch("/api/auth/reset", {
+
+                const formData = new FormData(system_setting_form);
+                
+                const res = await fetch(`/api/auth/reset`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    body: formData,
                 });
 
                 const data = await res.json();

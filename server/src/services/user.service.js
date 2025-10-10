@@ -137,16 +137,6 @@ export const getTempUser = async (qr_token) => {
     return existingUser[0];
 };
 
-export const findUser = async (key, value) => {
-  let result = null;
-  if (key === "name") {
-    result = await sql`SELECT * FROM users WHERE name = ${value}`;
-  } else if (key === "email") {
-    result = await sql`SELECT * FROM users WHERE email = ${value}`;
-  }
-  return result[0] || null;
-};
-
 /***************************************
   
 Update functions

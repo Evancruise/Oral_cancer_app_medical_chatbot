@@ -249,6 +249,7 @@ export function loadInferenceStageModal(containerId) {
   const percentText = container.querySelector("#percent-text");
   const statusText = container.querySelector("#status-text");
   const cancelBtn = container.querySelector("#cancel-btn");
+  let redirect_link = null;
 
   const stages = [
     "Loading model weights...",
@@ -267,7 +268,16 @@ export function loadInferenceStageModal(containerId) {
   // 更新進度條
   function updateProgress(percent, text = "") {
     progressPath.setAttribute("stroke-dasharray", `${percent},100`);
-    percentText.textContent = `${Math.floor(percent)}%`;
+    const percent_text = Math.floor(percent);
+    
+    if (percent >= 100) {
+      percentText.textContent = `100%`;
+    }
+    else
+    {
+      percentText.textContent = `${percent_text}%`;
+    }
+
     if (text) statusText.textContent = text;
   }
 
@@ -297,17 +307,24 @@ export function loadInferenceStageModal(containerId) {
   modal.updateProgress = (percent, text = "") => updateProgress(percent, text);
 
   // 完成
-  modal.complete = (finalText = "✅ Inference Completed!") => {
+  modal.complete = (finalText = "✅ Inference Completed!", redirect = null) => {
     progressPath.setAttribute("stroke", "url(#greenGradient)");
+    console.log("[complete] redirect:", redirect);
     updateProgress(100, finalText);
+    redirect_link = redirect;
     percentText.textContent = "✅";
-    setTimeout(() => (modal.style.display = "none"), 2000);
+    // setTimeout(() => (modal.style.display = "none"), 2000);
   };
 
   // 取消按鈕
   cancelBtn.onclick = () => {
     if (modal.cancelCallback) modal.cancelCallback();
     modal.style.display = "none";
+    
+    if (redirect_link) {
+      window.location.href = redirect_link;
+    }
+    // redirect to corresponding modal
   };
 
   return modal;
