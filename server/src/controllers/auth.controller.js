@@ -420,7 +420,7 @@ function formatDateTime(date) {
 }
 
 export const record = async (req, res) => {
-  try {
+  //try {
     const token = req.query.token;  // 從 cookie 拿 token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -485,10 +485,10 @@ export const record = async (req, res) => {
       token: token, 
       t: req.t,
       formatDateTime });
-  } catch (err) {
-    console.error("Internal error");
-    return res.redirect("/api/auth/homepage");
-  }
+  //} catch (err) {
+  //  console.error("Internal error");
+  //  return res.redirect("/api/auth/homepage");
+  //}
 };
 
 export const temp_upload = [
@@ -614,8 +614,8 @@ export const edit_record = [
 
     console.log("patientId:", patientId);
 
-    const uploadDir_id = path.join(process.cwd(), "public", "uploads", patientId);
-    const uploadDir_gb_id = path.join(process.cwd(), "public", "uploads_gb", patientId);
+    const uploadDir_id = path.join(process.cwd(), `../tmp/public/uploads/${patientId}`);
+    const uploadDir_gb_id = path.join(process.cwd(), `../tmp/public/uploads_gb/${patientId}`);
 
     console.log(`action: ${action}`);
     console.log(`uploadDir: ${uploadDir}`);
@@ -674,16 +674,16 @@ export const edit_record = [
 
         console.log(`delete_record: ${JSON.stringify(delete_record)}`);
 
-        if (!fs.existsSync(uploadDir_gb)) {
-          fs.mkdirSync(uploadDir_gb, { recursive: true });
+        if (!fs.existsSync(uploadDir_gb_id)) {
+          fs.mkdirSync(uploadDir_gb_id, { recursive: true });
         }
 
-        console.log(`uploadDir: ${uploadDir} ${fs.existsSync(uploadDir)}`);
-        console.log(`uploadDir_gb: ${uploadDir_gb} ${fs.existsSync(uploadDir_gb)}`);
+        console.log(`uploadDir: ${uploadDir_id} ${fs.existsSync(uploadDir_id)}`);
+        console.log(`uploadDir_gb: ${uploadDir_gb_id} ${fs.existsSync(uploadDir_gb_id)}`);
 
-        if (fs.existsSync(uploadDir_gb)) {
+        if (fs.existsSync(uploadDir_gb_id)) {
           // move the files from folder with gb to that with original ones
-          const moveOk = await movefiles(uploadDir, uploadDir_gb);
+          const moveOk = await movefiles(uploadDir_id, uploadDir_gb_id);
           if (moveOk == false) {
             return res.status(401).json({ success: false, message: "Files transfer failed" })
           }
@@ -1269,52 +1269,54 @@ export const recycle_record = [
 
           const action = body.action;
           const patientId = body.patient_id;
+          const uploadDir_id = path.join(process.cwd(), `../tmp/public/uploads/${patientId}`);
+          const uploadDir_gb_id = path.join(process.cwd(), `../tmp/public/uploads_gb/${patientId}`);          
 
           if (action == "resume") {
 
-              const uploadDir_gb = path.join(process.cwd(), "public", "uploads_gb", patientId);
-              const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
-
-              if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
+              if (!fs.existsSync(uploadDir_id)) {
+                fs.mkdirSync(uploadDir_id, { recursive: true });
               }
 
-              if (fs.existsSync(uploadDir_gb)) {
+              if (fs.existsSync(uploadDir_gb_id)) {
                 // move the files from folder with gb to that with original ones
-                const moveOk = await movefiles(uploadDir_gb, uploadDir);
+                const moveOk = await movefiles(uploadDir_gb_id, uploadDir_id);
                 if (moveOk == false) {
                   return res.status(401).json({ success: false, message: "Files transfer failed" })
                 }
               }
-
-              for (const file of files) {
-                const targetPath = path.join(uploadDir, file.originalname);
-                fs.renameSync(file.path, targetPath);
-              }
-
+              
+              const imgUpdates = {};
               // 儲存檔案到 patient_id 資料夾
               for (let i = 1; i <= 8; i++) {
                 const fieldName = `pic${i}_2`;
+                
                 const file = files.find(f => f.fieldname === fieldName);
                 console.log(`body[pic${i}_2]=`, body[`pic${i}_2`]);
 
                 if (file) {
+
+                  const filename = body[`pic${i}_2`];
+                  const newPath = path.join(uploadDir_id, filename);
+
                   // 有新檔 → 搬移到 patient_id 資料夾
-                  const newPath = path.join(uploadDir, file.originalname);
-                  await fs.promises.rename(file.path, newPath);
+                  imgUpdates[fieldName] = newPath.replace(/\\/g, "/"); // "/" + relativePath;
+                } else {
+                  // 沒新檔 → 用 hidden input 傳來的舊路徑
+                  imgUpdates[fieldName] = body[`pic${i}_2`] || null;
                 }
               }
               
               // recover the info in database records_gb accordingly
-              const record = await recoverRecord(body);
+              const record = await recoverRecord(body, imgUpdates);
 
               return res.status(201).json({ "success": true, "message": "Recover files successfully", redirect: `/api/auth/recycle_bin?token=${token}` });
 
           } else if (action === "delete") {
-              const uploadDir_gb = path.join(process.cwd(), "public", "uploads_gb", patientId);
-              if (fs.existsSync(uploadDir_gb)) {
+              
+              if (fs.existsSync(uploadDir_gb_id)) {
                   // remove the files from folder with gb
-                  await deletefiles(uploadDir_gb);
+                  await deletefiles(uploadDir_gb_id);
               }
               
               // remove the info in database records_gb accordingly

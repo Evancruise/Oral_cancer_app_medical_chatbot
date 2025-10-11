@@ -47,14 +47,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setRiskLevel(level) {
         const riskContainer = document.querySelector(".risk-level");
-        const lights = riskContainer.querySelectorAll(".risk-light");
+        const lights = riskContainer?.querySelectorAll(".risk-light");
 
-        lights.forEach(light => {
-            light.classList.toggle("active", light.dataset.level === level);
-        });
-
-        // 啟用唯讀模式
-        riskContainer.classList.add("readonly");
+        if (lights && riskContainer) {
+            lights.forEach(light => {
+                light.classList.toggle("active", light.dataset.level === level);
+            });
+            riskContainer.classList.add("readonly");
+        }
     }
 
     setRiskLevel("low");

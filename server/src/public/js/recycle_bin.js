@@ -1,15 +1,15 @@
-import { loadModal, showModal } from "./modal.js";
+import { loadModal, loadingModal, showModal, showingModal, closingModal } from "./modal.js";
 
 loadModal('modal-container');
-
-const recycle_form = document.getElementById("recycle_form");
-const viewModal = document.getElementById("viewRecordModal_rec");
-const resultModal = document.getElementById("resultRecordModal_rec");
-const goBackBtn = document.getElementById("btnGoBack_rec");
-const recordlink = document.querySelectorAll(".record-link");
-let currentRecord = {};
+loadingModal('modal-loading-container');
 
 document.addEventListener("DOMContentLoaded", () => {
+    const recycle_form = document.getElementById("recycle_form");
+    const viewModal = document.getElementById("viewRecordModal_rec");
+    const resultModal = document.getElementById("resultRecordModal_rec");
+    const goBackBtn = document.getElementById("btnGoBack_rec");
+    const recordlink = document.querySelectorAll(".record-link");
+    let currentRecord = {};
 
     const parts = ["1","2","3","4","5","6","7","8"];
 
@@ -30,6 +30,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 formData.append(e.submitter.name, e.submitter.value);
             }
 
+            showingModal("Loading...", () => {
+                closingModal();
+            });
+
             const res = await fetch("/api/auth/recycle_record", {
                 method: "POST",
                 body: formData,
@@ -37,6 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const data = await res.json();
             console.log(data);
+
+            closingModal();
 
             if (!data.success) {
                 showModal(`還原/刪除病例失敗: ${data.message}`);

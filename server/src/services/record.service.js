@@ -276,7 +276,7 @@ export const deleteDiscardRecordTable = async (body) => {
   }
 };
 
-export const recoverRecord = async (body) => {
+export const recoverRecord = async (body, imgUpdates = null) => {
   try {
 
     console.log(`body:`, JSON.stringify(body));
@@ -309,22 +309,22 @@ export const recoverRecord = async (body) => {
     const oldRecord = img_dic[0];    
 
     const newRecord = {
-        img1: "static/uploads/" + oldRecord.img1?.split("/")[2] + "/" + oldRecord.img1?.split("/")[3] ?? "",
-        img2: "static/uploads/" + oldRecord.img2?.split("/")[2] + "/" + oldRecord.img2?.split("/")[3] ?? "",
-        img3: "static/uploads/" + oldRecord.img3?.split("/")[2] + "/" + oldRecord.img3?.split("/")[3] ?? "",
-        img4: "static/uploads/" + oldRecord.img4?.split("/")[2] + "/" + oldRecord.img4?.split("/")[3] ?? "",
-        img5: "static/uploads/" + oldRecord.img5?.split("/")[2] + "/" + oldRecord.img5?.split("/")[3] ?? "",
-        img6: "static/uploads/" + oldRecord.img6?.split("/")[2] + "/" + oldRecord.img6?.split("/")[3] ?? "",
-        img7: "static/uploads/" + oldRecord.img7?.split("/")[2] + "/" + oldRecord.img7?.split("/")[3] ?? "",
-        img8: "static/uploads/" + oldRecord.img8?.split("/")[2] + "/" + oldRecord.img8?.split("/")[3] ?? "",
-        img1_result: "static/uploads/" + oldRecord.img1_result?.split("/")[2] + "/" + oldRecord.img1_result?.split("/")[3] ?? "",
-        img2_result: "static/uploads/" + oldRecord.img2_result?.split("/")[2] + "/" + oldRecord.img2_result?.split("/")[3] ?? "",
-        img3_result: "static/uploads/" + oldRecord.img3_result?.split("/")[2] + "/" + oldRecord.img3_result?.split("/")[3] ?? "",
-        img4_result: "static/uploads/" + oldRecord.img4_result?.split("/")[2] + "/" + oldRecord.img4_result?.split("/")[3] ?? "",
-        img5_result: "static/uploads/" + oldRecord.img5_result?.split("/")[2] + "/" + oldRecord.img5_result?.split("/")[3] ?? "",
-        img6_result: "static/uploads/" + oldRecord.img6_result?.split("/")[2] + "/" + oldRecord.img6_result?.split("/")[3] ?? "",
-        img7_result: "static/uploads/" + oldRecord.img7_result?.split("/")[2] + "/" + oldRecord.img7_result?.split("/")[3] ?? "",
-        img8_result: "static/uploads/" + oldRecord.img8_result?.split("/")[2] + "/" + oldRecord.img8_result?.split("/")[3] ?? "",
+        img1: "tmp/public/uploads/" + oldRecord.img1?.split("/")[3] + "/" + oldRecord.img1?.split("/")[4] ?? "",
+        img2: "tmp/public/uploads/" + oldRecord.img2?.split("/")[3] + "/" + oldRecord.img2?.split("/")[4] ?? "",
+        img3: "tmp/public/uploads/" + oldRecord.img3?.split("/")[3] + "/" + oldRecord.img3?.split("/")[4] ?? "",
+        img4: "tmp/public/uploads/" + oldRecord.img4?.split("/")[3] + "/" + oldRecord.img4?.split("/")[4] ?? "",
+        img5: "tmp/public/uploads/" + oldRecord.img5?.split("/")[3] + "/" + oldRecord.img5?.split("/")[4] ?? "",
+        img6: "tmp/public/uploads/" + oldRecord.img6?.split("/")[3] + "/" + oldRecord.img6?.split("/")[4] ?? "",
+        img7: "tmp/public/uploads/" + oldRecord.img7?.split("/")[3] + "/" + oldRecord.img7?.split("/")[4] ?? "",
+        img8: "tmp/public/uploads/" + oldRecord.img8?.split("/")[3] + "/" + oldRecord.img8?.split("/")[4] ?? "",
+        img1_result: "tmp/public/uploads/" + oldRecord.img1_result?.split("/")[3] + "/" + oldRecord.img1_result?.split("/")[4] ?? "",
+        img2_result: "tmp/public/uploads/" + oldRecord.img2_result?.split("/")[3] + "/" + oldRecord.img2_result?.split("/")[4] ?? "",
+        img3_result: "tmp/public/uploads/" + oldRecord.img3_result?.split("/")[3] + "/" + oldRecord.img3_result?.split("/")[4] ?? "",
+        img4_result: "tmp/public/uploads/" + oldRecord.img4_result?.split("/")[3] + "/" + oldRecord.img4_result?.split("/")[4] ?? "",
+        img5_result: "tmp/public/uploads/" + oldRecord.img5_result?.split("/")[3] + "/" + oldRecord.img5_result?.split("/")[4] ?? "",
+        img6_result: "tmp/public/uploads/" + oldRecord.img6_result?.split("/")[3] + "/" + oldRecord.img6_result?.split("/")[4] ?? "",
+        img7_result: "tmp/public/uploads/" + oldRecord.img7_result?.split("/")[3] + "/" + oldRecord.img7_result?.split("/")[4] ?? "",
+        img8_result: "tmp/public/uploads/" + oldRecord.img8_result?.split("/")[3] + "/" + oldRecord.img8_result?.split("/")[4] ?? "",
     };
 
     const updated = await sql`
