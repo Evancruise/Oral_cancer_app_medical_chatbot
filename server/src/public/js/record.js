@@ -1,7 +1,7 @@
 import { loadModal, loadingModal, loadInferenceStageModal, showModal, showingModal, closingModal } from "./modal.js";
 
 loadModal('modal-container');
-loadingModal('modal-container-loading');
+loadingModal('modal-loading-container');
 
 document.addEventListener("DOMContentLoaded", () => {
     const add_form = document.getElementById("add_form");
@@ -213,7 +213,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (e.submitter.value === "infer") {
 
-                showingModal("Waiting for modal warm up...");
+                const modal = document.querySelector("#modal");
+
+                showingModal("Waiting for system warm up...", () => {
+                    closingModal();
+                });
 
                 const res = await fetch("/api/auth/analyze", {
                     method: "POST",

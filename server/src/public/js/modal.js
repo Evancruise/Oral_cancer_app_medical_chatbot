@@ -1,13 +1,38 @@
-export function loadingModal(containedId, cancelMsg = "Cancel") {
+export function loadingModal(containedId = "modal-loading-container", cancelMsg = "Cancel") {
   const container = document.getElementById(containedId);
   container.innerHTML = `
-    <div id="loading-overlay" class="loading-overlay hidden">
-      <div class="loading-spinner"></div>
-      <p id="modal-message" style="font-size:16px; margin-bottom:1.2rem;"></p>
-      <button id="modal-cancel"> ${cancelMsg} </button>
+    <div id="modal" style="
+        display:none;
+        position:fixed; 
+        top:0; left:0; 
+        width:100%; height:100%;
+        background:rgba(0,0,0,0.4);
+        z-index:10000; 
+        align-items:center; 
+        justify-content:center;">
+      <div class="loading-content" style="
+          background:#fff;
+          padding:30px 40px;
+          border-radius:12px;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          gap:16px;
+          box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+        <div class="loading-spinner"></div>
+        <p id="modal-message" style="font-size:16px; margin:0;"></p>
+        <button id="modal-cancel" style="
+            background:#0288d1;
+            color:white;
+            border:none;
+            border-radius:8px;
+            padding:8px 16px;
+            cursor:pointer;">${cancelMsg}</button>
+      </div>
     </div>
   `;
-  
+
+  const modal = container.querySelector("#modal");
   const cancelBtn = container.querySelector("#modal-cancel");
 
   cancelBtn.onclick = () => {
@@ -193,19 +218,24 @@ export function loadInferenceModal(containerId) {
   return modal;
 }
 
-export function showingModal(message, onCancel=null, containerId="modal-loading-container", cancelMsg="Cancel") {
+export function showingModal(message, onCancel = null, containerId = "modal-loading-container", cancelMsg = "Cancel") {
   const container = document.getElementById(containerId);
-  const modal = container.querySelector("#loading-overlay");
+  const modal = container.querySelector("#modal");
+  const messageElement = container.querySelector("#modal-message");
 
-  container.querySelector("#modal-message").innerText = message;
+  if (!modal || !messageElement) {
+    console.error("[showingModal] modal not initialized correctly");
+    return;
+  }
 
+  messageElement.innerText = message || "Loading...";
   modal.cancelCallback = onCancel;
   modal.style.display = "flex";
 }
 
 export function closingModal(containerId="modal-loading-container") {
   const container = document.getElementById(containerId);
-  const modal = container.querySelector("#loading-overlay");
+  const modal = container.querySelector("#modal");
   modal.style.display = "none";
 }
 

@@ -444,6 +444,9 @@ export const record = async (req, res) => {
         console.log(`grouped: ${JSON.stringify(grouped)}`);
     }
 
+    console.log(`patient_id: ${decoded.id}-${length}`);
+    console.log(`new_patient_id: ${decoded.id}-${length+1}`);
+
     return res.status(201).render("record", 
     { layout: "base", 
       grouped_records: grouped, 
