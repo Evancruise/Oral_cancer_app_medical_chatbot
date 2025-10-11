@@ -762,6 +762,7 @@ export const chatbot = async (req, res) => {
 }
 
 export const record_search = async (req, res) => {
+  try {
     const token = req.query.token;  // 從 cookie 拿 token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -813,6 +814,10 @@ export const record_search = async (req, res) => {
       path: "/api/auth/record_search", 
       t: req.t,
       token: token });
+  } catch (err) {
+    console.error(`record_search failed!`);
+    return res.redirect("/api/auth/homepage");
+  }
 };
 
 export const export_data = async (req, res) => {

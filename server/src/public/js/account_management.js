@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const fileInput = document.getElementById("configFile");
 
     const configTag = document.getElementById("config-data");
-    const token = document.getElementById("token").value || document.getElementById("page-token")?.innerText;
+    const token = document.getElementById("token")?.value || document.getElementById("page-token")?.innerText || null;
     
     const modal = document.getElementById("curAccountModal");
     

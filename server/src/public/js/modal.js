@@ -1,3 +1,21 @@
+export function loadingModal(containedId, cancelMsg = "Cancel") {
+  const container = document.getElementById(containedId);
+  container.innerHTML = `
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="loading-spinner"></div>
+      <p id="modal-message" style="font-size:16px; margin-bottom:1.2rem;"></p>
+      <button id="modal-cancel"> ${cancelMsg} </button>
+    </div>
+  `;
+  
+  const cancelBtn = container.querySelector("#modal-cancel");
+
+  cancelBtn.onclick = () => {
+    if (modal.cancelCallback) modal.cancelCallback();
+    modal.style.display = "none";
+  };
+}
+
 export function loadModal(containerId, leftMsg="OK", rightMsg="Cancel") {
   const container = document.getElementById(containerId);
   container.innerHTML = `
@@ -173,6 +191,22 @@ export function loadInferenceModal(containerId) {
   };
 
   return modal;
+}
+
+export function showingModal(message, onCancel=null, containerId="modal-loading-container", cancelMsg="Cancel") {
+  const container = document.getElementById(containerId);
+  const modal = container.querySelector("#loading-overlay");
+
+  container.querySelector("#modal-message").innerText = message;
+
+  modal.cancelCallback = onCancel;
+  modal.style.display = "flex";
+}
+
+export function closingModal(containerId="modal-loading-container") {
+  const container = document.getElementById(containerId);
+  const modal = container.querySelector("#loading-overlay");
+  modal.style.display = "none";
 }
 
 export function showModal(message, onOk=null, onCancel=null, containerId="modal-container", leftMsg="OK", rightMsg="Cancel") {

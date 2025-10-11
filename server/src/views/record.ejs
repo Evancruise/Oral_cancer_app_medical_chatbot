@@ -1,60 +1,64 @@
-<% Object.entries(grouped_records).forEach(([date_display, items]) => { %>
-    <div class="date-divider"><%= date_display %></div>
-    <% items.forEach(item => { %>
-        <div class="record-card">
-            <a class="record-link"
-            data-bs-toggle="modal"
-            data-bs-target="#editRecordModal"
-            data-name="<%= item.name %>"
-            data-gender="<%= item.gender %>"
-            data-age="<%= item.age %>"
-            data-patient_id="<%= item.patient_id %>"
-            data-notes="<%= item.notes %>"
-            data-record_id="<%= item.id %>"
-            data-pic1="<%= item.img1 %>"
-            data-pic2="<%= item.img2 %>"
-            data-pic3="<%= item.img3 %>"
-            data-pic4="<%= item.img4 %>"
-            data-pic5="<%= item.img5 %>"
-            data-pic6="<%= item.img6 %>"
-            data-pic7="<%= item.img7 %>"
-            data-pic8="<%= item.img8 %>"
-            data-status="<%= item.status %>">
-                <div class="record-content">
-                    <div class="record-icon">
-                        <i class="<%= item.status === 'pending' 
-                            ? 'fa-solid fa-stethoscope' 
-                            : item.status === 'loading' 
-                                ? 'fa-solid fa-spinner fa-spin' 
-                                : item.status === 'finished' 
-                                ? 'fa-solid fa-notes-medical' 
-                                : 'fa-regular fa-circle-question' %>"></i>
+<div class="record-container">
+    <% Object.entries(grouped_records).forEach(([date_display, items]) => { %>
+        <div class="date-divider"><%= date_display %></div>
+        <% items.forEach(item => { %>
+            <div class="record-card">
+                <a class="record-link"
+                data-bs-toggle="modal"
+                data-bs-target="#editRecordModal"
+                data-name="<%= item.name %>"
+                data-gender="<%= item.gender %>"
+                data-age="<%= item.age %>"
+                data-patient_id="<%= item.patient_id %>"
+                data-notes="<%= item.notes %>"
+                data-record_id="<%= item.id %>"
+                data-pic1="<%= item.img1 %>"
+                data-pic2="<%= item.img2 %>"
+                data-pic3="<%= item.img3 %>"
+                data-pic4="<%= item.img4 %>"
+                data-pic5="<%= item.img5 %>"
+                data-pic6="<%= item.img6 %>"
+                data-pic7="<%= item.img7 %>"
+                data-pic8="<%= item.img8 %>"
+                data-status="<%= item.status %>">
+                    <div class="record-content">
+                        <div class="record-icon">
+                            <i class="<%= item.status === 'pending' 
+                                ? 'fa-solid fa-stethoscope' 
+                                : item.status === 'loading' 
+                                    ? 'fa-solid fa-spinner fa-spin' 
+                                    : item.status === 'finished' 
+                                    ? 'fa-solid fa-notes-medical' 
+                                    : 'fa-regular fa-circle-question' %>"></i>
+                        </div>
+                        <div class="record-text">
+                            <div class="record-id"><%= item.patient_id %></div>
+                            <div class="record-time"><%= formatDateTime(item.created_at) %></div>
+                        </div>
                     </div>
-                    <div class="record-text">
-                        <div class="record-id"><%= item.patient_id %></div>
-                        <div class="record-time"><%= formatDateTime(item.created_at) %></div>
-                    </div>
-                </div>
-            </a>
-        </div>
+                </a>
+            </div>
+        <% }) %>
     <% }) %>
-<% }) %>
 
-<div class="pagination" id="pagination"></div>
+    <div class="pagination" id="pagination"></div>
+    
+    <div class="center-btn">
+        <a class="fab-add" data-bs-toggle="modal" data-bs-target="#newRecordModal">
+            <i class="fas fa-plus"></i>
+        </a>
+    </div>
 
-<div class="center-btn">
-    <a href="/api/auth/dashboard?token=<%= token %>" class="btn-return"> <%= t("return") %> </a>
+    <div class="center-btn">
+        <a href="/api/auth/dashboard?token=<%= token %>" class="btn-return"> <%= t("return") %> </a>
+    </div>
 </div>
-
-<!-- 浮動新增按鈕，導向「新增頁面」 -->
-<a class="fab" data-bs-toggle="modal" data-bs-target="#newRecordModal">
-    <i class="fas fa-plus"></i>
-</a>
 
 <!-- 新增紀錄的 Modal 彈窗 -->
 <div class="modal fade" id="newRecordModal" tabindex="-1" aria-labelledby="newRecordModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <form method="POST" enctype="multipart/form-data" action="/api/auth/new_record" class="modal-content" id="add_form">
+        <div class="modal-content">
+        <form method="POST" enctype="multipart/form-data" action="/api/auth/new_record" class="card p-4" id="add_form">
             <div class="modal-header custom-modal-header">
             <h5 class="modal-title animated-title" id="newRecordModalLabel">
                 <i class="fas fa-plus fa-beat"></i> <%= t("record.add_modal_title") %>
@@ -176,6 +180,7 @@
                 <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal" style="width: 48%;"> <i class="fa-regular fa-rectangle-xmark"></i> <%= t("cancel") %> </button>
             </div>
         </form>
+        </div>
     </div>
 </div>
 

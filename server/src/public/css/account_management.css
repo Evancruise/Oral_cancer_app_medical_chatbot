@@ -199,7 +199,6 @@ tbody tr:hover{ background:#eef9ff; }
 .modal-content {
   border-radius: 12px;
   border: 1px solid #d9e4f5;
-  box-shadow: 0 6px 20px rgba(42, 93, 159, 0.15);
 }
 
 #systemSettingModal .modal-body {

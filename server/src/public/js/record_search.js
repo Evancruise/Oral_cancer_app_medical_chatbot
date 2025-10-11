@@ -28,6 +28,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const dateRange = document.getElementById("dateRange").value.trim();
         const uploader = document.getElementById("uploader").value;
         const status = document.getElementById("status").value;
+
+        console.log(`status: ${status}`);
+        
+        document.getElementById("status").innerText = status == "completed" ? "完成" : 
+            status == "running" ? "未完成" : "未開始";
+
         const category = document.getElementById("category").value;
 
         let filtered = [...rowsArray];
@@ -126,11 +132,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const btn = e.target.closest('.view_btn');
                 if (!btn || !wrap.contains(btn)) return;  // 不是點到「修改」就略過
 
-                console.log(btn.dataset);
+                console.log("btn.dataset:", btn.dataset);
                 // 這裡就可以用 dataset（kebab 會轉 camelCase）
-                const { fCreatetime, fCase, fCount, fUploadtime, fUser, fStatus, fNotes } = btn.dataset;
+                const { fCreatetime, fCase, fUploadtime, fUser, fStatus, fNotes } = btn.dataset;
 
-                console.log(fCreatetime, fCase, fCount, fUploadtime, fUser, fStatus, fNotes);
+                console.log(fCreatetime, fCase, fUploadtime, fUser, fStatus, fNotes);
 
                 const modal = document.getElementById("viewAllRecordModal");
 
@@ -138,7 +144,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 modal.querySelector("input[name='f_case']").value    = fCase    || '';
                 modal.querySelector("input[name='f_uploadtime']").value    = fUploadtime    || '';
                 modal.querySelector("input[name='f_user']").value    = fUser    || 'tester';
-                modal.querySelector("input[name='f_status']").value = fStatus  || 'deactivated';
+
+                modal.querySelector("input[name='f_status']").value = fStatus == "completed" ? "已完成" : 
+                    fStatus == "running" ? "未完成" : "未開始";
+                //modal.querySelector("input[name='f_status']").innerText = fStatus == "completed" ? "完成" : 
+                //    fStatus == "running" ? "未完成" : "未開始";
+
                 modal.querySelector("textarea[name='f_notes']").value = fNotes    || '';
 
                 /*                        
@@ -170,7 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 created_at: tr.querySelector('td[name="created_at"]').innerText,
                 updated_at: tr.querySelector('td[name="updated_at"]').innerText,
                 name: tr.querySelector('td[name="name"]').innerText,
-                status: tr.querySelector('td[name="badge"]').innerText,
+                status: tr.querySelector('td[name="status"]').innerText,
                 notes: tr.querySelector('td[name="notes"]').innerText
             }));
 

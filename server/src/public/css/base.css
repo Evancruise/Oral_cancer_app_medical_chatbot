@@ -10,6 +10,10 @@ body {
 }
 */
 
+.app-body {
+  align-items: center; /* 讓內容水平置中 */
+}
+
 .login-container {
     width: 100%;
     max-width: 360px; /* 最大寬度 */

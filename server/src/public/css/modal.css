@@ -9,7 +9,9 @@
 }
 
 .modal-content {
-  background: white;
+  background: transparent !important;  /* 移除白底 */
+  border: none !important;             /* 移除邊框 */
+  box-shadow: none !important;         /* 移除陰影 */
   padding: 20px;
   border-radius: 8px;
   text-align: center;

@@ -56,16 +56,18 @@ export function renderTable(rows, pageSize, currentPage) {
 
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = pageRows.map(r => {
-    const badge = r.status === 'done'
+    const status = r.status === 'completed'
       ? '<span class="badge green">已完成</span>'
-      : '<span class="badge gray">未完成</span>';
+      : r.status === 'running'
+      ? '<span class="badge green">未完成</span>'
+      : '<span class="badge gray">未開始</span>';
     return `
       <tr>
         <td name="patient_id">${r.patient_id}</td>
         <td name="created_at">${r.created_at.split("T")[0] ?? ''}</td>
         <td name="updated_at">${r.updated_at.split("T")[0] ?? ''}</td>
         <td name="name">${r.name}</td>
-        <td name="badge">${badge}</td>
+        <td name="status">${status}</td>
         <td name="notes">${r.notes || ''}</td>
         <td>
           <button type="button" class="view_btn btn btn-sm btn-primary" name="view_btn"

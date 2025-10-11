@@ -1,6 +1,7 @@
-import { loadModal, loadInferenceStageModal, showModal } from "./modal.js";
+import { loadModal, loadingModal, loadInferenceStageModal, showModal, showingModal, closingModal } from "./modal.js";
 
 loadModal('modal-container');
+loadingModal('modal-container-loading');
 
 document.addEventListener("DOMContentLoaded", () => {
     const add_form = document.getElementById("add_form");
@@ -211,12 +212,18 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             if (e.submitter.value === "infer") {
+
+                showingModal("Waiting for modal warm up...");
+
                 const res = await fetch("/api/auth/analyze", {
                     method: "POST",
                     body: formData,
                 });
 
                 const data = await res.json();
+
+                closingModal();
+
                 if (!data) {
                     showModal("Cannot retrieve data content");
                     return;
@@ -283,6 +290,8 @@ document.addEventListener("DOMContentLoaded", () => {
             newModal.querySelector("select[name='gender']").value = gender;
             newModal.querySelector("input[name='age']").value = age;
             newModal.querySelector("textarea[name='notes']").value = notes;
+            newModal.querySelector("input[name='patient_id']").value = patient_id;
+
             let hiddenId = newModal.querySelector("input[name='record_id']");
             if (!hiddenId) {
                 hiddenId = document.createElement("input");
