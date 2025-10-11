@@ -23,11 +23,11 @@
                 data-status="<%= item.status %>">
                     <div class="record-content">
                         <div class="record-icon">
-                            <i class="<%= item.status === 'pending' 
+                            <i class="<%= item.status === 'not_started' 
                                 ? 'fa-solid fa-stethoscope' 
-                                : item.status === 'loading' 
+                                : item.status === 'running' 
                                     ? 'fa-solid fa-spinner fa-spin' 
-                                    : item.status === 'finished' 
+                                    : item.status === 'completed' 
                                     ? 'fa-solid fa-notes-medical' 
                                     : 'fa-regular fa-circle-question' %>"></i>
                         </div>
@@ -348,12 +348,12 @@
 
             <div id="descResultCollapse" class="collapse show">
                 <div class="modal-body">
-                    <div class="mb-3 text-center">
+                    <div class="mb-3 text-center"> 
                         <label class="form-label"> <%= t("record.category_result") %> </label>
                         <div class="risk-level">
-                            <span class="risk-light red"></span>
-                            <span class="risk-light yellow"></span>
-                            <span class="risk-light green"></span>
+                            <span class="risk-light green" data-level="low"></span>
+                            <span class="risk-light yellow" data-level="medium"></span>
+                            <span class="risk-light red active" data-level="high"></span>
                         </div>
                     </div>
                     <div class="mb-3">

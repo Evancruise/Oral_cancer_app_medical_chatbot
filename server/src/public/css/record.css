@@ -155,3 +155,67 @@
 .fab-add:hover {
   background-color: #0056b3;
 }
+
+.risk-level {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.risk-light {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+  opacity: 0.6;
+  transition: all 0.25s ease-in-out;
+}
+
+/* 顏色樣式 */
+.risk-light.red {
+  background: radial-gradient(circle at 30% 30%, #ff6666, #cc0000);
+}
+.risk-light.yellow {
+  background: radial-gradient(circle at 30% 30%, #fff176, #fbc02d);
+}
+.risk-light.green {
+  background: radial-gradient(circle at 30% 30%, #80e27e, #2e7d32);
+}
+
+/* Hover 效果 */
+.risk-light:hover {
+  transform: scale(1.1);
+  opacity: 0.9;
+}
+
+/* 選中（深色亮燈） */
+.risk-light.active {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* 發光強化 */
+.risk-light.red.active {
+  box-shadow: 0 0 18px rgba(255, 0, 0, 0.6);
+}
+.risk-light.yellow.active {
+  box-shadow: 0 0 18px rgba(255, 215, 0, 0.6);
+}
+.risk-light.green.active {
+  box-shadow: 0 0 18px rgba(0, 255, 0, 0.6);
+}
+
+/* === 🔒 只顯示結果模式（readonly） === */
+.risk-level.readonly .risk-light {
+  cursor: default;
+  pointer-events: none;
+  transform: none !important;
+  opacity: 0.6;
+}
+
+.risk-level.readonly .risk-light.active {
+  opacity: 1;
+  transform: scale(1.15);
+}

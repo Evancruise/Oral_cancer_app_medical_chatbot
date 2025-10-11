@@ -45,6 +45,20 @@ document.addEventListener("DOMContentLoaded", () => {
         infer_again_msg = dict.infer_again_msg;
     });
 
+    function setRiskLevel(level) {
+        const riskContainer = document.querySelector(".risk-level");
+        const lights = riskContainer.querySelectorAll(".risk-light");
+
+        lights.forEach(light => {
+            light.classList.toggle("active", light.dataset.level === level);
+        });
+
+        // 啟用唯讀模式
+        riskContainer.classList.add("readonly");
+    }
+
+    setRiskLevel("low");
+
     const parts = ["1","2","3","4","5","6","7","8"];
 
     parts.forEach(code => {
