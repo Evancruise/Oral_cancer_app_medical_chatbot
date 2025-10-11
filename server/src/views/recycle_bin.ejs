@@ -21,11 +21,11 @@
             data-pic8="<%= item.img8 %>">
                 <div class="record-content">
                     <div class="record-icon">
-                        <i class="<%= item.status === 'pending' 
+                        <i class="<%= item.status === 'not_started' 
                             ? 'fa-solid fa-stethoscope' 
-                            : item.status === 'loading' 
+                            : item.status === 'running' 
                                 ? 'fa-solid fa-spinner fa-spin' 
-                                : item.status === 'finished' 
+                                : item.status === 'completed' 
                                 ? 'fa-solid fa-notes-medical' 
                                 : 'fa-regular fa-circle-question' %>"></i>
                     </div>

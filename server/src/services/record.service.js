@@ -8,7 +8,7 @@ Fetch functions
 
 export const fetchAllRecords = async (req, res, next) => {
     try {
-        logger.info('Getting records table...');
+        console.log('Getting records table...');
 
         const allRecords = await getAllRecords();
 
@@ -19,14 +19,14 @@ export const fetchAllRecords = async (req, res, next) => {
         });
 
     } catch(e) {
-        logger.error(e);
+        console.error(e);
         next(e);
     }
 };
 
 export const fetchAllDiscardRecords = async (req, res, next) => {
     try {
-        logger.info('Getting records_gb table...');
+        console.log('Getting records_gb table...');
 
         const allDiscardRecords = await getAllDiscardRecords();
 
@@ -37,7 +37,7 @@ export const fetchAllDiscardRecords = async (req, res, next) => {
         });
 
     } catch(e) {
-        logger.error(e);
+        console.error(e);
         next(e);
     }
 };
@@ -77,7 +77,7 @@ export const getAllRecords = async () => {
         `;
         return result;
     } catch (e) {
-        logger.error("Error getting records", e);
+        console.error("Error getting records", e);
         throw e;
     }
 };
@@ -115,7 +115,7 @@ export const getAllDiscardRecords = async () => {
         `;
         return result;
     } catch (e) {
-        logger.error("Error getting records_gb", e);
+        console.error("Error getting records_gb", e);
         throw e;
     }
 };
@@ -195,28 +195,28 @@ export const deleteRecord = async (body) => {
         RETURNING *
     `;
 
-    const img_dic = await sql`SELECT img1, img2, img3, img4, img5, img6, img7, img8,
-                                     img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
-                                     FROM records_gb WHERE patient_id = ${body.patient_id}`;
+    const img_dic = await sql`SELECT * FROM records_gb WHERE patient_id = ${body.patient_id}`;
     const oldRecord = img_dic[0];    
 
+    console.log("✅ Step 2 結果:", oldRecord);
+
     const newRecord = {
-        img1: "static/uploads_gb/" + oldRecord.img1?.split("/")[2] + "/" + oldRecord.img1?.split("/")[3] ?? "",
-        img2: "static/uploads_gb/" + oldRecord.img2?.split("/")[2] + "/" + oldRecord.img2?.split("/")[3] ?? "",
-        img3: "static/uploads_gb/" + oldRecord.img3?.split("/")[2] + "/" + oldRecord.img3?.split("/")[3] ?? "",
-        img4: "static/uploads_gb/" + oldRecord.img4?.split("/")[2] + "/" + oldRecord.img4?.split("/")[3] ?? "",
-        img5: "static/uploads_gb/" + oldRecord.img5?.split("/")[2] + "/" + oldRecord.img5?.split("/")[3] ?? "",
-        img6: "static/uploads_gb/" + oldRecord.img6?.split("/")[2] + "/" + oldRecord.img6?.split("/")[3] ?? "",
-        img7: "static/uploads_gb/" + oldRecord.img7?.split("/")[2] + "/" + oldRecord.img7?.split("/")[3] ?? "",
-        img8: "static/uploads_gb/" + oldRecord.img8?.split("/")[2] + "/" + oldRecord.img8?.split("/")[3] ?? "",
-        img1_result: "static/uploads_gb/" + oldRecord.img1_result?.split("/")[2] + "/" + oldRecord.img1_result?.split("/")[3] ?? "",
-        img2_result: "static/uploads_gb/" + oldRecord.img2_result?.split("/")[2] + "/" + oldRecord.img2_result?.split("/")[3] ?? "",
-        img3_result: "static/uploads_gb/" + oldRecord.img3_result?.split("/")[2] + "/" + oldRecord.img3_result?.split("/")[3] ?? "",
-        img4_result: "static/uploads_gb/" + oldRecord.img4_result?.split("/")[2] + "/" + oldRecord.img4_result?.split("/")[3] ?? "",
-        img5_result: "static/uploads_gb/" + oldRecord.img5_result?.split("/")[2] + "/" + oldRecord.img5_result?.split("/")[3] ?? "",
-        img6_result: "static/uploads_gb/" + oldRecord.img6_result?.split("/")[2] + "/" + oldRecord.img6_result?.split("/")[3] ?? "",
-        img7_result: "static/uploads_gb/" + oldRecord.img7_result?.split("/")[2] + "/" + oldRecord.img7_result?.split("/")[3] ?? "",
-        img8_result: "static/uploads_gb/" + oldRecord.img8_result?.split("/")[2] + "/" + oldRecord.img8_result?.split("/")[3] ?? "",
+        img1: "tmp/public/uploads_gb/" + oldRecord.img1?.split("/")[3] + "/" + oldRecord.img1?.split("/")[4] ?? "",
+        img2: "tmp/public/uploads_gb/" + oldRecord.img2?.split("/")[3] + "/" + oldRecord.img2?.split("/")[4] ?? "",
+        img3: "tmp/public/uploads_gb/" + oldRecord.img3?.split("/")[3] + "/" + oldRecord.img3?.split("/")[4] ?? "",
+        img4: "tmp/public/uploads_gb/" + oldRecord.img4?.split("/")[3] + "/" + oldRecord.img4?.split("/")[4] ?? "",
+        img5: "tmp/public/uploads_gb/" + oldRecord.img5?.split("/")[3] + "/" + oldRecord.img5?.split("/")[4] ?? "",
+        img6: "tmp/public/uploads_gb/" + oldRecord.img6?.split("/")[3] + "/" + oldRecord.img6?.split("/")[4] ?? "",
+        img7: "tmp/public/uploads_gb/" + oldRecord.img7?.split("/")[3] + "/" + oldRecord.img7?.split("/")[4] ?? "",
+        img8: "tmp/public/uploads_gb/" + oldRecord.img8?.split("/")[3] + "/" + oldRecord.img8?.split("/")[4] ?? "",
+        img1_result: "tmp/public/uploads_gb/" + oldRecord.img1_result?.split("/")[3] + "/" + oldRecord.img1_result?.split("/")[4] ?? "",
+        img2_result: "tmp/public/uploads_gb/" + oldRecord.img2_result?.split("/")[3] + "/" + oldRecord.img2_result?.split("/")[4] ?? "",
+        img3_result: "tmp/public/uploads_gb/" + oldRecord.img3_result?.split("/")[3] + "/" + oldRecord.img3_result?.split("/")[4] ?? "",
+        img4_result: "tmp/public/uploads_gb/" + oldRecord.img4_result?.split("/")[3] + "/" + oldRecord.img4_result?.split("/")[4] ?? "",
+        img5_result: "tmp/public/uploads_gb/" + oldRecord.img5_result?.split("/")[3] + "/" + oldRecord.img5_result?.split("/")[4] ?? "",
+        img6_result: "tmp/public/uploads_gb/" + oldRecord.img6_result?.split("/")[3] + "/" + oldRecord.img6_result?.split("/")[4] ?? "",
+        img7_result: "tmp/public/uploads_gb/" + oldRecord.img7_result?.split("/")[3] + "/" + oldRecord.img7_result?.split("/")[4] ?? "",
+        img8_result: "tmp/public/uploads_gb/" + oldRecord.img8_result?.split("/")[3] + "/" + oldRecord.img8_result?.split("/")[4] ?? "",
     };
 
     const updated = await sql`
@@ -246,7 +246,8 @@ export const deleteRecord = async (body) => {
         WHERE patient_id = ${body.patient_id}
     `;
 
-    console.log("✅ Step 2 完成");
+    console.log(`✅ Step 3 完成 (updated: ${updated})`);
+    return updated;
   } catch (e) {
     console.error("❌ deleteRecord 發生錯誤:", e);
     throw e;
@@ -278,7 +279,7 @@ export const deleteDiscardRecordTable = async (body) => {
 export const recoverRecord = async (body) => {
   try {
 
-    logger.info(`body:`, JSON.stringify(body));
+    console.log(`body:`, JSON.stringify(body));
     // raw SQL 查詢
     const existingRecord = await sql`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
 

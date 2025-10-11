@@ -174,20 +174,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const formData = new FormData(add_form);
 
+            showingModal("Loading...", () => {
+                closingModal();
+            });
+
             // 把觸發的按鈕補進 formData
             if (e.submitter) {
                 formData.append(e.submitter.name, e.submitter.value);
             }
 
+            const patientId = formData.get("patient_id");
+
             console.log(`formData: ${formData}`);
 
-            const res = await fetch("/api/auth/new_record", {
+            const res = await fetch(`/api/auth/new_record?patient_id=${patientId}`, {
                 method: "POST",
                 body: formData,
             });
 
             const data = await res.json();
             console.log(data);
+
+            closingModal();
         
             if (!data.success) {
                 showModal(`新增病例失敗: ${data.message}`);
@@ -227,8 +235,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (e.submitter.value === "infer") {
 
-                const modal = document.querySelector("#modal");
-
                 showingModal("Waiting for system warm up...", () => {
                     closingModal();
                 });
@@ -265,6 +271,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }, 2000);
             } else {
+
+                showingModal("Loading...", () => {
+                    closingModal();
+                });
+
                 const res = await fetch("/api/auth/edit_record", {
                     method: "POST",
                     body: formData,
@@ -272,6 +283,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const data = await res.json();
                 console.log(data);
+
+                closingModal();
             
                 if (!data.success) {
                     showModal(`編輯病例失敗: ${data.message}`);

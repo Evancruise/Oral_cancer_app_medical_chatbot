@@ -61,10 +61,7 @@ const upload = multer();
 console.log(`[auth.route.js] process.cwd(): ${process.cwd()}`);
 
 router.use(express.json()); // OK，但要在 multer routes 之後
-router.use("/static", express.static(path.join(process.cwd(), "public")));
-router.use("/static", express.static(path.join(process.cwd(), "../tmp")));
 
-router.use("/public", express.static(path.join(process.cwd(), "public")));
 router.use("/tmp", express.static(path.join(process.cwd(), "../tmp")));
 
 router.get("/lang/:lng", lang_get);

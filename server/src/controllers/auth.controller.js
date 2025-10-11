@@ -96,7 +96,20 @@ const storage_upload = multer.diskStorage({
     cb(null, uploadDir_sub);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname); // 直接保留原檔名
+    try {
+      const { patient_id } = req.query;
+      const match = file.fieldname.match(/\d+/);
+      const code = match ? match[0] : "x"; // 預設為 x，避免 undefined
+
+      const safePatientId = patient_id.replace("-", "_") || "unknown";
+      const safeCode = code || "x";
+      // const prefix = safePatientId + "-" + safeCode;
+
+      const filename = `${safePatientId}-${safeCode}-${file.originalname}`;
+      cb(null, filename);
+    } catch (err) {
+      cb(err);
+    }
   }
 });
 
@@ -112,7 +125,20 @@ const storage_upload_gb = multer.diskStorage({
     cb(null, uploadDir_sub);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname); // 直接保留原檔名
+    try {
+      const { patient_id } = req.query;
+      const match = file.fieldname.match(/\d+/);
+      const code = match ? match[0] : "x"; // 預設為 x，避免 undefined
+
+      const safePatientId = patient_id.replace("-", "_") || "unknown";
+      const safeCode = code || "x";
+      // const prefix = safePatientId + "-" + safeCode;
+
+      const filename = `${safePatientId}-${safeCode}-${file.originalname}`;
+      cb(null, filename);
+    } catch (err) {
+      cb(err);
+    }
   }
 });
 
@@ -509,16 +535,16 @@ export const new_record = [
     const patientId = body.patient_id;
 
     // 確保 patient_id 資料夾存在
-    const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
+    //const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
+    //if (!fs.existsSync(uploadDir)) {
+    //  fs.mkdirSync(uploadDir, { recursive: true });
+    //}
 
     // 儲存檔案到 patient_id 資料夾
-    for (const file of files) {
-      const targetPath = path.join(uploadDir, file.originalname);
-      fs.renameSync(file.path, targetPath);
-    }
+    //for (const file of files) {
+    //  const targetPath = path.join(uploadDir, file.originalname);
+    //  fs.renameSync(file.path, targetPath);
+    //}
 
     let newRecord = null;
 
@@ -535,7 +561,7 @@ export const new_record = [
         redirect: `/api/auth/record?token=${token}`,
         message: "Create new record successfully",
         patient_id: patientId,
-        files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
+        // files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
       });
     } else if (action === "infer") {
       /* 
@@ -588,23 +614,24 @@ export const edit_record = [
 
     console.log("patientId:", patientId);
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", patientId);
-    const uploadDir_gb = path.join(process.cwd(), "public", "uploads_gb", patientId);
+    const uploadDir_id = path.join(process.cwd(), "public", "uploads", patientId);
+    const uploadDir_gb_id = path.join(process.cwd(), "public", "uploads_gb", patientId);
 
     console.log(`action: ${action}`);
     console.log(`uploadDir: ${uploadDir}`);
 
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    if (!fs.existsSync(uploadDir_id)) {
+      fs.mkdirSync(uploadDir_gb_id, { recursive: true });
     }
 
     if (action === "save") {
-        const savedFiles = [];
-        for (const file of files) {
-          const targetPath = path.join(uploadDir, file.originalname);
-          fs.renameSync(file.path, targetPath);
-          savedFiles.push(`/uploads/${patientId}/${file.originalname}`);
-        }
+        // const savedFiles = [];
+
+        // for (const file of files) {
+        //   const targetPath = path.join(uploadDir, file.originalname);
+        //   fs.renameSync(file.path, targetPath);
+        //   savedFiles.push(`/uploads/${patientId}/${file.originalname}`);
+        // }
 
         // 儲存檔案到 patient_id 資料夾
         const imgUpdates = {};
@@ -615,12 +642,13 @@ export const edit_record = [
 
           if (file) {
             // 有新檔 → 搬移到 patient_id 資料夾
-            const newPath = path.join(uploadDir, file.originalname);
-            await fs.promises.rename(file.path, newPath);
+            const filename = body[`pic${i}_2`];
+            const newPath = path.join(uploadDir_id, filename/*file.originalname*/);
+            // await fs.promises.rename(file.path, newPath);
 
             // 存 DB 用的相對路徑 (假設 uploads 在 public/static 底下)
-            const relativePath = path.relative("public", newPath).replace(/\\/g, "/");
-            imgUpdates[fieldName] = "/" + relativePath;
+            // const relativePath = path.relative("public", newPath).replace(/\\/g, "/");
+            imgUpdates[fieldName] = newPath.replace(/\\/g, "/"); // "/" + relativePath;
           } else {
             // 沒新檔 → 用 hidden input 傳來的舊路徑
             imgUpdates[fieldName] = body[`pic${i}_2`] || null;
@@ -642,11 +670,16 @@ export const edit_record = [
           files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
         });
     } else if (action === "delete") {
-        await deleteRecord(body);
+        const delete_record = await deleteRecord(body);
+
+        console.log(`delete_record: ${JSON.stringify(delete_record)}`);
 
         if (!fs.existsSync(uploadDir_gb)) {
           fs.mkdirSync(uploadDir_gb, { recursive: true });
         }
+
+        console.log(`uploadDir: ${uploadDir} ${fs.existsSync(uploadDir)}`);
+        console.log(`uploadDir_gb: ${uploadDir_gb} ${fs.existsSync(uploadDir_gb)}`);
 
         if (fs.existsSync(uploadDir_gb)) {
           // move the files from folder with gb to that with original ones
