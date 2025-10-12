@@ -1,65 +1,67 @@
 
-<form method="POST" enctype="multipart/form-data" action="/api/auth/export_data" class="modal-content" id="search_form">
-    <div class="search-bar">
-        <div class="filters">
-            <div class="field">
-                <label>上傳日期</label>
-                <input class="input" type="text" id="dateRange" placeholder="2024/06/24-2024/09/24" value="<%= today_date %>~<%= today_date %>"/>
-            </div>
+<div id="record-container">
+    <form method="POST" enctype="multipart/form-data" action="/api/auth/export_data" class="modal-content" id="search_form">
+        <div class="search-bar">
+            <div class="filters">
+                <div class="field">
+                    <label>上傳日期</label>
+                    <input class="input" type="text" id="dateRange" placeholder="2024/06/24-2024/09/24" value="<%= today_date %>~<%= today_date %>"/>
+                </div>
 
-            <div class="field">
-                <label>上傳帳號</label>
-                <select id="uploader">
-                    <option value="all">全部</option>
-                </select>
-            </div>
-            
-            <div class="field">
-                <label>分析狀態</label>
-                <select id="status">
-                    <option value="all">全部</option>
-                    <option value="completed">已完成</option>
-                    <option value="running">未完成</option>
-                    <option value="not_started">未開始</option>
-                </select>
-            </div>
+                <div class="field">
+                    <label>上傳帳號</label>
+                    <select id="uploader">
+                        <option value="all">全部</option>
+                    </select>
+                </div>
+                
+                <div class="field">
+                    <label>分析狀態</label>
+                    <select id="status">
+                        <option value="all">全部</option>
+                        <option value="completed">已完成</option>
+                        <option value="running">未完成</option>
+                        <option value="not_started">未開始</option>
+                    </select>
+                </div>
 
-            <div class="field">
-                <label>辨識分類結果標籤</label>
-                <select id="category">
-                    <option value="all">全部</option>
-                    <option value="none">健康無病灶</option>
-                    <option value="green">綠燈 (輕微等級)</option>
-                    <option value="yellow">黃燈 (疑似嚴重等級)</option>
-                    <option value="red">紅燈 (嚴重等級)</option>
-                </select>
-            </div>
+                <div class="field">
+                    <label>辨識分類結果標籤</label>
+                    <select id="category">
+                        <option value="all">全部</option>
+                        <option value="none">健康無病灶</option>
+                        <option value="green">綠燈 (輕微等級)</option>
+                        <option value="yellow">黃燈 (疑似嚴重等級)</option>
+                        <option value="red">紅燈 (嚴重等級)</option>
+                    </select>
+                </div>
 
-            <div class="btn-row">
-                <!-- <button type="button" class="btn btn-warning">匯入</button> -->
-                <button type="button" class="btn btn-primary" id="btn-search">查詢</button>
-                <!-- <button type="submit" id="export_data" name="action" value="export" class="btn btn-danger">匯出</button> -->
+                <div class="btn-row">
+                    <!-- <button type="button" class="btn btn-warning">匯入</button> -->
+                    <button type="button" class="btn btn-primary" id="btn-search">查詢</button>
+                    <!-- <button type="submit" id="export_data" name="action" value="export" class="btn btn-danger">匯出</button> -->
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="table-record-wrap">
-        <table id="dataTable" aria-label="上傳紀錄表格">
-            <thead>
-            <tr>
-                <th style="width:17%">影像案例編號</th>
-                <th style="width:16%">建立日期</th>
-                <th style="width:16%">上傳日期</th>
-                <th style="width:16%">上傳人員</th>
-                <th style="width:16%">分析狀態</th>
-                <th>備註</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody id="tbody"></tbody>
-        </table>
-    </div>
-</form>
+        <div class="table-record-wrap">
+            <table id="dataTable" aria-label="上傳紀錄表格">
+                <thead>
+                <tr>
+                    <th style="width:17%">影像案例編號</th>
+                    <th style="width:16%">建立日期</th>
+                    <th style="width:16%">上傳日期</th>
+                    <th style="width:16%">上傳人員</th>
+                    <th style="width:16%">分析狀態</th>
+                    <th>備註</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+    </form>
+</div>
 
 <div class="pagination" id="pagination"></div>
 

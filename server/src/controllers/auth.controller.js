@@ -28,10 +28,13 @@ import { removeRegisterTable, createRegisterTable } from "#services/register.ser
 
 console.log(`process.cwd(): ${process.cwd()}`);
 
-const uploadDir = path.join(process.cwd(), "../tmp/public/uploads");
-const uploadDir_gb = path.join(process.cwd(), "../tmp/public/uploads_gb");
-const config_dir = path.join(process.cwd(), "../tmp/config");
-let configPath = path.join(process.cwd(), "../tmp/config/settings.json");
+const configRoot_dir = "../tmp/config";
+const uploadRoot_dir = "../tmp/public";
+
+const uploadDir = path.join(process.cwd(), `${uploadRoot_dir}/uploads`);
+const uploadDir_gb = path.join(process.cwd(), `${uploadRoot_dir}/uploads_gb`);
+const config_dir = path.join(process.cwd(), configRoot_dir);
+let configPath = path.join(process.cwd(), `${configRoot_dir}/settings.json`);
 
 const storage_temp = multer.diskStorage({ // cb(null, tempDir)
   destination: (req, file, cb) => {
@@ -614,14 +617,15 @@ export const edit_record = [
 
     console.log("patientId:", patientId);
 
-    const uploadDir_id = path.join(process.cwd(), `../tmp/public/uploads/${patientId}`);
-    const uploadDir_gb_id = path.join(process.cwd(), `../tmp/public/uploads_gb/${patientId}`);
+    const uploadDir_id = `${uploadDir}/${patientId}`;
+    const uploadDir_gb_id = `${uploadDir_gb}/${patientId}`;
 
     console.log(`action: ${action}`);
-    console.log(`uploadDir: ${uploadDir}`);
+    console.log(`uploadDir: ${uploadDir_id}`);
+    console.log(`uploadDir_gb_id: ${uploadDir_gb_id}`);
 
     if (!fs.existsSync(uploadDir_id)) {
-      fs.mkdirSync(uploadDir_gb_id, { recursive: true });
+      fs.mkdirSync(uploadDir_id, { recursive: true });
     }
 
     if (action === "save") {
@@ -1269,8 +1273,8 @@ export const recycle_record = [
 
           const action = body.action;
           const patientId = body.patient_id;
-          const uploadDir_id = path.join(process.cwd(), `../tmp/public/uploads/${patientId}`);
-          const uploadDir_gb_id = path.join(process.cwd(), `../tmp/public/uploads_gb/${patientId}`);          
+          const uploadDir_id = `${uploadDir}/${patientId}`;
+          const uploadDir_gb_id = `${uploadDir_gb}/${patientId}`;          
 
           if (action == "resume") {
 

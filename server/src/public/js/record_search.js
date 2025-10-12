@@ -4,11 +4,23 @@ import { renderPagination } from './pagination.js';
 
 loadModal('modal-container');
 
-const table_record_wraps = document.querySelectorAll(".table-record-wrap");
-const search_form = document.getElementById("search_form");
-const btn_search = document.getElementById("btn-search");
-
 document.addEventListener("DOMContentLoaded", () => {
+    const dataEl = document.getElementById("rows-data");
+    const groupedRecords = JSON.parse(dataEl.textContent || "{}");
+    const container = document.getElementById("record-container");
+
+    if (!groupedRecords || Object.keys(groupedRecords).length === 0) {
+        container.innerHTML = `
+        <div class="no-record text-center" style="margin-top: 30px; color: gray;">
+            查無資料
+        </div>
+        `;
+        return;
+    }
+
+    const table_record_wraps = document.querySelectorAll(".table-record-wrap");
+    const search_form = document.getElementById("search_form");
+    const btn_search = document.getElementById("btn-search");
     const row_data = document.getElementById("rows-data");
 
     if (!row_data) {
@@ -31,8 +43,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         console.log(`status: ${status}`);
         
-        document.getElementById("status").innerText = status == "completed" ? "完成" : 
-            status == "running" ? "未完成" : "未開始";
+        // document.getElementById("status").innerText = status == "completed" ? "完成" : 
+        //    status == "running" ? "未完成" : "未開始";
 
         const category = document.getElementById("category").value;
 
