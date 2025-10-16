@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title> 醫快拍 </title>
+    <link rel="stylesheet" href="/css/table.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" href="/css/header.css">
+    <link rel="stylesheet" href="/css/modal.css">
+    <link rel="stylesheet" href="/css/record.css">
+    <link rel="stylesheet" href="/css/record_search.css">
+    <link rel="stylesheet" href="/css/quick_changepwd.css">
+    <link rel="stylesheet" href="/css/account_management.css">
+    <link rel="stylesheet" href="/css/rebind_qr.css">
+    <link rel="stylesheet" href="/css/sidebar.css">
+    <link rel="stylesheet" href="/css/chatbot.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <!-- 側邊選單 -->
+    <div class="sidebar" name="sidebar">
+        <div class="user-info">
+            <p> <%= t("title") %> </p>
+            <img src="/static/images/logo.png" alt="icon" class="user-icon">
+        </div>
+        <ul class="menu">
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/dashboard') ? 'active' : '' %>" href="/api/auth/dashboard?token=<%= token %>">
+                    <i class="fas fa-home"></i> <%= t("dashboard.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/record') ? 'active' : '' %>" href="/api/auth/record?token=<%= token %>">
+                    <i class="fa-regular fa-user"></i> <%= t("record.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/record_search') ? 'active' : '' %>"
+                    style="display: <%= (priority === 1) ? 'flex' : 'none' %>"
+                    href="/api/auth/record_search?token=<%= token %>">
+                    <i class="fa-regular fa-camera"></i> <%= t("record_search.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/account_management') ? 'active' : '' %>"
+                    style="display: <%= (priority === 1) ? 'flex' : 'none' %>"
+                    href="/api/auth/account_management?token=<%= token %>">
+                    <i class="fa-solid fa-bars-progress"></i> <%= t("account_management.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/recycle_bin') ? 'active' : '' %>" href="/api/auth/recycle_bin?token=<%= token %>">
+                    <i class="fas fa-trash"></i> <%= t("recycle_bin.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/quick_changepwd') ? 'active' : '' %>" href="/api/auth/quick_changepwd?token=<%= token %>">
+                    <i class="fas fa-key"></i> <%= t("quick_chgpwd.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link <%= (path === '/api/auth/rebind_page') ? 'active' : '' %>" href="/api/auth/rebind_page?token=<%= token %>">
+                    <i class="fas fa-link"></i> <%= t("rebind_account.title") %>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" href="/api/auth/sign-out">
+                    <i class="fas fa-sign-out-alt"></i> <%= t("logout") %>
+                </a>
+            </li>
+        </ul>
+        <div class="version">ver 1.0</div>
+    </div>
+
+    <!-- 主內容區 -->
+    <main>
+        <!-- 頁首 -->
+        <header class="app-header">
+            <!-- 左側：Logo + 標題 -->
+            <div class="header-left">
+                <span class="toggle-btn" id="sidebarToggle">☰</span>
+                <div class="header-title">
+                    <small><%= t("app_name") %></small>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="lang-switch">
+                    <a href="?lng=zh" class="lang-link">中文</a>
+                    <a href="?lng=en" class="lang-link">English</a>
+                </div>
+                <nav class="header-nav">
+                    <a class="nav-link" href="/api/auth/sys_setting">
+                        <i class="fa-regular fa-gear"></i> <%= t("setting") %>
+                    </a>
+                    <a class="nav-link" href="/api/auth/privacy">
+                        <i class="fa-solid fa-user-lock"></i> <%= t("privacy") %>
+                    </a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- 主內容 -->
+        <section class="app-body">
+            <%- body %>
+        </section>
+
+        <a id="chatbot-fab" class="fab">
+            <i class="fas fa-comments"></i>
+        </a>
+
+        <div id="chatbot-box" class="chatbot-box hidden">
+            <div class="chat-header">
+                <strong>🩺 Oral AI 助理</strong>
+                <button id="chatbot-close" class="chat-close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="chatbot-body" class="chat-body">
+                <div class="bot-msg">您好，我是口腔醫療 AI 助理，請問今天要協助什麼？</div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="chatbot-input" placeholder="輸入訊息..." />
+                <button id="chatbot-send" class="btn-send">送出</button>
+            </div>
+        </div>
+
+        <!-- 頁尾 -->
+        <footer class="app-footer">
+            <a href="#">Mi-tech</a> Copyright © 2019
+        </footer>
+    </main>
+
+    <div id="modal-container"></div>
+    <div id="modal-loading-container"></div>
+    <div id="modal-container-2"></div>
+    <div id="modal-infer-container"></div>
+
+    <script src="/js/jsQR.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/js/quick_changepwd.js"></script>
+    <script type="module" src="/js/record.js"></script>
+    <script type="module" src="/js/record_search.js"></script>
+    <script type="module" src="/js/recycle_bin.js"></script>
+    <script type="module" src="/js/account_management.js"></script>
+    <script type="module" src="/js/rebind_qr.js"></script>
+    <script type="module" src="/js/utils.js"></script>
+    <script type="module" src="/js/sidebar.js"></script>
+    <script type="module" src="/js/chatbot.js"></script>
+</body>

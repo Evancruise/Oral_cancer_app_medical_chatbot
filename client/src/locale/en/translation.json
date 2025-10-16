@@ -1,0 +1,101 @@
+{
+    "setting": "System setting",
+    "privacy": "Privacy",
+    "loginPage": {
+        "title": "User loggin"
+    },
+    "dashboard": {
+        "title": "Home page",
+        "content_1": "Welcome",
+        "scan_now": "Scan now"
+    },
+    "parts": {
+        "upper_gum": "Upper Gum",
+        "palate": "Palate",
+        "right_cheek": "Right Check",
+        "tongue_right": "Tongue Right",
+        "tongue_left": "Tongue Left",
+        "left_cheek": "Left Cheek",
+        "tongue_under": "Tongue Under",
+        "lower_gum": "Lower Gum"
+    },
+    "record": {
+        "title": "Record",
+        "already_upload": "Uploaded",
+        "edit_modal_title": "Edit Case",
+        "add_modal_title": "New Case",
+        "result_modal_title": "Result interpretation/suggestion",
+        "create": "Create",
+        "basic_info": "Basic information",
+        "name": "Name",
+        "gender": "Gender",
+        "age": "Age",
+        "patient_id": "Patient ID",
+        "note": "Note",
+        "picture": "Photos",
+        "ori_picture": "Original Photos",
+        "res_picture": "Inferenced Photos",
+        "upload": "Upload",
+        "start_test": "Begin Inferencing",
+        "view_result": "View Result",
+        "diag_report": "Diagnostic Report",
+        "diag_explain": "Diagnostic Content",
+        "suggestion": "App Suggestion",
+        "doctor_suggestion": "Clinic Suggestion",
+        "upload_img_appoint": "Upload / Appointment",
+        "category_result": "Overall Risk Rank",
+        "infer_again_msg": "Inferencing Again"
+    },
+    "record_search": {
+        "title": "Record (All)"
+    },
+    "account_management": {
+        "title": "Account (All)"
+    },
+    "recycle_bin": {
+        "title": "Recycle bin",
+        "view_modal_title": "View Case",
+        "resume": "Resume",
+        "confirm_delete": "Confirm Delete"
+    },
+    "quick_chgpwd": {
+        "title": "Change Password",
+        "old_password": "Old Password",
+        "new_password": "New Password",
+        "new_password_confirm": "New Password (Again)",
+        "change_pwd_msg": "Confirm Change Password"
+    },
+    "rebind_account": {
+        "title": "Rebind account",
+        "refresh_in": "Refresh In",
+        "regenerate": "Regenerate",
+        "scan": "Open",
+        "capture": "Capture",
+        "reset": "Reset",
+        "verify": "Verify",
+        "close_msg": "Close",
+        "open_msg": "Open"
+    },
+    "reminder": {
+        "title": "Reminder"
+    },
+    "tracking": {
+        "title": "Tracking"
+    },
+    "education": {
+        "title": "Education"
+    },
+    "logout": "Logout",
+    "title": "Department of Medical Imaging",
+    "version": "ver",
+    "app_name": "Picture Archiving and Communication System",
+    "select": "Please select",
+    "male": "Male",
+    "female": "Female",
+    "save": "Save",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "return": "Return",
+    "second": "second(s)",
+    "suggestion": "This rapid screening result is for reference only. The AI interpretation may be affected by lighting, shooting angle, and phone resolution, leading to errors or blind spots. It cannot replace a physician’s direct examination, and in some cases, a biopsy may be required for an accurate diagnosis. Regardless of symptoms, it is recommended to have a dental cleaning and oral examination every six months, or follow your dentist’s instructions for follow-up visits."
+}

@@ -1,15 +1,25 @@
 version: "3.9"
 services:
-  flask_api:
-    build: ./flask_api
+  server:
+    build: ./server
+
+    container_name: backend
+    restart: always
+    env_file:
+      - ./server/.env
     ports:
       - "5000:5000"
 
-  node_server:
-    build: ./server
+  client:
+    build: 
+      context: ./server
+      args:
+        VITE_API_URL: http://3.26.242.54:5000/api
+
+    container_name: frontend
     ports:
       - "3000:3000"
     environment:
-      - FLASK_API_URL=http://flask_api:5000
+      - FLASK_API_URL=http://server:5000
     depends_on:
-      - flask_api
+      - server
