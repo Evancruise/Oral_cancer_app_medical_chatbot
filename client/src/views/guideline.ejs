@@ -1,0 +1,114 @@
+<section class="oral-photo-guide container mt-4 mb-5">
+  <h2 class="section-title text-center mb-4">📸 八個方位口腔照片拍攝說明</h2>
+  <p class="lead text-center mb-4">
+    為確保 AI 分析及醫師判讀結果的準確性，請依下列步驟拍攝完整的八個方位口腔照片。
+    拍攝時建議使用 <strong>橫向模式</strong>，確保浮水印正確與影像清晰。
+  </p>
+
+  <!-- 一、拍攝準備 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white fw-bold">📍 一、拍攝準備</div>
+    <div class="card-body">
+      <ul class="guide-list mb-0">
+        <li><strong>光線：</strong>保持充足自然光或使用閃光燈，避免陰影與反光。</li>
+        <li><strong>相機方向：</strong>請保持橫向拍攝（App 已自動設定橫屏模式）。</li>
+        <li><strong>對焦：</strong>輕點欲對焦的位置以確保清晰（App 支援點擊自動對焦）。</li>
+        <li><strong>穩定拍攝：</strong>使用單手拉開口腔、另一手持手機，拍攝時勿晃動。</li>
+        <li><strong>浮水印確認：</strong>拍照畫面右下角會自動顯示浮水印，請勿遮擋。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 二、八個標準方位 + 範例圖 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-info text-white fw-bold">📸 二、八個標準方位與範例</div>
+    <div class="card-body">
+      <% const parts = [
+        ["1", "正面咬合照（Front View）", "嘴巴輕咬合，對準雙中切齒正面，拍攝上下牙齒對咬關係。"],
+        ["2", "上顎咬合照（Upper Occlusal）", "張口後鏡頭朝上，拍攝上顎全貌，確保上排牙齒完整入鏡。"],
+        ["3", "下顎咬合照（Lower Occlusal）", "鏡頭朝下，拍攝下排牙齒全貌，可微抬頭以便取景。"],
+        ["4", "右側咬合照（Right Buccal）", "嘴角稍拉開，拍攝右側牙列對咬關係。"],
+        ["5", "左側咬合照（Left Buccal）", "嘴角稍拉開，拍攝左側牙列對咬關係。"],
+        ["6", "右上內側照（Upper Right Palatal）", "鏡頭朝內，拍攝右上牙齒內側面。"],
+        ["7", "左上內側照（Upper Left Palatal）", "鏡頭朝內，拍攝左上牙齒內側面。"],
+        ["8", "舌面全景照（Lingual / Tongue View）", "舌頭自然放鬆，鏡頭對準舌面與口底區域。"]
+      ]; %>
+
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle text-center oral-table">
+          <thead class="table-light">
+            <tr>
+              <th>編號</th>
+              <th>拍攝角度</th>
+              <th>說明</th>
+              <th>範例圖片</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (let i = 0; i < parts.length; i++) { 
+                 const code = parts[i][0];
+                 const title = parts[i][1];
+                 const desc = parts[i][2];
+            %>
+            <tr>
+              <td><%= code %></td>
+              <td><strong><%= title %></strong></td>
+              <td class="text-start"><%= desc %></td>
+              <td>
+                <div class="oral-sample-image">
+                  <img 
+                    src="/static/guideline/<%= code %>.png" 
+                    alt="<%= title %>" 
+                    class="zoomable"
+                  >
+                </div>
+              </td>
+            </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+
+      <blockquote class="tip-box mt-3">
+        小提示：每個部位拍攝後，App 會顯示「預覽畫面」與「備註欄位」，可立即檢查影像清晰度及輸入拍攝狀況。
+      </blockquote>
+    </div>
+  </div>
+
+  <!-- 三、拍攝完成後 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-warning text-dark fw-bold">🧭 三、拍攝完成後</div>
+    <div class="card-body">
+      <ul class="guide-list mb-0">
+        <li>完成每個方位後請回到 <strong>「照片預覽頁面」</strong> 確認：</li>
+        <ul>
+          <li>圖片是否完整、無模糊。</li>
+          <li>浮水印及時間戳記顯示正確。</li>
+        </ul>
+        <li>若影像不清晰，可在預覽畫面中重新拍攝該部位。</li>
+        <li>拍攝完成後點選「上傳」，系統會自動儲存。</li>
+        <li>上傳完所有八張照片後，方可進行口腔辨識流程（約 5～10 秒）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 四、品質要求 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-danger text-white fw-bold">🩺 四、品質要求</div>
+    <div class="card-body">
+      <ul class="guide-list">
+        <li>每張影像需 <strong>對焦明確、牙齒完整呈現</strong>。</li>
+        <li>若使用不同手機拍攝，請確保 <strong>相機解析度至少 1080p</strong>。</li>
+        <li>確認使用最新版本的 App（支援對焦、浮水印、自動橫屏及照片預覽）。</li>
+      </ul>
+      <div class="alert alert-info mt-3 mb-0">
+        <strong>提醒：</strong>建議拍攝完成後即刻上傳，避免圖片遺失或覆蓋。
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔍 Lightbox 結構 -->
+  <div id="lightbox" class="lightbox">
+    <img id="lightbox-img" src="" alt="preview">
+  </div>
+</section>

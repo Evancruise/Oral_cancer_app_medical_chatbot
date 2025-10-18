@@ -103,6 +103,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             hiddenId.value = record_id;
 
+            const lightbox = document.getElementById("lightbox");
+            const lightboxImg = document.getElementById("lightbox-img");
+            const prevBtn = document.getElementById("prevBtn");
+            const nextBtn = document.getElementById("nextBtn");
+            const zoomableImages = document.querySelectorAll(".zoomable");
+
             // 口腔圖片
             for (let i = 1; i <= 8; i++) {
                 const picVal = link.getAttribute(`data-pic${i}`);  // 原本的檔案路徑
@@ -115,13 +121,59 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     if (img.src !== `/static/images/${i}.png`) {
                         img.addEventListener("click", () => {
-                            openImageWindow(img.src);
+                            lightboxImg.src = img.src;
+                            lightbox.classList.add("show");
                         });
                     }
                 }
 
                 console.log("img.src:", img.src);
             }
+
+            let currentIndex = 0;
+
+            // 開啟 Lightbox
+            zoomableImages.forEach((img, index) => {
+                img.addEventListener("click", () => {
+                currentIndex = index;
+                showImage(currentIndex);
+                lightbox.classList.add("show");
+                });
+            });
+
+            // 顯示指定圖片
+            function showImage(index) {
+                if (index < 0) index = zoomableImages.length - 1;
+                if (index >= zoomableImages.length) index = 0;
+                currentIndex = index;
+                lightboxImg.src = zoomableImages[currentIndex].src;
+            }
+
+            // 左右切換按鈕
+            prevBtn.addEventListener("click", e => {
+                e.stopPropagation();
+                showImage(currentIndex - 1);
+            });
+
+            nextBtn.addEventListener("click", e => {
+                e.stopPropagation();
+                showImage(currentIndex + 1);
+            });
+
+            // 點背景關閉
+            lightbox.addEventListener("click", e => {
+                if (e.target === lightbox || e.target === lightboxImg) {
+                lightbox.classList.remove("show");
+                }
+            });
+
+            // 鍵盤操作
+            document.addEventListener("keydown", e => {
+                if (!lightbox.classList.contains("show")) return;
+                if (e.key === "ArrowLeft") showImage(currentIndex - 1);
+                if (e.key === "ArrowRight") showImage(currentIndex + 1);
+                if (e.key === "Escape") lightbox.classList.remove("show");
+            });
         });
     }
 
