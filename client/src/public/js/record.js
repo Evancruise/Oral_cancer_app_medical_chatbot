@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const resultModal = document.getElementById("resultRecordModal");
     const goBackBtn = document.getElementById("btnGoBack");
     const inferenceModal = loadInferenceStageModal("modal-infer-container");
+    const images = document.querySelectorAll(".preview-img");
 
     let uploaded_msg = null;
     let infer_again_msg = null;
@@ -55,6 +56,19 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             riskContainer.classList.add("readonly");
         }
+    }
+
+    function openImageWindow(url) {
+        const width = 900;
+        const height = 600;
+        const left = (screen.width / 2) - (width / 2);
+        const top = (screen.height / 2) - (height / 2);
+
+        window.open(
+            url,
+            "_blank",
+            `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
+        );
     }
 
     setRiskLevel("low");
@@ -404,6 +418,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (input && img) {
                     input.value = picVal || "";
                     img.src = (picVal && picVal.split('/')[3] !== "undefined") ? picVal : `/static/images/${i}.png`;
+                    
+                    if (img.src !== `/static/images/${i}.png`) {
+                        img.addEventListener("click", () => {
+                            openImageWindow(img.src);
+                        });
+                    }
                 }
             }
 
