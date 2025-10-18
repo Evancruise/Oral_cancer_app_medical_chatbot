@@ -7,7 +7,9 @@
     "dashboard": {
         "title": "Home page",
         "content_1": "Welcome",
-        "scan_now": "Scan now"
+        "scan_now": "Scan now",
+        "guideline": 
+        {"title": "Guideline"}
     },
     "parts": {
         "upper_gum": "Upper Gum",
