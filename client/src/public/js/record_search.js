@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log(`status: ${status}`);
         console.log(`category: ${category}`);
 
-        // 👤 篩選上傳帳號
+        // 篩選上傳帳號
         if (uploader !== "all") {
             filtered = filtered.filter(item => item[0].name === uploader);
         }
@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
             filtered = filtered.filter(item => item[0].status === null || item[0].status === status);
         }
 
-        // 🏷 篩選分類結果
+        // 篩選分類結果
         if (category !== "all") {
             filtered = filtered.filter(item => item[0].result === null || item[0].result === category);
         }

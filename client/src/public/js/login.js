@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (code) {
                 scannedContent = code.data;
-                console.log("✅ QR Code Detected:", scannedContent);
+                console.log("QR Code Detected:", scannedContent);
                 resultDiv.innerText = `掃描成功，驗證中...`;
 
                 stopCamera();
@@ -76,13 +76,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 .then(res => res.json())
                 .then(data => {
                     console.log("伺服器回應:", data);
-                    resultDiv.innerText = `✅ ${data.message}`;
+                    resultDiv.innerText = `${data.message}`;
                     // 如果要自動導向，可以這樣做：
                     // if (data.success) window.location.href = "/dashboard";
                 })
                 .catch(err => {
                     console.error("驗證失敗:", err);
-                    resultDiv.innerText = "❌ QR Code 驗證失敗，請重試";
+                    resultDiv.innerText = "QR Code 驗證失敗，請重試";
                 });
 
                 return;
@@ -130,35 +130,35 @@ document.addEventListener("DOMContentLoaded", () => {
         let ws;
 
         try {
-        ws = new WebSocket(wsUrl);
-        connectionMode = "ws";
-        console.log("🛰 嘗試連線 WebSocket:", wsUrl);
+            ws = new WebSocket(wsUrl);
+            connectionMode = "ws";
+            console.log("🛰 嘗試連線 WebSocket:", wsUrl);
 
-        ws.onopen = () => {
-            console.log("✅ WebSocket 已連線");
-            ws.send(JSON.stringify({ type: "register", qr_token: qrToken }));
-        };
+            ws.onopen = () => {
+                console.log("✅ WebSocket 已連線");
+                ws.send(JSON.stringify({ type: "register", qr_token: qrToken }));
+            };
 
-        ws.onmessage = (event) => {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "authenticated") {handleLoginSuccess(msg.token);}
-        };
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "authenticated") {handleLoginSuccess(msg.token);}
+            };
 
-        ws.onerror = () => {
-            console.warn("⚠️ WebSocket 錯誤，切換 SSE 模式");
-            if (ws) {ws.close();}
+            ws.onerror = () => {
+                console.warn("⚠️ WebSocket 錯誤，切換 SSE 模式");
+                if (ws) {ws.close();}
+                connectSSE(qrToken);
+            };
+
+            ws.onclose = () => {
+                if (connectionMode === "ws") {
+                console.warn("⚠️ WebSocket 已關閉，改用 SSE");
+                connectSSE(qrToken);
+                }
+            };
+            } catch (err) {
+            console.error("❌ WebSocket 初始化失敗:", err);
             connectSSE(qrToken);
-        };
-
-        ws.onclose = () => {
-            if (connectionMode === "ws") {
-            console.warn("⚠️ WebSocket 已關閉，改用 SSE");
-            connectSSE(qrToken);
-            }
-        };
-        } catch (err) {
-        console.error("❌ WebSocket 初始化失敗:", err);
-        connectSSE(qrToken);
         }
     }
 
@@ -171,7 +171,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("qr-image").src = data.qrImage;
         // document.getElementById("status").innerText = "等待掃描...";
 
-        // 這裡 data.token 就是病患要掃的內容
         //connectWebSocket(qrToken);
         //checkStatus(qrToken);
         //tryWebSocketOrSSE(qrToken);

@@ -37,7 +37,7 @@ if (form) {
 
         showModal("信箱寄出成功，請查收", () => {
             setTimeout(() => {
-                window.location.href = data.redirect; // 怎麼引入 data.name?
+                window.location.href = data.redirect;
             }, 1500);
         }, () => {
 

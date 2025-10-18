@@ -51,11 +51,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
             showModal(`${data.message}`, () => {
                 setTimeout(() => {
-                    window.location.href = data.redirect; // 怎麼引入 data.name?
+                    window.location.href = data.redirect;
                 }, 1500);
             }, () => {
                 setTimeout(() => {
-                    window.location.href = data.redirect; // 怎麼引入 data.name?
+                    window.location.href = data.redirect;
                 }, 1500);
             });
         });
@@ -98,7 +98,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.log(`picVal: ${picVal}`);
 
                 if (img) {
-                    img.src = (picVal && picVal.split('/')[3] !== "undefined") ? picVal : `/static/images/${i}.png`; // 如果沒有就顯示預設圖
+                    img.src = (picVal && picVal.split('/')[3] !== "undefined") ? picVal : `/static/images/${i}.png`;
                 }
 
                 console.log("img.src:", img.src);

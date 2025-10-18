@@ -204,11 +204,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
             showModal("新增病例成功", () => {
                 setTimeout(() => {
-                    window.location.href = data.redirect; // 怎麼引入 data.name?
+                    window.location.href = data.redirect;
                 }, 1500);
             }, () => {
                 setTimeout(() => {
-                    window.location.href = data.redirect; // 怎麼引入 data.name?
+                    window.location.href = data.redirect;
                 }, 1500);
             });
         });
@@ -293,11 +293,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 showModal(data.message, () => {
                     setTimeout(() => {
-                        window.location.href = data.redirect; // 怎麼引入 data.name?
+                        window.location.href = data.redirect;
                     }, 1500);
                 }, () => {
                     setTimeout(() => {
-                        window.location.href = data.redirect; // 怎麼引入 data.name?
+                        window.location.href = data.redirect;
                     }, 1500);
                 });
             }
@@ -403,7 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (input && img) {
                     input.value = picVal || "";
-                    img.src = (picVal && picVal.split('/')[3] !== "undefined") ? picVal : `/static/images/${i}.png`; // 如果沒有就顯示預設圖
+                    img.src = (picVal && picVal.split('/')[3] !== "undefined") ? picVal : `/static/images/${i}.png`;
                 }
             }
 
@@ -428,10 +428,7 @@ document.addEventListener("DOMContentLoaded", () => {
         resultModal.addEventListener("show.bs.modal", (event) => {
             // 觸發 modal 的按鈕
             const button = event.relatedTarget;
-
             console.log("這個 modal 是由以下按鈕觸發的:", button.id);
-            
-            // 你可以把它記錄到 modal 裡
             resultModal.setAttribute("data-trigger-id", button.id);
         });
     }
