@@ -10,7 +10,7 @@
           <i class="fa-solid fa-camera-retro"></i>
         </div>
         <h6>📸 <%= t("dashboard.scan_now") %></h6>
-        <a href="/scan" class="stretched-link"></a>
+        <a href="/api/auth//scan?token=<%= token %>" class="stretched-link"></a>
       </div>
     </div>
 
@@ -21,7 +21,7 @@
           <i class="fa-solid fa-file-medical"></i>
         </div>
         <h6>📝 <%= t("record.title") %></h6>
-        <a href="/api/auth/record" class="stretched-link"></a>
+        <a href="/api/auth/record?token=<%= token %>" class="stretched-link"></a>
       </div>
     </div>
     
@@ -32,7 +32,7 @@
           <i class="fa-solid fa-file-medical"></i>
         </div>
         <h6><i class="fas fa-key"></i> <%= t("quick_chgpwd.title") %></h6>
-        <a href="/api/auth/quick_changepwd" class="stretched-link"></a>
+        <a href="/api/auth/quick_changepwd?token=<%= token %>" class="stretched-link"></a>
       </div>
     </div>
     
@@ -43,7 +43,7 @@
           <i class="fa-solid fa-file-medical"></i>
         </div>
         <h6><i class="fas fa-link"></i> <%= t("rebind_account.title") %></h6>
-        <a href="/api/auth/rebind_page" class="stretched-link"></a>
+        <a href="/api/auth/rebind_page?token=<%= token %>" class="stretched-link"></a>
       </div>
     </div>
 
@@ -54,7 +54,7 @@
           <i class="fa-solid fa-calendar-check"></i>
         </div>
         <h6>📅 <%= t("reminder.title") %></h6>
-        <a href="/reminder" class="stretched-link"></a>
+        <a href="/api/auth/reminder?token=<%= token %>" class="stretched-link"></a>
       </div>
     </div>
 
@@ -65,7 +65,18 @@
           <i class="fa-solid fa-heart-pulse"></i>
         </div>
         <h6>📊 <%= t("tracking.title") %></h6>
-        <a href="/tracking" class="stretched-link"></a>
+        <a href="/api/auth/tracking?token=<%= token %>" class="stretched-link"></a>
+      </div>
+    </div>
+
+    <!-- 📊 操作指引 -->
+    <div class="col">
+      <div class="card dashboard-card text-center">
+        <div class="icon-circle bg-danger text-white">
+          <i class="fa-solid fa-heart-pulse"></i>
+        </div>
+        <h6>📊 <%= t("dashboard.guideline.title") %></h6>
+        <a href="/api/auth/guideline?token=<%= token %>" class="stretched-link"></a>
       </div>
     </div>
 
@@ -76,7 +87,7 @@
           <i class="fa-solid fa-graduation-cap"></i>
         </div>
         <h6>🎥 <%= t("education.title") %></h6>
-        <a href="/education" class="stretched-link"></a>
+        <a href="/api/auth/education?token=<%= token %>" class="stretched-link"></a>
       </div>
     </div>
 

@@ -229,7 +229,7 @@ export const signup = async (req, res, next) => {
       console.log(`Signing with: ${process.env.JWT_SECRET}`);
 
       const token = jwt.sign(
-        { id: user.id, email: user.email, password: user.password, role: user.role },
+        { id: user.id, name: user.name, email: user.email, password: user.password, role: user.role, login_role: user.login_role },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN },
       );
@@ -337,12 +337,21 @@ export const signin = async (req, res, next) => {
 
     console.log(`SIGN secret length: ${process.env.JWT_SECRET.length}`);
     console.log(`SIGN secret hex: ${Buffer.from(process.env.JWT_SECRET).toString("hex")}`);
+    console.log(`const token = jwt.sign(
+      { id: ${user.id}, name: ${user.name}, email: ${user.email}, password: ${user.password}, role: ${user.role}, login_role: ${login_role} },
+      process.env.JWT_SECRET,
+      { expiresIn: ${config.expireTime} },
+    );`);
 
     const token = jwt.sign(
       { id: user.id, name: user.name, email: user.email, password: user.password, role: user.role, login_role: login_role },
       process.env.JWT_SECRET,
       { expiresIn: config.expireTime },
     );
+
+    req.session.token = token;
+    req.session.userName = user.name;
+    req.session.t = req.t;
 
     res.cookie("token", token, {
       httpOnly: true,
@@ -377,7 +386,7 @@ export const signin = async (req, res, next) => {
 };
 
 function priority_from_role(role) {
-  let priority = -1;
+  let priority = 3;
 
   if (role === "tester") {
     priority = 3;
@@ -417,12 +426,36 @@ export const dashboard = (req, res) => {
   }
 };
 
+export const guideline = async (req, res) => {
+  //try {
+    const token = req.query.token;
+
+    console.log(`[--------------------guideline-------------------] token: ${token}`);
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+
+    if (!token) {
+      if (!decoded) {
+        return res.redirect(`/api/auth/homepage`);
+      }
+      return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+    }
+
+    res.render("guideline", { name: decoded.name, t: req.t, path: "/api/auth/guideline", priority: priority_from_role(decoded.role), token: token, layout: "base" });
+  //} catch (err) {
+  //  console.error(err);
+  //  return res.redirect(`/api/auth/homepage`);
+  //}
+};
+
 function formatDateTime(date) {
     if (!(date instanceof Date)) {date = new Date(date);}
     const iso = date.toISOString();
     const [day, time] = iso.split("T");
     return `${day} ${time.split(".")[0]}`;
-}
+};
 
 export const record = async (req, res) => {
   //try {

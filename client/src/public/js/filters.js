@@ -14,7 +14,6 @@ export function applyFilters(rows) {
 
   if (rows.length === 0) {return rows;}
 
-   // 攤平成一維陣列
   const flatRows = rows.flat();
 
   console.log("flatRows:", flatRows);

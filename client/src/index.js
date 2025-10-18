@@ -90,6 +90,13 @@ app.use('/static', express.static('node_modules/bootstrap/dist'));
 app.use("/static", express.static(path.join(__dirname, "tmp")));
 app.use("/static", express.static(path.join(__dirname, "public")));
 
+app.use((req, res, next) => {
+  res.locals.token = req.session.token;
+  res.locals.name = req.session.userName;
+  res.locals.t = req.t;
+  next();
+});
+
 app.get("/", homepage);
 
 app.use('/api/auth', authRoutes);

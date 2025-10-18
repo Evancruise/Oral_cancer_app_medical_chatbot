@@ -92,6 +92,7 @@ export const getAllUsers = async () => {
             email,
             name,
             role,
+            login_role,
             unit,
             password,
             created_at,

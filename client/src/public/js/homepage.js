@@ -5,7 +5,6 @@ document.addEventListener("DOMContentLoaded", () => {
         button.addEventListener("click", async () => {
             const login_role = button.dataset.role;
 
-            // 切換 active 樣式
             roleButtons.forEach(btn => btn.classList.remove("active"));
             button.classList.add("active");
 

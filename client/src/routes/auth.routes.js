@@ -16,6 +16,7 @@ import { lang_get,
          signin,
          signout,
          dashboard,
+         guideline,
          record,
          new_record,
          edit_record,
@@ -86,6 +87,7 @@ router.post("/sign-in", signin);
 router.get("/sign-out", signout);
 
 router.get("/dashboard", dashboard);
+router.get("/guideline", guideline);
 
 router.get("/record", record);
 router.post("/temp_upload", temp_upload);

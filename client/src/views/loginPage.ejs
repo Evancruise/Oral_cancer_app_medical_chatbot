@@ -17,7 +17,8 @@
                     <div class="header">
                         <img src="/static/images/logo.png" alt="App Logo" class="logo" />
                     </div>
-                    
+                    <input type="text" id="login_role" name="login_role" value="<%= login_role %>" hidden/>
+
                     <div class="form-group">
                         <label for="name">使用者姓名</label>
                         <input
@@ -64,7 +65,7 @@
         </div>
         
         <div class="login-form-patient <%= login_role === 'patient' ? '' : 'hidden' %>" id="patient">
-            <form class="login-form" action="/api/auth/sign-in" id="patient-tab">
+            <form class="login-form" action="/api/auth/sign-in" id="patient-tab" hidden>
 
                 <!-- 🔹 整體容器：左右排列 -->
                 <div class="login-container">
@@ -91,6 +92,8 @@
                     <!-- ✅ 右側：正常登入 -->
                     <div class="login-right">
                         <h3 class="login-title">🧾 正常登入</h3>
+
+                        <input type="text" id="login_role" name="login_role" value="<%= login_role %>" hidden/>
 
                         <div class="form-group">
                         <label for="name">使用者姓名</label>
