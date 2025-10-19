@@ -4,6 +4,7 @@ loadModal("modal-container");
 
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("changepwd_form");
+    const goBackBtn = document.getElementById("btnGoBack");
 
     if (form) {
         form.addEventListener("submit", async (e) => {

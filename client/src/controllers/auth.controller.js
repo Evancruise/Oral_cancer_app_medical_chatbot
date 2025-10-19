@@ -15,7 +15,7 @@ import ExcelJS from "exceljs";
 import { config, default_config } from "#config/config.js";
 import { createUser, createRegister } from "#services/auth.service.js";
 import { getRegister, updateRegister } from "#services/register.service.js";
-import { updateUserPassword, updateUserTableFromRegister, 
+import { updateUserPassword, updateUserTableFromRegister, updateUserGroup, 
          getUser, getAllUsers, updateUser, deleteUser, getTempUser } from "#services/user.service.js";
 import { getRecord, createRecord, updateRecord, updateRecordStatus, deleteRecord, getAllRecords,
          getDiscardRecord, deleteDiscardRecord, recoverRecord} from "#services/record.service.js";
@@ -351,6 +351,7 @@ export const signin = async (req, res, next) => {
 
     req.session.token = token;
     req.session.userName = user.name;
+    req.session.userId = user.id;
     req.session.t = req.t;
 
     res.cookie("token", token, {
@@ -426,12 +427,63 @@ export const dashboard = (req, res) => {
   }
 };
 
-export const guideline = async (req, res) => {
-  //try {
+export const privacy_setting = async (req, res) => {
+  try {
     const token = req.query.token;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log(`[--------------------guideline-------------------] token: ${token}`);
+    if (!token) {
+      if (!decoded) {
+        return res.redirect(`/api/auth/homepage`);
+      }
+      return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+    }
 
+    res.render("privacypage", { name: decoded.name, t: req.t, path: "/api/auth/privacy", priority: priority_from_role(decoded.role), token: token, layout: "base" });
+  } catch (err) {
+    console.error(err);
+    return res.redirect(`/api/auth/homepage`);
+  }
+};
+
+export const save_privacy_setting = async (req, res) => {
+  try {
+    const body = req.body;
+    const token = body.token;
+
+    console.log(`body = ${JSON.stringify(body)}`);
+    // const { shareAnalysis, allowResearch, notifyResult, notifyReminder } = body;
+    const user_id = req.session.userId;
+
+    const fieldnames = ["shareAnalysis", "allowResearch", "notifyResult", "notifyReminder"];
+    const values = { id: user_id };
+
+    // db.query("UPDATE users SET privacy_prefs = ? WHERE id = ?", [body, user_id]);
+    /*
+    await updateUserGroup(
+      ["email", "role", "status"],         // 欲更新欄位
+      { id: 5 },                           // WHERE 條件
+      { email: "new@test.com", role: "admin", status: "active" } // 更新值
+    );
+    */
+    const user = await updateUserGroup(fieldnames, values, body);
+    console.log(`user: ${JSON.stringify(user)}`);
+
+    if (user && user.length !== 0) {
+      return res.status(201).json({ success: true, redirect: `/api/auth/privacy?token=${token}` });
+    } else {
+      return res.status(201).json({ success: false, redirect: `/api/auth/privacy?token=${token}` });
+    }
+
+  } catch (err) {
+    console.error(err);
+    return res.redirect(`/api/auth/homepage`);
+  }
+};
+
+export const guideline = async (req, res) => {
+  try {
+    const token = req.query.token;
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     console.log(`decoded: ${JSON.stringify(decoded)}`);
@@ -444,10 +496,10 @@ export const guideline = async (req, res) => {
     }
 
     res.render("guideline", { name: decoded.name, t: req.t, path: "/api/auth/guideline", priority: priority_from_role(decoded.role), token: token, layout: "base" });
-  //} catch (err) {
-  //  console.error(err);
-  //  return res.redirect(`/api/auth/homepage`);
-  //}
+  } catch (err) {
+    console.error(err);
+    return res.redirect(`/api/auth/homepage`);
+  }
 };
 
 function formatDateTime(date) {

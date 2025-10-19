@@ -1,0 +1,110 @@
+<section class="privacy-settings">
+  <!-- 
+  <h2 class="text-center mb-4">
+    🔒 <%= t("privacy.title") || "隱私設定與資料保護" %>
+  </h2> 
+
+  <p class="text-muted text-center mb-5">
+    為確保您的醫療資料安全與個資權益，本應用遵循《個資法》及國際醫療資料保護規範（HIPAA / GDPR）。
+    您可在此調整個人隱私偏好與資料控制項。
+  </p>
+  -->
+  <form method="POST" action="/api/auth/save_privacy_setting" id="privacy_settings_form">
+
+    <!-- 🧱 資料分享設定 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white fw-bold">🧩 資料分享與使用</div>
+        <div class="card-body">
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" name="shareAnalysis" id="shareAnalysis" checked>
+            <label class="form-check-label" for="shareAnalysis">允許 AI 分析結果上傳至雲端進行判讀</label>
+        </div>
+
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="allowResearch" id="allowResearch" checked> 
+            <label class="form-check-label" for="allowResearch">允許研究用途之匿名化資料分析</label>
+        </div>
+        <p class="small text-muted mt-2">※ 您的影像資料在研究分析中將完全去識別化，不會包含姓名或聯絡資訊。</p>
+        </div>
+    </div>
+
+    <!-- 🔐 帳號與資料安全 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white fw-bold">🔐 帳號與資料安全</div>
+        <div class="card-body">
+        <p>我們使用多層安全機制確保您的帳號資料安全：</p>
+        <ul>
+            <li>密碼需包含大小寫、數字及特殊符號，長度至少 8 碼。</li>
+            <li>登入與上傳皆經 HTTPS 加密。</li>
+            <li>帳號登入失敗達 5 次將暫時鎖定 15 分鐘。</li>
+        </ul>
+        <a href="/api/auth/quick_changepwd?token=<%= token %>" class="btn btn-outline-success btn-sm mt-2">
+            <i class="fas fa-key"></i> 修改密碼
+        </a>
+        </div>
+    </div>
+
+    <input type="text" name="token" id="token" value="<%= token %>" hidden>
+
+    <!-- 🧾 資料存取與匯出 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white fw-bold">📊 資料存取與匯出</div>
+        <div class="card-body">
+        <p>您可以匯出個人上傳紀錄或要求刪除所有資料：</p>
+        <button class="btn btn-outline-info btn-sm mt-2">
+            <i class="fas fa-file-export"></i> 匯出我的上傳紀錄 (CSV)
+        </button>
+        <button class="btn btn-outline-danger btn-sm mt-2" id="deleteDataBtn">
+            <i class="fas fa-trash-alt"></i> 刪除我的資料
+        </button>
+        <p class="small text-muted mt-2">※ 匯出資料僅限本人帳號使用，系統將記錄操作時間與來源。</p>
+        </div>
+    </div>
+
+    <!-- 🔔 通知設定 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark fw-bold">🔔 通知設定</div>
+        <div class="card-body">
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" name="notifyResult" id="notifyResult" checked>
+            <label class="form-check-label" for="notifyResult">開啟 AI 分析結果通知</label>
+        </div>
+
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="notifyReminder" id="notifyReminder" checked>
+            <label class="form-check-label" for="notifyReminder">開啟回診提醒通知</label>
+        </div>
+        </div>
+    </div>
+
+    <!-- 📜 隱私權政策 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white fw-bold">📜 隱私權政策與合規</div>
+        <div class="card-body">
+        <p>
+            本應用遵循：
+            <ul>
+            <li>《個人資料保護法》（Personal Data Protection Act, Taiwan）</li>
+            <li>HIPAA（美國醫療資訊隱私法）</li>
+            <li>GDPR（歐盟一般資料保護規範）</li>
+            </ul>
+        </p>
+        <p class="text-muted small">更新日期：2025-10-18</p>
+        <a href="/privacy-policy" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-external-link-alt"></i> 查看完整隱私權政策
+        </a>
+        </div>
+    </div>
+
+    <!-- 🧭 確認區 -->
+    <div class="text-center mt-4">
+        <button type="submit" class="btn-submit"> <i class="fas fa-save"></i> 儲存設定 </button>
+    </div>
+
+    <div class="modal-footer-1">
+        <div class="center-btn">
+            <a href="/api/auth/dashboard?token=<%= token %>" class="btn-return"> <%= t("return") %> </a>
+        </div>
+    </div>
+  </form>
+</section>

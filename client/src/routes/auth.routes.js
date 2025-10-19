@@ -38,7 +38,9 @@ import { lang_get,
          get_inference_status,
          chatbot,
          reset,
-         new_account} from '#controllers/auth.controller.js';
+         new_account,
+         privacy_setting,
+         save_privacy_setting} from '#controllers/auth.controller.js';
 
 import multer from "multer";
 import i18next from "i18next";
@@ -88,6 +90,9 @@ router.get("/sign-out", signout);
 
 router.get("/dashboard", dashboard);
 router.get("/guideline", guideline);
+
+router.get("/privacy", privacy_setting);
+router.post("/save_privacy_setting", save_privacy_setting);
 
 router.get("/record", record);
 router.post("/temp_upload", temp_upload);

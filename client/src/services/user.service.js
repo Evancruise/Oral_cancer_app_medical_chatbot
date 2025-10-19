@@ -59,6 +59,10 @@ export const createUsersTable = async () => {
         unit VARCHAR(100) DEFAULT 'personal',
         is_used BOOLEAN DEFAULT false,
         note TEXT,
+        shareAnalysis TEXT,
+        allowResearch TEXT,
+        notifyResult TEXT,
+        notifyReminder TEXT,
         qr_token VARCHAR(255) UNIQUE,
         status VARCHAR(50) DEFAULT 'deactivated',
         created_at TIMESTAMPTZ DEFAULT NOW(), 
@@ -88,16 +92,7 @@ export const getAllUsers = async () => {
     try {
         const result = await sql`
           SELECT
-            id,
-            email,
-            name,
-            role,
-            login_role,
-            unit,
-            password,
-            created_at,
-            updated_at,
-            allowed_loggin_at 
+            *
           FROM users
         `;
         return result;
@@ -164,6 +159,49 @@ export const markQrUsed = async (qr_token) => {
 
     console.log("Updated users Successfully");
     return updated[0];
+};
+
+export const updateUserGroup = async (fieldnames, values = null, updates = null) => {
+    if (!updates || Object.keys(updates).length === 0) {
+      throw new Error("No update data provided");
+    }
+
+    const setClauses = [];
+    const params = [];
+    let paramIndex = 1;
+
+    // 動態產生 SET 子句
+    for (const field of fieldnames) {
+      if (updates[field] !== undefined && updates[field] !== null) {
+        setClauses.push(`${field} = $${paramIndex++}`);
+        params.push(updates[field]);
+      }
+    }
+
+    // 動態產生 WHERE 子句
+    const whereClauses = [];
+    if (values) {
+      for (const key in values) {
+        whereClauses.push(`${key} = $${paramIndex++}`);
+        params.push(values[key]);
+      }
+    }
+
+    // 組合 SQL 字串
+    const sqlText = `
+      UPDATE users
+      SET ${setClauses.join(", ")}
+      ${whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : ""}
+      RETURNING *;
+    `;
+
+    console.log("📜 SQL:", sqlText);
+    console.log("🧩 Params:", params);
+
+    const result = await sql.query(sqlText, params);
+
+    console.log(`result: ${result}`);
+    return result[0];
 };
 
 export const updateUser = async (fieldname, value = null, updates = null) => {

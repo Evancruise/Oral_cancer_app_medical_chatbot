@@ -1,0 +1,17 @@
+.privacy-settings {
+  width: 100%;
+  padding: 0 1rem;
+}
+.privacy-settings .card {
+  width: 100%;
+  margin: 0 auto 1.5rem auto; /* 置中且留下間距 */
+  box-sizing: border-box;
+}
+.card-header {
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
+}
+.btn-outline-danger:hover {
+  color: white !important;
+  background-color: #dc3545 !important;
+}
