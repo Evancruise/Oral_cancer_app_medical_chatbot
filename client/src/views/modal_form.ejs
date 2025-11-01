@@ -1,0 +1,59 @@
+<div class="modal fade reminder-modal" id="<%= modalId %>" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form class="reminder-form" enctype="multipart/form-data" aria-describedby="reminderHint">
+        <div class="modal-header custom-modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-plus fa-beat"></i> <%= title %>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <input type="hidden" name="name" value="<%= name %>">
+        <input type="hidden" name="token" value="<%= token %>">
+        <input type="hidden" name="email" value="<%= email %>">
+
+        <div class="mb-3">
+          <label for="date-<%= modalId %>" class="form-label">日期時間</label>
+          <input type="datetime-local" class="form-control" id="date-<%= modalId %>" name="date" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="doctor-<%= modalId %>" class="form-label">醫師</label>
+          <input type="text" class="form-control" id="doctor-<%= modalId %>" name="doctor_name" placeholder="例如：王大明">
+        </div>
+
+        <div class="mb-3">
+          <label for="location-<%= modalId %>" class="form-label">院區 / 地點</label>
+          <input type="text" class="form-control" id="location-<%= modalId %>" name="location" placeholder="例如：信義院區 A 棟">
+        </div>
+
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="notify_switch-<%= modalId %>" name="notify_switch">
+          <label class="form-check-label" for="notify_switch-<%= modalId %>">開啟通知</label>
+        </div>
+
+        <div class="mb-3">
+          <label for="notify_timer-<%= modalId %>" class="form-label">提醒時點</label>
+          <select class="form-select" id="notify_timer-<%= modalId %>" name="notify_timer">
+            <option value="1daybefore">前 1 天</option>
+            <option value="1hourbefore">前 1 小時</option>
+            <option value="now">當下</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="notes-<%= modalId %>" class="form-label">備註</label>
+          <textarea class="form-control form-notes" id="notes-<%= modalId %>" name="notes" placeholder="（選填）帶健保卡、近期化驗報告…"></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" name="action" value="<%= action %>" class="btn btn-primary btn-save-reminder">
+            <%= action === 'create' ? '新增提醒' : '儲存提醒' %>
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%= t("cancel") %></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

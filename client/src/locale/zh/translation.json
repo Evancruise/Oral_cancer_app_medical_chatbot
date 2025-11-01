@@ -1,4 +1,5 @@
 {
+    "version": "v1.1",
     "setting": "使用設定",
     "privacy": "隱私設定",
     "loginPage": {
@@ -77,7 +78,7 @@
         "close_msg": "關閉掃描器",
         "open_msg": "開啟擾描器"
     },
-    "reminder": {
+    "appointments": {
         "title": "回診提醒"
     },
     "tracking": {
@@ -88,7 +89,6 @@
     },
     "logout": "登出",
     "title": "台大影像醫學部",
-    "version": "ver",
     "app_name": "益口拍 - 病歷影像記錄系統",
     "select": "請選擇",
     "male": "男",

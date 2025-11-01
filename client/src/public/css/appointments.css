@@ -1,0 +1,258 @@
+/* === Grid layout === */
+.grid.cols-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+}
+
+/* === Card === */
+.card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: 20px;
+  transition: box-shadow 0.25s ease;
+}
+.card:hover {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.card h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2b2b2b;
+  margin-bottom: 14px;
+}
+
+/* === Table === */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  vertical-align: middle;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.table thead th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  text-align: center;
+  color: #333;
+}
+
+.table tbody tr:hover {
+  background-color: #f9fcff;
+}
+
+.table tbody tr:nth-child(even) {
+  background-color: #fcfcfc;
+}
+
+/* 日期分組行 */
+.table .bg-light {
+  background-color: #f3f3f3 !important;
+  font-weight: 600;
+  color: #222;
+  text-align: left;
+}
+
+/* === Reminder labels === */
+.notify-timer {
+  font-weight: 500;
+}
+
+.notify-timer.day-before {
+  color: #0d6efd; /* 藍色 */
+}
+
+.notify-timer.hour-before {
+  color: #0a9396; /* 綠藍色 */
+}
+
+.notify-timer.now {
+  color: #f59e0b; /* 橘色 */
+}
+
+.notify-timer.none {
+  color: #999;
+  font-style: italic;
+}
+
+/* === Buttons === */
+.btn {
+  font-size: 0.9rem;
+  border-radius: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+/* 顏色分類 */
+.btn-edit {
+  color: #0d6efd;
+  border-color: #0d6efd;
+  background-color: transparent;
+}
+.btn-edit:hover {
+  background-color: #0d6efd;
+  color: #fff;
+}
+
+.btn-confirm {
+  color: #198754;
+  border-color: #198754;
+  background-color: transparent;
+}
+.btn-confirm:hover {
+  background-color: #198754;
+  color: #fff;
+}
+
+.btn-cancel {
+  color: #dc3545;
+  border-color: #dc3545;
+  background-color: transparent;
+}
+.btn-cancel:hover {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.center-btn {
+  text-align: center;
+  margin-top: 16px;
+}
+
+/* === Modal === */
+.reminder-modal .modal-content {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.custom-modal-header {
+  background: linear-gradient(90deg, #007bff 0%, #6f42c1 100%);
+  color: #fff;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.custom-modal-header .modal-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.custom-modal-header .btn-close {
+  filter: invert(1);
+}
+
+/* === Form === */
+.reminder-form {
+  padding: 20px;
+}
+
+.reminder-form label {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.reminder-form .form-control,
+.reminder-form .form-select {
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+}
+
+.reminder-form .form-control:focus,
+.reminder-form .form-select:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.25);
+  outline: none;
+}
+
+/* === Checkbox alignment === */
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  width: 1.1em;
+  height: 1.1em;
+  cursor: pointer;
+}
+
+.form-check-label {
+  font-size: 0.95rem;
+  color: #444;
+}
+
+/* === Notes textarea === */
+.form-notes {
+  resize: vertical;
+  min-height: 80px;
+  max-height: 220px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* === Modal footer === */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+}
+
+.modal-footer .btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.modal-footer .btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.modal-footer .btn-secondary {
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+
+.modal-footer .btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  .grid.cols-2 {
+    grid-template-columns: 1fr;
+  }
+  .reminder-form {
+    padding: 16px;
+  }
+  .table th,
+  .table td {
+    font-size: 0.85rem;
+    padding: 6px 8px;
+  }
+  .modal-content {
+    border-radius: 8px;
+  }
+}
+
+/* === Datetime input fix === */
+input[type="datetime-local"].form-control {
+  min-height: 42px;
+  padding: 8px 10px;
+}

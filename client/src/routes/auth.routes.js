@@ -17,6 +17,8 @@ import { lang_get,
          signout,
          dashboard,
          guideline,
+         appointments,
+         update_appointment,
          record,
          new_record,
          edit_record,
@@ -40,7 +42,8 @@ import { lang_get,
          reset,
          new_account,
          privacy_setting,
-         save_privacy_setting} from '#controllers/auth.controller.js';
+         save_privacy_setting,
+         update_appointment_status} from '#controllers/auth.controller.js';
 
 import multer from "multer";
 import i18next from "i18next";
@@ -90,6 +93,9 @@ router.get("/sign-out", signout);
 
 router.get("/dashboard", dashboard);
 router.get("/guideline", guideline);
+router.get("/appointments", appointments);
+router.post("/update_appointment", update_appointment);
+router.post("/update_appointment_status", update_appointment_status);
 
 router.get("/privacy", privacy_setting);
 router.post("/save_privacy_setting", save_privacy_setting);

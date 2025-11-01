@@ -45,35 +45,7 @@ export const fetchAllDiscardRecords = async (req, res, next) => {
 export const getAllRecords = async () => {
     try {
         const result = await sql`
-          SELECT
-            id,
-            name,
-            gender,
-            age,
-            patient_id,
-            created_at,
-            updated_at,
-            result,
-            notes,
-            status,
-            result,
-            img1,
-            img2,
-            img3,
-            img4,
-            img5,
-            img6,
-            img7,
-            img8,
-            img1_result,
-            img2_result,
-            img3_result,
-            img4_result,
-            img5_result,
-            img6_result,
-            img7_result,
-            img8_result 
-          FROM records
+          SELECT * FROM records
         `;
         return result;
     } catch (e) {
@@ -85,33 +57,7 @@ export const getAllRecords = async () => {
 export const getAllDiscardRecords = async () => {
     try {
         const result = await sql`
-          SELECT
-            id,
-            name,
-            gender,
-            age,
-            patient_id,
-            created_at,
-            updated_at,
-            result,
-            notes,
-            img1,
-            img2,
-            img3,
-            img4,
-            img5,
-            img6,
-            img7,
-            img8,
-            img1_result,
-            img2_result,
-            img3_result,
-            img4_result,
-            img5_result,
-            img6_result,
-            img7_result,
-            img8_result 
-          FROM records_gb
+          SELECT * FROM records_gb
         `;
         return result;
     } catch (e) {

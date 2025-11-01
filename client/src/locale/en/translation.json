@@ -1,4 +1,5 @@
 {
+    "version": "v1.1",
     "setting": "System setting",
     "privacy": "Privacy",
     "loginPage": {
@@ -78,7 +79,7 @@
         "close_msg": "Close",
         "open_msg": "Open"
     },
-    "reminder": {
+    "appointments": {
         "title": "Reminder"
     },
     "tracking": {
@@ -89,7 +90,6 @@
     },
     "logout": "Logout",
     "title": "Department of Medical Imaging",
-    "version": "ver",
     "app_name": "Picture Archiving and Communication System",
     "select": "Please select",
     "male": "Male",

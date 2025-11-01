@@ -33,10 +33,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 二次確認刪除資料
-    deleteBtn.addEventListener("click", () => {
-        if (confirm("⚠️ 您確定要刪除所有個人資料與上傳影像嗎？此操作無法復原！")) {
-            showModal("🗑️ 已送出資料刪除請求，系統將於 3 日內處理。");
-        }
-    });
+    if (deleteBtn) {
+        deleteBtn.addEventListener("click", () => {
+            if (confirm("⚠️ 您確定要刪除所有個人資料與上傳影像嗎？此操作無法復原！")) {
+                showModal("🗑️ 已送出資料刪除請求，系統將於 3 日內處理。");
+            }
+        });
+    }
 });

@@ -20,11 +20,13 @@ import authRoutes from "#routes/auth.routes.js";
 import userRoutes from "#routes/user.routes.js";
 import registerRoutes from "#routes/register.routes.js";
 import recordRoutes from "#routes/record.routes.js";
+import appointmentRoutes from "#routes/appointment.routes.js";
 
 import { removeUserTable } from "#services/user.service.js";
 import { createUsersTable } from "#services/auth.service.js";
 import { removeRegisterTable } from "#services/register.service.js";
 import { createRegisterTable } from "#services/auth.service.js";
+import { createAppointmentTable, removeAppointmentTable } from "#services/appointment.service.js";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -32,8 +34,10 @@ const __dirname = path.dirname(__filename);
 
 await removeUserTable();
 await removeRegisterTable();
+await removeAppointmentTable();
 await createUsersTable();
 await createRegisterTable();
+await createAppointmentTable();
 
 const app = express();
 
@@ -103,6 +107,7 @@ app.use('/api/auth', authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/registers", registerRoutes);
 app.use("/api/records", recordRoutes);
+app.use("/api/appointments", appointmentRoutes);
 
 app.listen(process.env.PORT || 7860, "0.0.0.0", () =>
   console.log(`🚀 Server running on port ${process.env.PORT || 7860}`)

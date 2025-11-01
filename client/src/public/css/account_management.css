@@ -197,8 +197,17 @@ tbody tr:hover{ background:#eef9ff; }
 
 /* Modal 調整 */
 .modal-content {
-  border-radius: 12px;
-  border: 1px solid #d9e4f5;
+  background: transparent !important;  /* 移除白底 */
+  border: none !important;             /* 移除邊框 */
+  box-shadow: none !important;         /* 移除陰影 */
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 300px;
+}
+
+.modal-content button {
+  margin-top: 10px;
 }
 
 #systemSettingModal .modal-body {

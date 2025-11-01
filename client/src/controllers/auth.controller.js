@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import sgMail from "@sendgrid/mail";
 import crypto from "crypto";
 import { DateTime } from "luxon";
-import { fileURLToPath } from "url";
+// import { fileURLToPath } from "url";
 
 import fs from "fs";
 import path from "path";
@@ -26,6 +26,7 @@ import { movefiles, deletefiles } from "#utils/func.js";
 
 import { removeUserTable, createUsersTable } from "#services/user.service.js";
 import { removeRegisterTable, createRegisterTable } from "#services/register.service.js";
+import { createAppointment, deleteAppoint, getAppointment, updateAppointment, updateAppointmentStatus } from "#src/services/appointment.service.js";
 
 console.log(`process.cwd(): ${process.cwd()}`);
 
@@ -500,6 +501,160 @@ export const guideline = async (req, res) => {
     console.error(err);
     return res.redirect(`/api/auth/homepage`);
   }
+};
+
+export const appointments = async (req, res) => {
+  try {
+    const token = req.query.token;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+
+    if (!token || !decoded) {
+      return res.redirect(`/api/auth/homepage`);
+    }
+
+    console.log(`[appointments] decoded msg: ${JSON.stringify(decoded)}`);
+    
+    const appointment = await getAppointment("name", decoded.name);
+    let length = 0;
+
+    console.log(`appointment: ${JSON.stringify(appointment)}`);
+
+    let grouped = {};
+
+    if (appointment) {
+        // 1. 排序 (依 date 從新到舊)
+        appointment.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // 假設 appointment 是陣列
+        length = Object.keys(appointment).length;
+
+        // 2. 分組 (key = YYYY-MM-DD)
+        grouped = appointment.reduce((acc, item) => {
+          console.log(`item.date: ${item.date}`);
+          const dateKey = item.date.toISOString().split("T")[0]; // Date → YYYY-MM-DD
+          console.log(`dateKey: ${dateKey}`);
+
+          if (!acc[dateKey]) {
+            acc[dateKey] = [];
+          }
+          acc[dateKey].push(item);
+          return acc;
+        }, {});
+        console.log(`grouped: ${JSON.stringify(grouped)}`);
+    }
+
+    /*
+    await sql`CREATE TABLE IF NOT EXISTS appointment_data (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) UNIQUE,
+        email VARCHAR(255) UNIQUE,
+        date TIMESTAMPTZ DEFAULT NOW(),
+        doctor_name TEXT,
+        location TEXT,
+        notify_switch BOOLEAN DEFAULT false,
+        notify_timer TEXT,
+        notes TEXT
+    )`;
+    */
+
+    console.log(`priority_from_role(decoded.role): ${priority_from_role(decoded.role)}`);
+
+    res.render("appointments", { 
+      name: decoded.name, 
+      email: decoded.email,
+      grouped_appointments: grouped, 
+      t: req.t, 
+      path: "/api/auth/appointments", 
+      priority: priority_from_role(decoded.role), 
+      token: token, 
+      layout: "base",
+      formatDateTime
+    });
+  } catch (err) {
+    console.error(err);
+    return res.redirect(`/api/auth/homepage`);
+  }
+};
+
+export const update_appointment = async (req, res) => {
+  //try {
+    const body = req.body;
+    const token = body.token;
+    const action = body.action;
+
+    console.log(`[update_appointment] body: ${JSON.stringify(body)}`);
+
+    if (action === "create") {
+      /* 
+      update current new add user file into records table from body
+      */
+      const newAppointment = await createAppointment(body);
+
+      // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
+      return res.status(200).json({
+        layout: false,
+        success: true,
+        redirect: `/api/auth/appointments?token=${token}`,
+        message: "Create new appointment successfully"
+        // files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
+      });
+    } else if (action === "edit") {
+      /* 
+      update current new add user file into records table from body
+      */
+      const update = await updateAppointment(body);
+
+      // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
+      return res.status(200).json({
+        layout: false,
+        success: true,
+        redirect: `/api/auth/appointments?token=${token}`,
+        message: "Create new appointment successfully"
+        // files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
+      });
+    } else if (action === "delete") {
+      await deleteAppoint(body);
+      return res.status(201).json({ "success": true, "message": "Delete files successfully", redirect: `/api/auth/appointments?token=${token}` });
+    }
+  //} catch (err) {
+  //  console.error(err);
+  //  return res.redirect(`/api/auth/homepage`);
+  //}
+}
+
+export const update_appointment_status = async (req, res) => {
+  //try {
+    const body = req.body;
+
+    console.log(`body: ${JSON.stringify(body)}`);
+
+    const token = body.token;
+    const action = body.action;
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+
+    if (!token || !decoded) {
+      return res.status(401).json({ error: "Unauthorized or missing token" });
+    }
+    const name = decoded.name;
+    const date = body.date;
+
+    if (action === "confirm") {
+      // name, date, fieldname, value
+        const updated = await updateAppointmentStatus(name, date, "checkin", "true");
+        return res.status(201).json({ "success": true, "redirect": `/api/auth/appointments?token=${token}` });
+    } else if (action === "cancel") {
+        const updated = await updateAppointmentStatus(name, date, "checkin", "false");
+        return res.status(201).json({ "success": true, "redirect": `/api/auth/appointments?token=${token}` });
+    }
+  //} catch (err) {
+  //  console.error(err);
+  //  return res.redirect(`/api/auth/homepage`);
+  //}
 };
 
 function formatDateTime(date) {

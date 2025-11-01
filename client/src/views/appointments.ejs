@@ -1,0 +1,292 @@
+<div class="appointments-container">
+    <div class="grid cols-2">
+        <% if (priority === 1) { %>
+        <div class="card">
+            <div class="row">
+                <h3 style="margin:0">即將到來</h3>
+                <table aria-label="即將到來回診">
+                    <thead>
+                        <tr>
+                        <th style="width:18%">日期時間</th>
+                        <!-- <th>科別</th> -->
+                        <th style="width:14%">醫師</th>
+                        <th style="width:14%">地點</th>
+                        <th style="width:14%">提醒</th>
+                        <th style="width:20%">狀態</th>
+                        <th style="width:20%">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="upcomingList">
+                    <% Object.entries(grouped_appointments).forEach(([day, items]) => { %>
+                        <% items.forEach(ap => { %>
+                            <tr>
+                                <td><%= typeof formatDateTime === 'function' ? formatDateTime(ap.date) : new Date(ap.date).toISOString().replace('T', ' ').slice(0,16) %></td>
+                                <!-- <td><%= ap.dept || '-' %></td> -->
+                                <td><%= ap.doctor_name || '-' %></td>
+                                <td><%= ap.location || '-' %> </td>
+                                <td>
+                                <%= 
+                                    ap.notify_timer === '1daybefore' ? '前一天' :
+                                    ap.notify_timer === '1hourbefore' ? '前 1 小時' :
+                                    ap.notify_timer === 'now' ? '當下' :
+                                    '未設定'
+                                %>
+                                </td>
+                                <td>
+                                <%= 
+                                    ap.checkin === true ? '確定出席' : '未決定'
+                                %>
+                                </td>
+                                <td>
+                                    <button class="btn secondary btn-edit" 
+                                            data-id="<%= ap.id %>" 
+                                            data-date="<%= ap.date %>" 
+                                            data-doctor="<%= ap.doctor_name || '' %>"
+                                            data-location="<%= ap.location || '' %>"
+                                            data-notify="<%= ap.notify_switch ? 'true' : 'false' %>"
+                                            data-timer="<%= ap.notify_timer || '' %>"
+                                            data-notes="<%= ap.notes || '' %>">
+                                        編輯 / 查看提醒
+                                    </button>
+                                    <button type="button" name="action" value="confirm" class="btn secondary btn-confirm" 
+                                            data-id="<%= ap.id %>"
+                                            data-date="<%= ap.date %>" 
+                                            data-doctor="<%= ap.doctor_name || '' %>"
+                                            data-location="<%= ap.location || '' %>"
+                                            data-notify="<%= ap.notify_switch ? 'true' : 'false' %>"
+                                            data-timer="<%= ap.notify_timer || '' %>"
+                                            data-notes="<%= ap.notes || '' %>"
+                                            data-token="<%= token %>">
+                                            確認出席
+                                    </button>
+                                    <button type="button" name="action" value="cancel" class="btn danger btn-cancel" 
+                                            data-id="<%= ap.id %>"
+                                            data-date="<%= ap.date %>" 
+                                            data-doctor="<%= ap.doctor_name || '' %>"
+                                            data-location="<%= ap.location || '' %>"
+                                            data-notify="<%= ap.notify_switch ? 'true' : 'false' %>"
+                                            data-timer="<%= ap.notify_timer || '' %>"
+                                            data-notes="<%= ap.notes || '' %>"
+                                            data-token="<%= token %>">
+                                            取消預約
+                                    </button>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% }) %>
+                    </tbody>
+                </table>
+            </div>
+            <!-- <button class="btn secondary" id="btnAddFromUpcoming">新增/更改提醒</button> -->
+            <div class="center-btn">
+                <button class="btn secondary" id="btnAddFromUpcoming">新增提醒</button>
+            </div>
+        </div>
+        <% } %>
+
+        <!--
+        <div class="card" id="createReminder">
+            <h3>新增 / 修改回診提醒</h3>
+            <form id="reminderForm" onsubmit="return false" aria-describedby="reminderHint">
+                <div class="row">
+                <div style="flex:1; min-width:220px">
+                    <label for="apDate">日期時間</label>
+                    <input type="datetime-local" id="apDate" required />
+                </div>
+                <div style="flex:1; min-width:160px">
+                    <label for="dept">科別</label>
+                    <select id="dept">
+                    <option>內科</option>
+                    <option>家醫科</option>
+                    <option>口腔外科</option>
+                    <option>耳鼻喉科</option>
+                    </select>
+                </div>
+                <div style="flex:1; min-width:160px">
+                    <label for="doctor">醫師</label>
+                    <input id="doctor" placeholder="例如：王大明" />
+                </div>
+                </div>
+                <div class="row">
+                <div style="flex:1; min-width:220px">
+                    <label for="location">院區 / 地點</label>
+                    <input id="location" placeholder="例如：信義院區 A 棟" />
+                </div>
+                <div style="flex:1; min-width:220px">
+                    <label>通知方式</label>
+                    <div class="row">
+                    <label><input type="checkbox" id="notifyEmail"/> Email</label>
+                    <label><input type="checkbox" id="notifyLINE"/> LINE</label>
+                    <label><input type="checkbox" id="notifySMS"/> SMS</label>
+                    </div>
+                </div>
+                </div>
+                <div class="row">
+                <div style="flex:1; min-width:220px">
+                    <label>提醒時點</label>
+                    <div class="row">
+                    <label><input type="checkbox" id="tMinus1d" checked/> 前 1 天</label>
+                    <label><input type="checkbox" id="tMinus1h" checked/> 前 1 小時</label>
+                    <label><input type="checkbox" id="tNow"/> 當下</label>
+                    </div>
+                </div>
+                </div>
+                <label for="apNotes">備註</label>
+                <textarea id="apNotes" placeholder="（選填）帶健保卡、近期化驗報告…"></textarea>
+                <p id="reminderHint" class="muted">儲存後即可觸發伺服器排程（例如：Celery + Redis）。</p>
+                <div class="row" style="margin-top:8px">
+                <button class="btn" id="saveReminder">儲存提醒</button>
+                <button class="btn secondary" type="reset">清除</button>
+                </div>
+            </form>
+        </div>
+        -->
+        <div class="card">
+            <h3>回診摘要</h3>
+            <table aria-label="回診摘要">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>科別 / 醫師</th>
+                        <th>診斷結果</th>
+                        <th>醫師建議</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>2025-09-18</td>
+                    <td>家醫科 / 謝依婷</td>
+                    <td>正常現象</td>
+                    <td>持續觀察，請兩週後回診。</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-footer-1">
+    <div class="center-btn">
+        <a href="/api/auth/dashboard?token=<%= token %>" class="btn-return"> <%= t("return") %> </a>
+    </div>
+</div>
+
+<div class="modal fade" id="ReminderModal" tabindex="-1" aria-labelledby="ReminderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data" class="card p-4" id="reminderForm">
+                <div class="modal-header custom-modal-header">
+                    <h5 class="modal-title animated-title" id="newRecordModalLabel">
+                        <i class="fas fa-plus fa-beat"></i> 新增回診提醒
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <input type="hidden" name="name" id="name" value="<%= name %>">
+                <input type="hidden" name="token" id="token" value="<%= token %>">
+                <input type="hidden" name="email" id="email" value="<%= email %>">
+
+                <div class="row">
+                    <div style="flex:1; min-width:220px">
+                        <label for="date">日期時間</label>
+                        <input type="datetime-local" id="date" name="date" required />
+                    </div>
+                    <!-- <div style="flex:1; min-width:160px">
+                        <label for="dept">科別</label>
+                        <select id="dept">
+                            <option>內科</option>
+                            <option>家醫科</option>
+                            <option>口腔外科</option>
+                            <option>耳鼻喉科</option>
+                        </select>
+                    </div> -->
+                    <div style="flex:1; min-width:160px">
+                        <label for="doctor_name">醫師</label>
+                        <input id="doctor_name-edit" name="doctor_name" placeholder="例如：王大明" />
+                    </div>
+                    <div class="row">
+                        <div style="flex:1; min-width:220px">
+                            <label for="location">院區 / 地點</label>
+                            <input id="location" name="location" placeholder="例如：信義院區 A 棟" />
+                        </div>
+                    </div>
+                    <div class="form-inline">
+                        <label>提醒時點</label>
+                        <select id="notify_timer-edit" name="notify_timer">
+                            <option id="tMinus1d" value="1daybefore">前 1 天</option>
+                            <option id="tMinus1h" value="1hourbefore">前 1 小時</option>
+                            <option id="tNow" value="now">當下</option>
+                        </select>
+                    </div>
+                    <div class="form-inline">
+                        <label for="notify_switch">開啟通知</label>
+                        <input type="checkbox" name="notify_switch" id="notify_switch" />
+                    </div>
+                    <label for="notes">備註</label>
+                    <textarea id="notes" name="notes" placeholder="此欄位只能由醫師填入" <% if (priority !== 1) { %> disabled <% }%>></textarea>
+                    <!-- <p id="reminderHint" class="muted">儲存後即可觸發伺服器排程（例如：Celery + Redis）。</p> -->
+                    <div class="row" style="margin-top:8px">
+                        <button type="submit" name="action" value="create" class="btn" id="btnAddReminder">新增提醒</button>
+                        <button type="button" class="btn" data-bs-dismiss="modal"> <%= t("cancel") %> </button>
+                        <!-- <button class="btn secondary" type="reset">清除</button> -->
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="EditReminderModal" tabindex="-1" aria-labelledby="EditReminderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data" class="card p-4" id="reminderEditForm">
+                <div class="modal-header custom-modal-header">
+                    <h5 class="modal-title animated-title" id="editRecordModalLabel">
+                        <i class="fas fa-plus fa-beat"></i> 編輯回診提醒
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <input type="hidden" name="name" id="name-edit" value="<%= name %>">
+                <input type="hidden" name="token" id="token-edit" value="<%= token %>">
+                <input type="hidden" name="email" id="email-edit" value="<%= email %>">
+
+                <div class="row">
+                    <div style="flex:1; min-width:220px">
+                        <label for="date">日期時間</label>
+                        <input type="datetime-local" id="date-edit" name="date" required />
+                    </div>
+                    <div style="flex:1; min-width:160px">
+                        <label for="doctor_name">醫師</label>
+                        <input id="doctor_name-edit" name="doctor_name" placeholder="例如：王大明" />
+                    </div>
+                    <div class="row">
+                        <div style="flex:1; min-width:220px">
+                            <label for="location">院區 / 地點</label>
+                            <input id="location-edit" name="location" placeholder="例如：信義院區 A 棟" />
+                        </div>
+                    </div>
+                    <div class="form-inline">
+                        <label>提醒時點</label>
+                        <select id="notify_timer-edit" name="notify_timer">
+                            <option id="tMinus1d" value="1daybefore">前 1 天</option>
+                            <option id="tMinus1h" value="1hourbefore">前 1 小時</option>
+                            <option id="tNow" value="now">當下</option>
+                        </select>
+                    </div>
+                    <div class="form-inline">
+                        <label for="notify_switch">開啟通知</label>
+                        <input type="checkbox" id="notify_switch-edit" name="notify_switch" />
+                    </div>
+                    <label for="notes">備註</label>
+                    <textarea id="notes-edit" name="notes" placeholder="此欄位只能由醫師填入" <% if (priority !== 1) { %> disabled <% }%>></textarea>
+                    <div class="row" style="margin-top:8px">
+                        <button type="submit" name="action" value="edit" class="btn" id="btnEditReminder">儲存提醒</button>
+                        <button type="submit" name="action" value="delete" class="btn" id="btnDeleteReminder">刪除預約</button>
+                        <button type="button" class="btn" data-bs-dismiss="modal"> <%= t("cancel") %> </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
