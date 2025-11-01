@@ -1,6 +1,9 @@
 # app.py
 from flask import Flask, request, jsonify
 from PIL import Image
+import torch
+from model.architecture import GroundingDINO
+from model.inference import grounding_inference_single
 from transformers import AutoModel, AutoProcessor
 from langchain import LLMChain, PromptTemplate
 import threading, time, uuid
@@ -12,7 +15,7 @@ model = AutoModel.from_pretrained("facebook/dinov2-base")
 processor = AutoProcessor.from_pretrained("facebook/dinov2-base")
 tasks_list = {}
 
-def run_inference(task_id, patient_id, images_path_list):
+def run_inference(task_id, patient_id, images_path_list, notes):
 
     print("Running inference...", flush=True)
 
@@ -44,16 +47,36 @@ def run_inference(task_id, patient_id, images_path_list):
     try:
         for stage, progress in stages:
             tasks_list[task_id]["stage"] = stage
-            for i in range(tasks_list[task_id]["progress"], progress, 5):
-                tasks_list[task_id]["progress"] = i
-                time.sleep(0.6)
+            tasks_list[task_id]["progress"] = progress
+            print(f"[Task {task_id}] {stage}", flush=True)
+
+            model = GroundingDINO(img_dim=768, txt_dim=768, num_queries=100, decoder_depth=6, nhead=8)
+
+            if stage == "Loading model weights...":
+                model.load_state_dict(torch.load("checkpoints/best_model_epoch10.pth", map_location="cpu"))
+                model.to("cuda" if torch.cuda.is_available() else "cpu")
+            
+            elif stage == "Extracting DINOv2 features...":
+                for img_path in images_path_list:
+                    if img_path is not None:
+                        grounding_inference_single(
+                            model=model,
+                            image_path=img_path,
+                            prompt= f"find oral lesion, patient notes: {notes}",
+                            checkpoint_path="checkpoints/best_model_epoch10.pth",
+                            device="cuda" if torch.cuda.is_available() else "cpu",
+                            box_thresh=0.3,
+                            text_thresh=0.25
+                        )
+
         tasks_list[task_id]["progress"] = 100
         tasks_list[task_id]["stage"] = "Completed"
         tasks_list[task_id]["status"] = "completed"
         tasks_list[task_id]["result"] = {
             "risk_level": "moderate",
-            "report": "Lesion detected on right buccal mucosa."
+            "report": "Lesion detected on right buccal mucosa." # Get from grounded LLM
         }
+
     except Exception as e:
         tasks_list[task_id]["status"] = "failed"
         tasks_list[task_id]["error"] = str(e)
@@ -76,6 +99,7 @@ def predict():
         print(f"{key}: {value}", flush=True)
 
     patient_id = request.form["patient_id"]
+    notes = request.form.get("notes", "")
     images_path_list = []
 
     for i in range(1, 9):
@@ -94,7 +118,7 @@ def predict():
 
     print("------ [Flask] task_id ------", task_id, flush=True)
 
-    threading.Thread(target=run_inference, args=(task_id, patient_id, images_path_list)).start()
+    threading.Thread(target=run_inference, args=(task_id, patient_id, images_path_list, notes)).start()
     # run_inference(task_id, images_path_list)
     return jsonify({ "status": "ok", "task_id": task_id, "patient_id": patient_id })
 
