@@ -91,20 +91,19 @@ const storage_temp = multer.diskStorage({ // cb(null, tempDir)
 
 const storage_upload = multer.diskStorage({
   destination: (req, file, cb) => {
-    // 假設前端有傳 patient_id
-    const patientId = req.body.patient_id || "unknown";
-
-    // 動態建立子資料夾
+    const patientId = req.body?.patient_id || "unknown";
+    req.patientId = patientId;  // ✅ 存起來讓 filename 能用
     const uploadDir_sub = path.join(uploadDir, patientId);
-    fs.mkdirSync(uploadDir_sub, { recursive: true }); // 若不存在則建立
-
+    fs.mkdirSync(uploadDir_sub, { recursive: true });
     cb(null, uploadDir_sub);
   },
   filename: (req, file, cb) => {
     try {
-      const { patient_id } = req.query;
+      const patient_id = req.patientId || "unknown";
       const match = file.fieldname.match(/\d+/);
       const code = match ? match[0] : "x"; // 預設為 x，避免 undefined
+
+      console.log(`patient_id: ${patient_id}`);
 
       const safePatientId = patient_id.replace("-", "_") || "unknown";
       const safeCode = code || "x";
@@ -120,8 +119,8 @@ const storage_upload = multer.diskStorage({
 
 const storage_upload_gb = multer.diskStorage({
   destination: (req, file, cb) => {
-    // 假設前端有傳 patient_id
-    const patientId = req.body.patient_id || "unknown";
+    const patientId = req.body?.patient_id || "unknown";
+    req.patientId = patientId;  // ✅ 存起來讓 filename 能用
 
     // 動態建立子資料夾
     const uploadDir_sub = path.join(uploadDir_gb, patientId);
@@ -131,7 +130,7 @@ const storage_upload_gb = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     try {
-      const { patient_id } = req.query;
+      const patient_id = req.patientId || "unknown";
       const match = file.fieldname.match(/\d+/);
       const code = match ? match[0] : "x"; // 預設為 x，避免 undefined
 
@@ -266,7 +265,7 @@ export const signup = async (req, res, next) => {
 
 export const signin = async (req, res, next) => {
 
-  console.log(`sign triggerred!`);
+  console.log(`signin triggerred!`);
 
   try {
 
@@ -482,6 +481,27 @@ export const save_privacy_setting = async (req, res) => {
   }
 };
 
+export const web_setting = async (req, res) => {
+  try {
+    const token = req.query.token;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+
+    if (!token) {
+      if (!decoded) {
+        return res.redirect(`/api/auth/homepage`);
+      }
+      return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
+    }
+    
+    res.render("web_setting", { name: decoded.name, t: req.t, path: "/api/auth/web_setting", priority: priority_from_role(decoded.role), token: token, layout: "base" });
+  } catch (err) {
+    console.error(err);
+    return res.redirect(`/api/auth/homepage`);
+  }
+};
+
 export const guideline = async (req, res) => {
   try {
     const token = req.query.token;
@@ -622,7 +642,36 @@ export const update_appointment = async (req, res) => {
   //  console.error(err);
   //  return res.redirect(`/api/auth/homepage`);
   //}
-}
+};
+
+export const tracking = async (req, res) => {
+  try {
+    const token = req.query.token;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log(`decoded: ${JSON.stringify(decoded)}`);
+
+    if (!token || !decoded) {
+      return res.redirect(`/api/auth/homepage`);
+    }
+
+    console.log(`[tracking] decoded msg: ${JSON.stringify(decoded)}`);
+
+    res.render("tracking", { 
+      name: decoded.name, 
+      email: decoded.email,
+      t: req.t, 
+      path: "/api/auth/tracking", 
+      priority: priority_from_role(decoded.role), 
+      token: token, 
+      layout: "base"
+    });
+  } catch (err) {
+    console.err();
+    console.error(err);
+    return res.redirect(`/api/auth/homepage`);
+  }
+};
 
 export const update_appointment_status = async (req, res) => {
   //try {
@@ -1141,12 +1190,16 @@ export const export_data = async (req, res) => {
 
 export const account_management = async (req, res) => {
     //try {
-      const token = req.query.token;  // 從 cookie 拿 token
+      let token = req.query.token;  // 從 cookie 拿 token
+
+      token = token.replace(/^"|"$/g, "").replace(/[\r\n\s]/g, "").trim();
+
+      console.log(`[account_management] token: ${token}`);
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       console.log(`decoded: ${JSON.stringify(decoded)}`);
       console.log(`decoded.role: ${decoded.role}`);
-      console.log(`token: ${token}`);
 
       if (!token) {
         if (!decoded) {
@@ -1213,21 +1266,23 @@ export const new_account = async (req, res) => {
 
     const body = req.body;
 
-    const token = body.token;  
+    let token = body.token;  
+
+    token = token.replace(/^"|"$/g, "").replace(/[\r\n\s]/g, "").trim();
 
     console.log(`token: ${token}`);
 
-    const { name, email, password, role, unit, notes } = body;
+    const { name, email, password, unit, role, is_used, notes } = body;
 
     console.log("body:", body);
 
-    const user = await createUser({ name, email, password, role, unit, notes });
+    const user = await createUser({ name, email, password, role, unit, is_used, notes });
     
     console.log(`user: ${JSON.stringify(user)}`);
     console.log(`redirect: /api/auth/account_management?token=${token}`);
 
     return res.status(201).json({ success: true, message: "Create new account successfully", redirect: `/api/auth/account_management?token=${token}` });
-  // } catch (e) {
+  //} catch (e) {
   //  console.error("new_account error:", e);
   //  return res.status(409).json({ success: false, message: "Email already exists" });
   //}
@@ -1239,7 +1294,9 @@ export const edit_account = async (req, res) => {
     
     console.log("body:", body);
 
-    const token = body.token;
+    let token = body.token;
+
+    token = token.replace(/^"|"$/g, "").replace(/[\r\n\s]/g, "").trim();
 
     console.log("token:", token);
 
@@ -1304,9 +1361,7 @@ export const apply_account_setting = async (req, res) => {
 };
 
 export const sys_import = async (req, res) => {
-    
   try{
-
     const fileContent = req.file.buffer.toString("utf-8");
     const settings = JSON.parse(fileContent);
     const token = req.body.token;

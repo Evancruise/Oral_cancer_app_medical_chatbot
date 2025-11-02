@@ -18,6 +18,7 @@ export function renderUserTable(users, pageSize, currentPage) {
           : '<span class="badge badge-off">停用</span>';
 
       const role = u.role ? `<span class="role">${u.role}</span>` : "";
+      const is_used = u.is_used ? `<span class="is_used">${u.is_used}</span>` : "";
 
       return `
         <tr>
@@ -29,6 +30,7 @@ export function renderUserTable(users, pageSize, currentPage) {
             </td>
             <td data-th="單位">${u.unit || ""}</td>
             <td data-th="身分">${role}</td>
+            <td data-th="是否啟用">${is_used}</td>
             <td data-th="備註">${u.note || ""}</td>
             <td data-yj="修改/刪除">
               <button type="button" class="modify_btn btn btn-sm btn-primary"
@@ -38,7 +40,7 @@ export function renderUserTable(users, pageSize, currentPage) {
                       data-f-password="${u.password ?? ""}"
                       data-f-unit="${u.unit ?? ""}"
                       data-f-role="${u.role ?? ""}"
-                      data-f-status="${u.status ?? ""}"
+                      data-f-isused="${u.is_used ?? ""}"
                       data-f-note="${u.note ?? ""}">
                 檢視 / 修改 / 刪除
               </button>

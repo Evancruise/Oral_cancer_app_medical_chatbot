@@ -43,7 +43,9 @@ import { lang_get,
          new_account,
          privacy_setting,
          save_privacy_setting,
-         update_appointment_status} from '#controllers/auth.controller.js';
+         update_appointment_status,
+         web_setting,
+         tracking} from '#controllers/auth.controller.js';
 
 import multer from "multer";
 import i18next from "i18next";
@@ -97,8 +99,11 @@ router.get("/appointments", appointments);
 router.post("/update_appointment", update_appointment);
 router.post("/update_appointment_status", update_appointment_status);
 
+router.get("/tracking", tracking);
+
 router.get("/privacy", privacy_setting);
 router.post("/save_privacy_setting", save_privacy_setting);
+router.get("/web_setting", web_setting);
 
 router.get("/record", record);
 router.post("/temp_upload", temp_upload);

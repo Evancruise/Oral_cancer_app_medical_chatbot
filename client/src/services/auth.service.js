@@ -7,8 +7,8 @@ Create functions
 
 *********************************/
 
-export const createUser = async ({ name, email, password, role = "tester", login_role = "patient", unit = "personal", note = "none" }) => {
-  try {
+export const createUser = async ({ name, email, password, role = "tester", login_role = "patient", unit = "personal", is_used = "deactivated", note = "none" }) => {
+  try { // const user = await createUser({ name, email, password, role, unit, is_used, notes });
     // raw SQL 查詢
     const existingUser = await sql`SELECT * FROM users WHERE email = ${email}`;
 
@@ -25,9 +25,9 @@ export const createUser = async ({ name, email, password, role = "tester", login
     console.log("🔍 Step 3: 插入新使用者");
 
     const newUser = await sql`
-      INSERT INTO users (name, email, password, role, login_role, unit, note)
-      VALUES (${name}, ${email}, ${password_hash}, ${role}, ${login_role}, ${unit}, ${note})
-      RETURNING id, name, email, password, role, login_role, unit, note, status, created_at
+      INSERT INTO users (name, email, password, role, login_role, unit, is_used, note)
+      VALUES (${name}, ${email}, ${password_hash}, ${role}, ${login_role}, ${unit}, ${is_used}, ${note})
+      RETURNING id, name, email, password, role, login_role, unit, note, status, is_used, created_at
     `;
 
     console.log("✅ Step 3 完成:", newUser[0]);
@@ -53,14 +53,14 @@ export const createUsersTable = async () => {
         role VARCHAR(50) DEFAULT 'tester',
         login_role VARCHAR(50) DEFAULT 'patient',
         unit VARCHAR(100) DEFAULT 'personal',
-        is_used BOOLEAN DEFAULT false,
+        is_used TEXT DEFAULT 'activated',
         note TEXT,
         shareAnalysis TEXT,
         allowResearch TEXT,
         notifyResult TEXT,
         notifyReminder TEXT,
         qr_token VARCHAR(255) UNIQUE,
-        status VARCHAR(50) DEFAULT 'deactivated',
+        status VARCHAR(50) DEFAULT 'pending',
         created_at TIMESTAMPTZ DEFAULT NOW(), 
         expired_at TIMESTAMPTZ,
         updated_at TIMESTAMPTZ DEFAULT NOW(),      
@@ -69,7 +69,7 @@ export const createUsersTable = async () => {
       )
     `;
 
-    const admin_user = await createUser({ name: process.env.NAME, email: process.env.ACCOUNT, password: process.env.DB_PASSWORD, role: "system manager", note: "none" });
+    const admin_user = await createUser({ name: process.env.NAME, email: process.env.ACCOUNT, password: process.env.PASSWORD, role: "system manager", note: "none" });
     console.log("✅ users 資料表建立完成");
     //res.status(200).json({ message: "Init user table successfully" });
   } catch (e) {

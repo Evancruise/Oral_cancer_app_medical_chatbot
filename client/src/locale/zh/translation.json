@@ -1,6 +1,11 @@
 {
     "version": "v1.1",
-    "setting": "使用設定",
+    "web_setting": {
+        "title": "網站相關設定",
+        "sys_setting": "系統設定",
+        "account_setting": "帳號管理設定"
+    },
+    "user_setting": "使用設定",
     "privacy": "隱私設定",
     "loginPage": {
         "title": "使用者登入"

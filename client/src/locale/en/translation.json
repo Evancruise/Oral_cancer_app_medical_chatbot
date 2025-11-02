@@ -1,6 +1,11 @@
 {
     "version": "v1.1",
-    "setting": "System setting",
+    "web_setting": {
+        "title": "Web setting",
+        "sys_setting": "System setting",
+        "account_setting": "Account setting"
+    },
+    "user_setting": "User setting",
     "privacy": "Privacy",
     "loginPage": {
         "title": "User loggin"

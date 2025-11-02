@@ -1,0 +1,40 @@
+<div class="oral-health-tracking">
+    <h2>📊 健康追蹤總覽</h2>
+
+    <!-- 1️⃣ 模型風險趨勢 -->
+    <div class="card">
+        <h3>AI 模型風險趨勢（近 6 次檢測）</h3>
+        <canvas id="riskTrendChart"></canvas>
+    </div>
+
+    <!-- 2️⃣ 症狀與自我紀錄 -->
+    <div class="card">
+        <h3>症狀追蹤</h3>
+        <p>最近紀錄：疼痛指數 <strong>4 / 10</strong>，潰瘍次數 <strong>2 次</strong></p>
+        <p>口乾狀況：<strong>輕度</strong>　吞嚥困難：<strong>無</strong></p>
+        <button class="btn">新增症狀紀錄</button>
+    </div>
+
+    <!-- 3️⃣ 綜合健康指標 -->
+    <div class="card">
+        <h3>健康指標評估</h3>
+        <div class="health-score">
+        <h1 class="score-value">78%</h1>
+        <p>綜合指標（AI 檢測 + 自覺症狀）</p>
+        <p class="score-desc">狀況穩定，請持續觀察病灶變化</p>
+        </div>
+    </div>
+
+    <!-- 4️⃣ 系統提醒 -->
+    <div class="card alert-card">
+        <h3>⚠️ 系統提醒</h3>
+        <p>最近兩次檢測顯示部分病灶風險提升，建議安排回診。</p>
+        <button class="btn danger">前往預約</button>
+    </div>
+</div>
+
+<div class="modal-footer-1">
+    <div class="center-btn">
+        <a href="/api/auth/dashboard?token=<%= token %>" class="btn-return"> <%= t("return") %> </a>
+    </div>
+</div>

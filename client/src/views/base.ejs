@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/css/table.css">
     <link rel="stylesheet" href="/css/base.css">
     <link rel="stylesheet" href="/css/appointments.css">
+    <link rel="stylesheet" href="/css/tracking.css">
     <link rel="stylesheet" href="/css/dashboard.css">
     <link rel="stylesheet" href="/css/header.css">
     <link rel="stylesheet" href="/css/modal.css">
@@ -95,8 +96,11 @@
                     <a href="?lng=en" class="lang-link">English</a>
                 </div>
                 <nav class="header-nav">
-                    <a class="nav-link" href="/api/auth/sys_setting?token=<%= token %>">
-                        <i class="fa-regular fa-gear"></i> <%= t("setting") %>
+                    <a class="nav-link" href="/api/auth/web_setting?token=<%= token %>">
+                        <i class="fa-regular fa-gear"></i> <%= t("web_setting.title") %>
+                    </a>
+                    <a class="nav-link" href="/api/auth/user_setting?token=<%= token %>">
+                        <i class="fa-regular fa-gear"></i> <%= t("user_setting") %>
                     </a>
                     <a class="nav-link" href="/api/auth/privacy?token=<%= token %>">
                         <i class="fa-solid fa-user-lock"></i> <%= t("privacy") %>
@@ -165,4 +169,5 @@
     <script type="module" src="/js/guideline.js"></script>
     <script type="module" src="/js/privacy_setting.js"></script>
     <script type="module" src="/js/appointments.js"></script>
+    <script type="module" src="/js/tracking.js"></script>
 </body>

@@ -1,0 +1,147 @@
+.oral-health-tracking {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 20px 25px;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* === 標題 === */
+.oral-health-tracking h2 {
+  text-align: center;
+  color: #0b3b4a;
+  font-weight: 700;
+  margin-bottom: 28px;
+  letter-spacing: 0.5px;
+}
+
+/* === 卡片通用樣式 === */
+.oral-health-tracking .card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  padding: 22px 26px;
+  margin-bottom: 22px;
+  transition: all 0.25s ease-in-out;
+}
+
+.oral-health-tracking .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+}
+
+.oral-health-tracking .card h3 {
+  color: #0b3b4a;
+  font-size: 1.15rem;
+  font-weight: 600;
+  border-bottom: 1px solid #eaeaea;
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+}
+
+/* === 風險趨勢圖 === */
+#riskTrendChart {
+  width: 100%;
+  height: 280px;
+}
+
+/* === 症狀追蹤區 === */
+.oral-health-tracking p {
+  color: #333;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.oral-health-tracking strong {
+  color: #007bff;
+}
+
+/* === 健康指標分數區 === */
+.health-score {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.health-score .score-value {
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: #059669;
+  margin-bottom: 10px;
+}
+
+.health-score .score-desc {
+  color: #666;
+  font-size: 0.95rem;
+}
+
+/* === 系統提醒卡片 === */
+.alert-card {
+  border-left: 5px solid #f87171;
+  background-color: #fff5f5;
+}
+
+.alert-card h3 {
+  color: #b91c1c;
+}
+
+.alert-card p {
+  color: #7f1d1d;
+}
+
+/* === 按鈕樣式 === */
+.btn {
+  background-color: #3aa3d1;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.25s ease;
+}
+
+.btn:hover {
+  background-color: #2f91ba;
+}
+
+.btn.danger {
+  background-color: #dc3545;
+}
+
+.btn.danger:hover {
+  background-color: #b02a37;
+}
+
+/* === 返回按鈕區 === */
+.modal-footer-1 {
+  text-align: center;
+  margin-top: 28px;
+}
+
+.center-btn .btn-return {
+  display: inline-block;
+  background-color: #6c757d;
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.center-btn .btn-return:hover {
+  background-color: #5a6268;
+}
+
+/* === 響應式調整 === */
+@media (max-width: 768px) {
+  .oral-health-tracking {
+    padding: 15px;
+  }
+  .oral-health-tracking .card {
+    padding: 16px;
+  }
+  .health-score .score-value {
+    font-size: 2.2rem;
+  }
+}

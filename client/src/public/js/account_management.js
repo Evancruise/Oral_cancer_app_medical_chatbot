@@ -1,9 +1,10 @@
-import { loadModal, showModal } from "./modal.js";
+import { loadModal, loadingModal, showModal, showingModal, closingModal } from "./modal.js";
 import { renderUserTable } from "./table.js";
 import { renderUserPagination } from "./pagination.js";
 
 loadModal("modal-container");
 loadModal("modal-container-2");
+loadingModal('modal-loading-container');
 
 document.addEventListener("DOMContentLoaded", () => {
     const account_form = document.getElementById("account_form");
@@ -63,11 +64,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const btn = e.target.closest('.modify_btn');
                 if (!btn || !wrap.contains(btn)) {return;}
 
-                console.log(btn.dataset);
+                console.log("btn.dataset:", btn.dataset);
 
-                const { fAccount, fName, fPassword, fUnit, fRole, fStatus, fNote } = btn.dataset;
+                const { fAccount, fName, fPassword, fUnit, fRole, fIsused, fNote } = btn.dataset;
 
-                console.log(fAccount, fName, fPassword, fUnit, fRole, fStatus, fNote);
+                console.log(fAccount, fName, fPassword, fUnit, fRole, fIsused, fNote);
             
                 const modal = document.getElementById("curAccountModal");
 
@@ -77,13 +78,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 form.querySelector("input[name='password']").value = fPassword || '';
                 form.querySelector("input[name='unit']").value = fUnit || '';
                 form.querySelector("select[name='role']").value = fRole || 'tester';
-                form.querySelector("select[name='status']").value = fStatus || 'deactivated';
+                form.querySelector("select[name='is_used']").value = fIsused || 'deactivated';
                 form.querySelector("textarea[name='notes']").value = fNote || '';
                 form.querySelector("input[name='token']").value = token || '';
             });
         });
     }
 
+    /*
     if (config) {
         console.log("Loaded config:", config);
         document.getElementById("expireTime").value = config.expireTime || "";
@@ -100,47 +102,51 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("enableActivityMonitoring").checked = !!config.enableActivityMonitoring;
         document.getElementById("anomalyThreshold").value = config.anomalyThreshold || "";
     }
+    */
 
     if (account_form && modal) {
+        account_form.addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-        modal.addEventListener('shown.bs.modal', () => {
-            account_form.addEventListener('submit', async (e) => {
-                e.preventDefault();
+            const form = modal.querySelector("#account_form");
+            const formData = new FormData(form);
+                        
+            if (e.submitter) {
+                formData.append(e.submitter.name, e.submitter.value);
+            }
 
-                const form = modal.querySelector("#account_form");
-                const formData = new FormData(form);
-                            
-                if (e.submitter) {
-                    formData.append(e.submitter.name, e.submitter.value);
-                }
+            for (const [k, v] of formData.entries()) {
+                console.log(`${k}: ${v}`);
+            }
 
-                for (const [k, v] of formData.entries()) {
-                    console.log(`${k}: ${v}`);
-                }
+            console.log(`formData: ${JSON.stringify(formData)}`);
 
-                console.log(`formData: ${JSON.stringify(formData)}`);
+            showingModal("Loading...", () => {
+                closingModal();
+            });
 
-                const res = await fetch('/api/auth/edit_account', {
-                    method: 'POST',
-                    body: formData,
-                });
+            const res = await fetch('/api/auth/edit_account', {
+                method: 'POST',
+                body: formData,
+            });
 
-                const data = await res.json();
+            const data = await res.json();
 
-                if (!data.success) {
-                    showModal(`${data.message}`);
-                    return;
-                }
+            closingModal();
 
-                showModal(data.message, () => {
-                    setTimeout(() => {
-                        window.location.href = data.redirect;
-                    }, 1500);
-                }, () => {
-                    setTimeout(() => {
-                        window.location.href = data.redirect;
-                    }, 1500);
-                });
+            if (!data.success) {
+                showModal(`${data.message}`);
+                return;
+            }
+
+            showModal(data.message, () => {
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1500);
+            }, () => {
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1500);
             });
         });
     }
@@ -151,12 +157,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const formData = new FormData(add_account_form);
 
+            showingModal("Loading...", () => {
+                closingModal();
+            });
+
             const res = await fetch('/api/auth/new_account', {
                 method: 'POST',
                 body: formData,
             });
 
             const data = await res.json();
+
+            closingModal();
 
             if (!data.success) {
                 showModal(`新增使用者失敗: ${data.message}`);

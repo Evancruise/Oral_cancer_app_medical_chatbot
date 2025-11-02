@@ -237,6 +237,18 @@ export const updateUser = async (fieldname, value = null, updates = null) => {
       updates.unit = existing.unit;
     }
 
+    if (updates.is_used) {
+      setClauses.push(`is_used = '${updates.is_used}'`);
+    } else {
+      updates.is_used = existing.is_used;
+    }
+
+    if (updates.notes) {
+      setClauses.push(`note = '${updates.notes}'`);
+    } else {
+      updates.notes = existing.notes;
+    }
+
     let password_hash = null;
     if (updates.password) {
       password_hash = await bcrypt.hash(updates.password, 10);
@@ -252,9 +264,9 @@ export const updateUser = async (fieldname, value = null, updates = null) => {
     console.log("applying update sql command");
     
     const updated = await sql`UPDATE users
-    SET name = ${updates.name}, email = ${updates.email}, role = ${updates.role}, password = ${updates.password}, unit = ${updates.unit}, updated_at = NOW() AT TIME ZONE timezone
+    SET name = ${updates.name}, email = ${updates.email}, role = ${updates.role}, password = ${updates.password}, unit = ${updates.unit}, is_used = ${updates.is_used}, note = ${updates.notes}, updated_at = NOW() AT TIME ZONE timezone
     WHERE id = ${existing.id}
-    RETURNING id, name, email, role, unit, password, created_at, updated_at
+    RETURNING *
     `;
 
     if (updated.length === 0) {
