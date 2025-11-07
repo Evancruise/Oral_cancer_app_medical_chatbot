@@ -3,27 +3,38 @@
         <div class="col">
             <div class="card dashboard-card text-center">
                 <div class="icon-circle bg-primary text-white">
-                    <i class="fa-solid fa-camera-retro"></i>
+                    <i class="fa-solid fa-gear"></i>
                 </div>
-                <button class="btn btn-chip" data-bs-toggle="modal" data-bs-target="#systemSettingModal"> <%= t("web_setting.sys_setting") %> </button>
+                <h6>📝 <%= t("web_setting.sys_setting") %></h6>
+                <a href="#" data-bs-toggle="modal" data-bs-target="#systemSettingModal" class="stretched-link"></a>
             </div>
         </div>
         
         <div class="col">
-          <div class="card dashboard-card text-center">
-            <div class="icon-circle bg-success text-white">
-              <i class="fa-solid fa-file-medical"></i>
+            <div class="card dashboard-card text-center">
+                <div class="icon-circle bg-success text-white">
+                    <i class="fa-solid fa-envelope"></i>
+                </div>
+
+                <h6>📝 <%= t("web_setting.account_setting") %></h6>
+                <a href="#" data-bs-toggle="modal" data-bs-target="#accountSettingModal" class="stretched-link"></a>
             </div>
-            <button class="btn btn-chip" data-bs-toggle="modal" data-bs-target="#accountSettingModal"> <%= t("web_setting.account_setting") %> </button>
-          </div>
         </div>
     </div>
 </div>
 
+<div class="center-btn">
+    <a href="/api/auth/dashboard?token=<%= token %>" class="btn-return"> <%= t("return") %> </a>
+</div>
+
+<script id="config-data" type="application/json">
+    <%- JSON.stringify(config) %>
+</script>
+
 <div class="modal fade" id="systemSettingModal" tabindex="-1" aria-labelledby="systemSettingModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" enctype="multipart/form-data" action="/api/auth/apply_system_setting" class="card p-4" id="system_setting_form">
+            <form method="POST" enctype="multipart/form-data" class="card p-4" id="system_setting_form">
             
                 <div class="modal-header custom-modal-header">
                     <h5 class="modal-title animated-title" id="systemSettingModalLabel">
@@ -111,9 +122,9 @@
                   </div>
                   -->
                   
-                  <button type="submit" name="action" value="backup" id="export-btn" class="btn btn-primary">匯出設定檔</button>
-                  <button type="submit" name="action" value="recover" id="import-btn" class="btn btn-primary">匯入設定</button>
-                  <button type="button" class="btn btn-red">系統重設</button>
+                  <button type="button" name="action" value="backup" id="export-btn" class="btn btn-primary">匯出設定檔</button>
+                  <button type="button" name="action" value="recover" id="import-btn" class="btn btn-primary">匯入設定</button>
+                  <button type="button" name="reset" id="reset" class="btn btn-red">系統重設</button>
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                   <button type="submit" name="action" value="save" class="btn btn-primary">儲存設定</button>
                 </div>
@@ -125,7 +136,7 @@
 <div class="modal fade" id="accountSettingModal" tabindex="-1" aria-labelledby="accountSettingModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form method="POST" enctype="multipart/form-data" action="/api/auth/apply_account_setting" class="card p-4" id="account_setting_form">
+            <form method="POST" enctype="multipart/form-data" class="card p-4" id="account_setting_form">
                 <div class="modal-body">
                     <div class="modal-header custom-modal-header">
                         <h5 class="toggle-title">
@@ -238,8 +249,8 @@
             </div>
 
             <div class="modal-footer">
-                <button type="submit" name="action" value="reset" class="btn btn-secondary">重設</button>
-                <button type="submit" name="action" value="init" class="btn btn-secondary">帳號初始化</button>
+                <button type="button" name="action" value="reset" class="btn btn-secondary">帳號重設</button>
+                <button type="button" name="action" value="init" class="btn btn-secondary">帳號初始化</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                 <button type="submit" name="action" value="save" class="btn btn-primary">儲存設定</button>
             </div>

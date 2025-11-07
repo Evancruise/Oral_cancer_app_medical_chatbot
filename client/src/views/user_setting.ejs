@@ -1,0 +1,29 @@
+<div class="container mt-4">
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+		<!-- 📝 快速密碼修改 -->
+        <div class="col">
+          <div class="card dashboard-card text-center">
+            <div class="icon-circle bg-success text-white">
+              <i class="fa-solid fa-key"></i>
+            </div>
+            <h6><i class="fas fa-key"></i> <%= t("quick_chgpwd.title") %></h6>
+            <a href="/api/auth/quick_changepwd?token=<%= token %>" class="stretched-link"></a>
+          </div>
+        </div>
+        
+        <!-- 📝 重新綁定 -->
+        <div class="col">
+          <div class="card dashboard-card text-center">
+            <div class="icon-circle bg-success text-white">
+              <i class="fa-solid fa-file-signature"></i>
+            </div>
+            <h6><i class="fas fa-link"></i> <%= t("rebind_account.title") %></h6>
+            <a href="/api/auth/rebind_page?token=<%= token %>" class="stretched-link"></a>
+          </div>
+        </div>
+    </div>
+</div>
+
+<div class="center-btn">
+    <a href="/api/auth/dashboard?token=<%= token %>" class="btn-return"> <%= t("return") %> </a>
+</div>

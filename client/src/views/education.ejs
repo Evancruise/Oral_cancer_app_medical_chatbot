@@ -1,0 +1,71 @@
+<div class="container mt-4 oral-education-page">
+    <h2>🦷 口腔癌防治衛教宣導</h2>
+
+    <!-- 1️⃣ Hero Section -->
+    <div class="card hero-card">
+        <h3>守護你的笑容</h3>
+        <p>預防勝於治療，早期發現、早期治療，讓健康從微笑開始。</p>
+    </div>
+
+    <!-- 2️⃣ 認識口腔癌 -->
+    <div class="card">
+        <h3>認識口腔癌</h3>
+        <p>口腔癌是台灣男性發生率最高的癌症之一，主要危險因子包含嚼檳榔、吸菸與過量飲酒。</p>
+        <ul class="risk-list">
+            <li>🚬 吸菸</li>
+            <li>🍺 過量飲酒</li>
+            <li>🌿 嚼檳榔</li>
+            <li>🦠 HPV 感染</li>
+        </ul>
+        <div class="chart text-center">
+            <img src="/images/statics.png" alt="口腔癌發生率圖表" class="chart-img">
+        </div>
+    </div>
+
+    <!-- 3️⃣ 自我檢查五步驟 -->
+    <div class="card">
+        <h3>五步驟自我檢查</h3>
+        <ol class="self-check-list">
+            <li>👅 舌頭：檢查是否有白斑或紅斑。</li>
+            <li>🪞 臉頰內側：觀察有無潰瘍或腫塊。</li>
+            <li>🦷 牙齦：注意出血或潰爛情況。</li>
+            <li>👄 嘴角：是否有長期不癒合的傷口。</li>
+            <li>🫗 口底：觸摸是否有異常硬塊。</li>
+        </ol>
+        <div class="center-btn">
+            <a href="/selfcheck" class="btn secondary">查看自檢示範</a>
+        </div>
+    </div>
+
+    <!-- 4️⃣ 預防與生活建議 -->
+    <div class="card">
+        <h3>預防與生活建議</h3>
+        <div class="card-container">
+            <div class="sub-card">🚭 戒菸</div>
+            <div class="sub-card">🍃 戒檳榔</div>
+            <div class="sub-card">🧴 維持良好口腔衛生</div>
+            <div class="sub-card">🍎 均衡飲食</div>
+        </div>
+    </div>
+
+    <!-- 5️⃣ 病友故事與篩檢流程 -->
+    <div class="card">
+        <h3>病友故事與篩檢流程</h3>
+        <p class="testimonial">「早期篩檢讓我及早治療，重拾自信笑容。」— 阿宏，45 歲</p>
+        <div class="steps">
+            <div class="step">1️⃣ 預約掛號</div>
+            <div class="step">2️⃣ 醫師檢查</div>
+            <div class="step">3️⃣ 結果說明與追蹤</div>
+        </div>
+        <div class="center-btn">
+            <a href="/api/auth/appointments?token=<%= token %>" class="btn primary">立即預約篩檢</a>
+        </div>
+    </div>
+
+    <!-- Footer Return -->
+    <div class="modal-footer-1">
+        <div class="center-btn">
+            <a href="/api/auth/dashboard?token=<%= token %>" class="btn-return">返回主頁</a>
+        </div>
+    </div>
+</div>

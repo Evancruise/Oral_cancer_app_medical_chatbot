@@ -30,8 +30,8 @@ import { createAppointment, deleteAppoint, getAppointment, updateAppointment, up
 
 console.log(`process.cwd(): ${process.cwd()}`);
 
-const configRoot_dir = "../tmp/config";
-const uploadRoot_dir = "../tmp/public";
+const configRoot_dir = "/tmp/config";
+const uploadRoot_dir = "/tmp/public";
 
 const uploadDir = path.join(process.cwd(), `${uploadRoot_dir}/uploads`);
 const uploadDir_gb = path.join(process.cwd(), `${uploadRoot_dir}/uploads_gb`);
@@ -151,6 +151,17 @@ const upload = multer({ storage: storage_upload });
 const upload_gb = multer({ storage: storage_upload_gb });
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+export const cloud_upload = async (req, res) => {
+  const { file } = req;
+  const patient_id = req.query.patient_id;
+  const destPath = `uploads/${patient_id}/${file.originalname}`;
+
+  await buildCheckFunction.upload(file.path, { destination: destPath });
+  const publicUrl = `https://storage.googleapis.com/oral-cancer-uploads/${destPath}`;
+
+  res.join({ success: true, url: publicUrl });
+};
 
 export const lang_get = (req, res) => {
   res.json({
@@ -495,7 +506,24 @@ export const web_setting = async (req, res) => {
       return res.redirect(`/api/auth/loginPage?login_role=${decoded.login_role}`); // 沒有 token 回登入頁
     }
     
-    res.render("web_setting", { name: decoded.name, t: req.t, path: "/api/auth/web_setting", priority: priority_from_role(decoded.role), token: token, layout: "base" });
+    let fileContent = null;
+    let cur_config = null;
+      
+    if (fs.existsSync(configPath)) {
+        fileContent = fs.readFileSync(configPath, "utf-8");
+        cur_config = JSON.parse(fileContent);
+    }
+
+    console.log(`[web_setting] cur_config = ${cur_config}`);
+
+    res.render("web_setting", { 
+      name: decoded.name, 
+      t: req.t, 
+      path: "/api/auth/web_setting", 
+      priority: priority_from_role(decoded.role), 
+      token: token, 
+      layout: "base",
+      config: cur_config });
   } catch (err) {
     console.error(err);
     return res.redirect(`/api/auth/homepage`);
@@ -517,6 +545,30 @@ export const guideline = async (req, res) => {
     }
 
     res.render("guideline", { name: decoded.name, t: req.t, path: "/api/auth/guideline", priority: priority_from_role(decoded.role), token: token, layout: "base" });
+  } catch (err) {
+    console.error(err);
+    return res.redirect(`/api/auth/homepage`);
+  }
+};
+
+export const education = async (req, res) => {
+  try {
+    const token = req.query.token;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    res.render("education", { name: decoded.name, path: "/api/auth/education", priority: priority_from_role(decoded.role), token: token, layout: 'base'});
+  } catch (err) {
+    console.error(err);
+    return res.redirect(`/api/auth/homepage`);
+  }
+};
+
+export const user_setting = async (req, res) => {
+  try {
+    const token = req.query.token;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    res.render("user_setting", { name: decoded.name, path: "/api/auth/user_setting", priority: priority_from_role(decoded.role), token: token, layout: 'base'});
   } catch (err) {
     console.error(err);
     return res.redirect(`/api/auth/homepage`);
@@ -785,6 +837,7 @@ export const record = async (req, res) => {
   //}
 };
 
+/*
 export const temp_upload = [
     upload_temp.single("file"),
     async (req, res) => {
@@ -807,6 +860,64 @@ export const temp_upload = [
         return res.status(500).json({ success: false, message: "Server error" });
       }
     }
+];
+*/
+
+export const temp_upload = [
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const file = req.file;
+      const patientId = req.body.patient_id || "unknown";
+      const code = req.body.code || "x";
+
+      if (!file) {
+        return res.status(400).json({ success: false, message: "No file uploaded" });
+      }
+
+      // ============================================
+      // 開發環境：存本地 (client/tmp/public/uploads)
+      // ============================================
+      if (process.env.NODE_ENV === "development") {
+        const filename = `${patientId}_${code}_${file.originalname}`;
+        const localPath = path.join(localUploadDir, filename);
+        fs.renameSync(file.path, localPath);
+        console.log(`📂 [LOCAL UPLOAD] Saved at ${localPath}`);
+
+        return res.json({
+          success: true,
+          env: "development",
+          filename,
+          temp_path: `/tmp/public/uploads/${filename}`,
+        });
+      }
+
+      // ============================================
+      // 生產環境：上傳到 GCS Bucket
+      // ============================================
+      const destPath = `uploads/${patientId}/${code}_${file.originalname}`;
+      await bucket.upload(file.path, {
+        destination: destPath,
+        metadata: {
+          cacheControl: "public, max-age=31536000",
+        },
+      });
+
+      const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destPath}`;
+      console.log(`☁️ [GCS UPLOAD] ${publicUrl}`);
+
+      return res.json({
+        success: true,
+        env: "production",
+        filename: file.originalname,
+        temp_path: publicUrl,
+      });
+
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
 ];
 
 export const new_record = [
@@ -1021,13 +1132,13 @@ export const analyze = [
       logEntries.push(["patient_id", req.body.patient_id]);
 
       for (let i = 1; i <= 8; i++) {
-        const imgPath = req.body[`pic${i}`];
-        if (imgPath && fs.existsSync(imgPath)) {
-          const absPath = path.resolve(imgPath);
-          console.log(`✅ Appending file: ${absPath}`);
-          formData.append(`pic${i}`, fs.createReadStream(absPath));
+        const file = req.files.find(f => f.fieldname === `pic${i}`);
+        if (file && fs.existsSync(file.path)) {
+          console.log(`Appending file: ${file.path}`);
+          formData.append(`pic${i}`, fs.createReadStream(file.path));
+          logEntries.push([`pic${i}`, file.path]);
         } else {
-          console.log(`⚠️ File not found or empty: pic${i}`);
+          console.log(`File not found or empty: pic${i}`);
         }
       }
 
@@ -1320,12 +1431,14 @@ export const edit_account = async (req, res) => {
 };
 
 export const apply_account_setting = async (req, res) => {
-    try {  
+    //try {  
         const body = req.body;
+
+        console.log("body:", body);
+
         const token = body.token;
         const action = body.action;
 
-        console.log("body:", body);
         // generateToken(body);
 
         if (action === "save") {
@@ -1343,21 +1456,21 @@ export const apply_account_setting = async (req, res) => {
             
             fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), "utf-8");
 
-            return res.status(201).json({ success: true, message: "Update system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+            return res.status(201).json({ success: true, message: "Update account setting successfully", redirect: `/api/auth/web_setting?token=${token}` });
         } else if (action === "reset") {
             fs.writeFileSync(configPath, JSON.stringify(default_config, null, 2));
-            return res.status(201).json({ success: true, message: "Reset system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+            return res.status(201).json({ success: true, message: "Reset account setting successfully", redirect: `/api/auth/web_setting?token=${token}` });
         } else if (action === "init") {
             removeUserTable();    
             createUsersTable();
             removeRegisterTable();
             createRegisterTable();
-            return res.status(201).json({ success: true, message: "Init system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+            return res.status(201).json({ success: true, message: "Init account setting successfully", redirect: `/api/auth/web_setting?token=${token}` });
         }
-    } catch (e) {
-        console.error("apply_account_setting error:", e);
-        return res.status(409).json({ success: false, message: "Apply account setting failed" });
-    }
+    //} catch (e) {
+    //    console.error("apply_account_setting error:", e);
+    //    return res.status(409).json({ success: false, message: "Apply account setting failed" });
+    //}
 };
 
 export const sys_import = async (req, res) => {
@@ -1370,7 +1483,7 @@ export const sys_import = async (req, res) => {
 
     fs.writeFileSync(configPath, JSON.stringify(settings, null, 2));
 
-    return res.status(201).json({ success: true, message: "匯入檔案成功", redirect: `/api/auth/account_management?token=${token}` });
+    return res.status(201).json({ success: true, message: "匯入檔案成功", redirect: `/api/auth/web_setting?token=${token}` });
   } catch (err) {
     return res.status(401).json({ success: false, message: `sys_import err: ${err.message}`, redirect: "/api/auth/homepage" });
   }
@@ -1380,7 +1493,7 @@ export const reset = async (req, res) => {
     const token = req.body.token;
     console.log(`token: ${token}`);
     fs.writeFileSync(configPath, JSON.stringify(default_config, null, 2));
-    return res.status(201).json({ success: true, message: "Reset system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+    return res.status(201).json({ success: true, message: "Reset system setting successfully", redirect: `/api/auth/web_setting?token=${token}` });
 };
 
 export const sys_export = async (req, res) => {
@@ -1440,10 +1553,10 @@ export const apply_system_setting = async (req, res) => {
 
             fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), "utf-8");
     
-            return res.status(201).json({ success: true, message: "Apply system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+            return res.status(201).json({ success: true, message: "Apply system setting successfully", redirect: `/api/auth/web_setting?token=${token}` });
         } else if (action === "reset") {
             fs.writeFileSync(configPath, JSON.stringify(default_config, null, 2));
-            return res.status(201).json({ success: true, message: "Reset system setting successfully", redirect: `/api/auth/account_management?token=${token}` });
+            return res.status(201).json({ success: true, message: "Reset system setting successfully", redirect: `/api/auth/web_setting?token=${token}` });
         } else if (action === "backup") {
 
             let oldConfig = {};
@@ -1482,7 +1595,7 @@ export const apply_system_setting = async (req, res) => {
 
             fs.writeFileSync(configPath, JSON.stringify(settings, null, 2));
 
-            return res.status(201).json({ success: true, redirect: `/api/auth/account_management?token=${token}` });
+            return res.status(201).json({ success: true, redirect: `/api/auth/web_setting?token=${token}` });
         }
 
     } catch (e) {

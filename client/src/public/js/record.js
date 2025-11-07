@@ -3,7 +3,7 @@ import { loadModal, loadingModal, loadInferenceStageModal, showModal, showingMod
 loadModal('modal-container');
 loadingModal('modal-loading-container');
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     const add_form = document.getElementById("add_form");
     const newModal = document.getElementById("newRecordModal");
     const edit_form = document.getElementById("edit_form");
@@ -422,9 +422,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.log("picVal.length:", picVal.length);
 
                 if (input && img) {
-                    input.value = picVal || "";
-                    img.src = (picVal && picVal.split('/')[3] !== "undefined") ? picVal : `/static/images/${i}.png`;
-                    
+
+                    if (picVal && !picVal.includes("undefined")) {
+                        img.src = picVal;
+
+                        const filename = picVal.split("/").pop() || `/static/images/${i}.png`;
+                        // const filename = `/static/images/${i}.png`;
+                        setFileInputFromURL(input, picVal, filename);
+                    } else {
+                        img.src = `/static/images/${i}.png`;
+                    }
+
                     // if (img.src !== `/static/images/${i}.png`) {
                     //     img.addEventListener("click", () => {
                     //         lightboxImg.src = img.src;
@@ -521,5 +529,35 @@ document.addEventListener("DOMContentLoaded", () => {
               bootstrap.Modal.getOrCreateInstance(document.getElementById("editRecordModal")).show();
             }
         });
+    }
+
+    async function setFileInputFromURL(input, imageURL, filename = "image.jpg") {
+        // try {
+            /*
+            const response = await fetch(imageURL);
+            const blob = await response.blob();
+
+            const file = new File([blob], filename, { type: blob.type });
+
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            input.files = dataTransfer.files;
+
+            console.log(`✅ File object created for ${filename}`);
+            */
+
+            console.log(`[setFileInputFromURL] Fetching: ${imageURL}`);
+            const response = await fetch(`http://localhost:5000/${imageURL}`, { mode: "cors" });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const blob = await response.blob();
+
+            const file = new File([blob], filename, { type: blob.type });
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            input.files = dataTransfer.files;
+
+        // } catch (err) {
+        //    console.error(`❌ Failed to fetch or set file: ${imageURL}`, err);
+        //}
     }
 });

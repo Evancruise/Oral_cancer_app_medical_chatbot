@@ -1,0 +1,74 @@
+.oral-education-page h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.hero-card {
+  background: linear-gradient(135deg, #3bb4c1, #7dd3fc);
+  color: #fff;
+  text-align: center;
+}
+
+.card h3 {
+  color: #007ea7;
+  margin-bottom: 1rem;
+}
+
+.chart-img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.sub-card {
+  background: #f3f4f6;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 500;
+  margin: 8px;
+}
+
+.center-btn {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.btn {
+  background-color: #007ea7;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.btn.secondary {
+  background-color: #10b981;
+}
+
+.btn.primary:hover {
+  background-color: #006b92;
+}
+
+.modal-footer-1 {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.btn-return {
+  display: inline-block;
+  padding: 8px 20px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  color: #333;
+  text-decoration: none;
+}

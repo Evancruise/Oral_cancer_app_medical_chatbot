@@ -45,8 +45,11 @@ import { lang_get,
          save_privacy_setting,
          update_appointment_status,
          web_setting,
-         tracking} from '#controllers/auth.controller.js';
+         user_setting,
+         tracking,
+         education} from '#controllers/auth.controller.js';
 
+import { handleUpload } from "#services/upload.service.js";
 import multer from "multer";
 import i18next from "i18next";
 import i18nextMiddleware from "i18next-http-middleware";
@@ -98,12 +101,14 @@ router.get("/guideline", guideline);
 router.get("/appointments", appointments);
 router.post("/update_appointment", update_appointment);
 router.post("/update_appointment_status", update_appointment_status);
+router.get("/education", education);
 
 router.get("/tracking", tracking);
 
 router.get("/privacy", privacy_setting);
 router.post("/save_privacy_setting", save_privacy_setting);
 router.get("/web_setting", web_setting);
+router.get("/user_setting", user_setting);
 
 router.get("/record", record);
 router.post("/temp_upload", temp_upload);
@@ -121,8 +126,8 @@ router.post("/export_data", upload.none(), export_data);
 router.get("/account_management", account_management);
 router.post("/new_account", upload.none(), new_account);
 router.post("/edit_account", upload.none(), edit_account);
-router.post("/apply_account_setting", upload.none(), apply_account_setting);
-router.post("/apply_system_setting", upload.none(), apply_system_setting);
+router.post("/apply_account_setting", apply_account_setting);
+router.post("/apply_system_setting", apply_system_setting);
 router.post("/reset", upload.none(), reset);
 
 router.get("/quick_changepwd", quickchangepwd);

@@ -1,5 +1,20 @@
 import winston from 'winston';
+import 'dotenv/config';
+import fs from 'fs';
 
+function logToFile(message, level = "INFO") {
+  const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0];
+  const logLine = `[${timestamp}] [${level}] ${message}\n`;
+  console.log(logLine.trim());
+
+  if (process.env.NODE_ENV === "development") {
+    fs.appendFileSync('./db_dev.log', logLine);
+  } else if (process.env.NODE_ENV === "production") {
+    fs.appendFileSync("./db_prod.log", logLine);
+  }
+}
+
+/*
 const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
     format: winston.format.combine((
@@ -28,5 +43,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 console.log(">>> LOADING logger.js from acquisitions-api");
+*/
 
-export default logger;
+export { logToFile };

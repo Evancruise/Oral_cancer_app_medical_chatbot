@@ -6,6 +6,7 @@ from model.architecture import GroundingDINO
 from model.inference import grounding_inference_single
 from transformers import AutoModel, AutoProcessor
 from langchain import LLMChain, PromptTemplate
+from google.cloud import storage
 import threading, time, uuid
 import os
 
@@ -14,6 +15,20 @@ app = Flask(__name__)
 model = AutoModel.from_pretrained("facebook/dinov2-base")
 processor = AutoProcessor.from_pretrained("facebook/dinov2-base")
 tasks_list = {}
+
+def upload_to_gcs(local_path, remote_path):
+    client = storage.Client()
+    bucket = client.bucket(os.getenv("BUCKET_NAME"))
+    blob = bucket.blob(remote_path)
+    blob.upload_from_filename(local_path)
+    print(f"Uploaded: gs://{bucket.name}/{remote_path}")
+
+def download_from_gcs(remote_path, local_path):
+    client = storage.Client()
+    bucket = client.bucket(os.getenv("BUCKET_NAME"))
+    blob = bucket.blob(remote_path)
+    blob.download_to_filename(local_path)
+    print(f"Downloaded: {remote_path}")
 
 def run_inference(task_id, patient_id, images_path_list, notes):
 
