@@ -127,19 +127,25 @@ export const deleteRecord = async (body) => {
       throw new Error(`Record with patient_id ${body.patient_id} has already deleted`);
     }
 
-    await sql`INSERT INTO records_gb (
-            name, gender, age, patient_id, result, notes, status, progress, message, created_at, updated_at, 
-            img1, img2, img3, img4, img5, img6, img7, img8,
-            img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
-        )
-        SELECT
-            name, gender, age, patient_id, result, notes, status, progress, message, created_at, updated_at,
-            img1, img2, img3, img4, img5, img6, img7, img8,
-            img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
-        FROM records
-        WHERE patient_id = ${body.patient_id}
-        RETURNING *
+    const inserted = await sql`
+      INSERT INTO records_gb (
+        patient_id, name, notes, status, progress, message, created_at, updated_at, 
+        img1, img2, img3, img4, img5, img6, img7, img8,
+        img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
+      )
+      SELECT
+        patient_id, name, notes, status, progress, message, created_at, updated_at,
+        img1, img2, img3, img4, img5, img6, img7, img8,
+        img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
+      FROM records
+      WHERE patient_id = ${body.patient_id}
+      AND NOT EXISTS (
+        SELECT 1 FROM records_gb WHERE patient_id = ${body.patient_id}
+      )
+      RETURNING *;
     `;
+
+    console.log("✅ Copied Record:", inserted);
 
     const img_dic = await sql`SELECT * FROM records_gb WHERE patient_id = ${body.patient_id}`;
     const oldRecord = img_dic[0];    
@@ -236,12 +242,12 @@ export const recoverRecord = async (body, imgUpdates = null) => {
     }
 
     const record = await sql`INSERT INTO records (
-            name, gender, age, patient_id, result, notes, status, progress, message, created_at, updated_at, 
+            patient_id, name, result, notes, status, progress, message, created_at, updated_at, 
             img1, img2, img3, img4, img5, img6, img7, img8,
             img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
         )
         SELECT
-            name, gender, age, patient_id, result, notes, status, progress, message, created_at, updated_at,
+            patient_id, name, result, notes, status, progress, message, created_at, updated_at,
             img1, img2, img3, img4, img5, img6, img7, img8,
             img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
         FROM records_gb
@@ -253,6 +259,7 @@ export const recoverRecord = async (body, imgUpdates = null) => {
                                      img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
                                      FROM records_gb WHERE patient_id = ${body.patient_id}`;
     const oldRecord = img_dic[0];    
+    console.log(`oldRecord: ${oldRecord}`);
 
     const newRecord = {
         img1: "tmp/public/uploads/" + oldRecord.img1?.split("/")[3] + "/" + oldRecord.img1?.split("/")[4] ?? "",
@@ -400,14 +407,14 @@ export const createRecord = async (body) => {
     }
 
     console.log(`
-      INSERT INTO records (name, patient_id, updated_at, status, img1, img2, img3, img4, img5, img6, img7, img8)
-      VALUES (${body.name}, ${body.patient_id}, NOW(), 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
+      INSERT INTO records (name, patient_id, updated_at, notes, status, img1, img2, img3, img4, img5, img6, img7, img8)
+      VALUES (${body.name}, ${body.patient_id}, NOW(), ${body.notes}, 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
       RETURNING *
     `);
 
     const newRecord = await sql`
-      INSERT INTO records (name, patient_id, updated_at, status, img1, img2, img3, img4, img5, img6, img7, img8)
-      VALUES (${body.name}, ${body.patient_id}, NOW(), 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
+      INSERT INTO records (name, patient_id, updated_at, notes, status, img1, img2, img3, img4, img5, img6, img7, img8)
+      VALUES (${body.name}, ${body.patient_id}, NOW(), ${body.notes}, 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
       RETURNING *
     `;
 
@@ -427,10 +434,10 @@ export const createDiscardRecordTable = async () => {
         await sql`
           CREATE TABLE IF NOT EXISTS records_gb (
             id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-            name TEXT NOT NULL,
+            name TEXT,
             gender TEXT,
             age INTEGER,
-            patient_id TEXT NOT NULL,
+            patient_id TEXT,
             result TEXT,
             notes TEXT,
             status TEXT,
@@ -483,7 +490,7 @@ export const updateRecord = async (body = {}, imgUpdates = {}) => {
     for (const [key, val] of Object.entries(body || {})) {
       console.log(`key: ${key}, val: ${val}`);
       
-      if (key === "name") {
+      if (key === "name" || key === "notes") {
         updateFields[key] = val;
       }
       if (key.endsWith("_2") && val) {

@@ -418,6 +418,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log(`notes: ${notes}`);
             console.log(`record_id: ${record_id}`);
 
+            editModal.querySelector("textarea[name='notes']").value = notes;
+
             // filling the form
             /*
             editModal.querySelector("input[name='name_edit']").value = name;
@@ -445,7 +447,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // 口腔圖片
             for (let i = 1; i <= 8; i++) {
                 const picVal = link.getAttribute(`data-pic${i}`);  // 原本的檔案路徑
-                const input = editModal.querySelector(`#upload2_edit_${i}`); // hidden input
+                const input = editModal.querySelector(`#upload_edit_${i}`); // hidden input
                 const img = editModal.querySelector(`#preview_edit_${i}`);  // 預覽 <img>
 
                 console.log("picVal.length:", picVal.length);
@@ -453,7 +455,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (input && img) {
 
                     if (picVal && !picVal.includes("undefined")) {
-                        img.src = picVal;
+                        const fixedPath = picVal.startsWith("/") ? picVal : "/" + picVal;
+                        img.src = fixedPath;
 
                         const filename = picVal.split("/").pop() || `/static/images/${i}.png`;
                         // const filename = `/static/images/${i}.png`;
@@ -575,8 +578,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log(`✅ File object created for ${filename}`);
             */
 
-            console.log(`[setFileInputFromURL] Fetching: ${imageURL}`);
-            const response = await fetch(`http://localhost:5000${imageURL}`, { mode: "cors" });
+            console.log(`[setFileInputFromURL] Fetching: ${imageURL} (http://localhost:5000/${imageURL})`);
+            const response = await fetch(`http://localhost:5000/${imageURL}`, { mode: "cors" });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const blob = await response.blob();
 

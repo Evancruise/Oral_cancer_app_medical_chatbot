@@ -40,6 +40,7 @@ const __dirname = path.dirname(__filename);
 // =============================================
 // 🔧 自動建立資料表（僅限開發模式）
 // =============================================
+/*
 if (process.env.NODE_ENV !== "production") {
   await removeUserTable();
   await removeRegisterTable();
@@ -52,6 +53,7 @@ if (process.env.NODE_ENV !== "production") {
   await createDiscardRecordTable();
   await createAppointmentTable();
 }
+*/
 
 const app = express();
 

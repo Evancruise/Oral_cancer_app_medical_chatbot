@@ -37,6 +37,7 @@ const uploadRoot_dir = "/tmp/public";
 
 const uploadDir = path.join(uploadRoot_dir, "uploads");
 const uploadDir_gb = path.join(uploadRoot_dir, "uploads_gb");
+
 const config_dir = configRoot_dir;
 let configPath = path.join(configRoot_dir, "settings.json");
 
@@ -44,7 +45,7 @@ const storage_gcs = new Storage();
 const bucket = storage_gcs.bucket(process.env.GCS_BUCKET_NAME || "oral-cancer-uploads");
 
 const storage_upload = multer.diskStorage({ // cb(null, tempDir)
-  destination: (req, file, cb) => {
+  destination: async (req, file, cb) => {
 
     const { patient_id, code } = req.query || req.body;
 
@@ -54,7 +55,13 @@ const storage_upload = multer.diskStorage({ // cb(null, tempDir)
     if (!patient_id) {return cb(new Error("Missing patient_id"));}
 
     const patientDir = path.join(uploadDir, patient_id);
-    fs.mkdirSync(patientDir, { recursive: true });
+    //const patientDir_gb = path.join(uploadDir_gb, patient_id);
+    
+    //console.log(`建立 ${patientDir} 資料夾`);
+    //await fs.mkdirSync(patientDir, { recursive: true });
+    //console.log(`建立 ${patientDir_gb} 資料夾`);
+    //await fs.mkdirSync(patientDir_gb, { recursive: true });
+
     cb(null, patientDir);
   },
   filename: async (req, file, cb) => {
@@ -141,11 +148,30 @@ const storage_upload = multer.diskStorage({
 });
 */
 
+const storage_analyze = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const patient_id = req.body?.patient_id || "unknown";
+    
+    // 動態建立子資料夾
+    const uploadDir_sub = path.join(uploadDir_gb, patient_id);
+    fs.mkdirSync(uploadDir_sub, { recursive: true }); // 若不存在則建立
+
+    cb(null, uploadDir_sub);
+  },
+  filename: (req, file, cb) => {
+    
+    const patient_id = req.query?.patient_id || "unknown";
+    console.log(`patient_id: ${patient_id}`);
+
+    const filename = file.originalname;
+    cb(null, filename);
+  }
+});
+
 const storage_upload_gb = multer.diskStorage({
   destination: (req, file, cb) => {
     const patientId = req.body?.patient_id || "unknown";
-    req.patientId = patientId;  // ✅ 存起來讓 filename 能用
-
+    
     // 動態建立子資料夾
     const uploadDir_sub = path.join(uploadDir_gb, patientId);
     fs.mkdirSync(uploadDir_sub, { recursive: true }); // 若不存在則建立
@@ -179,6 +205,7 @@ const upload_temp = multer({
 */
 
 const upload = multer({ storage: storage_upload });
+const upload_analyze = multer({ storage: storage_analyze });
 const upload_gb = multer({ storage: storage_upload_gb });
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -958,6 +985,7 @@ export const temp_upload = [
         const filename = `${patientId}_${code}_${file.originalname}`;
         const localPath = path.join(localUploadDir, patientId, filename);
         //fs.renameSync(file.path, localPath);
+
         await safeMoveFile(file.path, localPath, patientId, code);
         console.log(`📂 [LOCAL UPLOAD] Saved at ${localPath}`);
 
@@ -965,7 +993,7 @@ export const temp_upload = [
           success: true,
           env: "development",
           uploadedUrl: "none",
-          filePath: `/tmp/public/uploads/${patientId}/${filename}`,
+          filePath: `tmp/public/uploads/${patientId}/${filename}`,
         });
 
       } else if (process.env.NODE_ENV === "production") {
@@ -1121,7 +1149,7 @@ export const edit_record = [
     }
 
     const action = body.action;
-    const patientId = body.patient_id_edit;
+    const patientId = body.patient_id;
 
     console.log("patientId:", patientId);
 
@@ -1182,16 +1210,19 @@ export const edit_record = [
           files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
         });
     } else if (action === "delete") {
+        
         const delete_record = await deleteRecord(body);
-
+    
         console.log(`delete_record: ${JSON.stringify(delete_record)}`);
 
+        console.log(`[edit_record] 判斷 ${uploadDir_gb_id} 資料夾存在與否 (${fs.existsSync(uploadDir_gb_id)})`);
         if (!fs.existsSync(uploadDir_gb_id)) {
+          console.log(`[edit_record] 建立 ${uploadDir_gb_id} 資料夾`);
           fs.mkdirSync(uploadDir_gb_id, { recursive: true });
         }
 
-        console.log(`uploadDir: ${uploadDir_id} ${fs.existsSync(uploadDir_id)}`);
-        console.log(`uploadDir_gb: ${uploadDir_gb_id} ${fs.existsSync(uploadDir_gb_id)}`);
+        console.log(`uploadDir_id: ${uploadDir_id} ${fs.existsSync(uploadDir_id)}`);
+        console.log(`uploadDir_gb_id: ${uploadDir_gb_id} ${fs.existsSync(uploadDir_gb_id)}`);
 
         if (fs.existsSync(uploadDir_gb_id)) {
           // move the files from folder with gb to that with original ones
@@ -1223,11 +1254,13 @@ export const edit_record = [
 }];
 
 export const analyze = [
-  upload.any(),
+  upload_analyze.any(),
   async (req, res) => {
 
     // try {
       console.log("🧾 Received fields:", Object.keys(req.body));
+      console.log("Files received:", req.files);
+
       const token = req.body.token;
 
       const formData = new FormData();
@@ -1253,6 +1286,9 @@ export const analyze = [
         // 開發環境: multer 本地 /tmp 檔案
         if (process.env.NODE_ENV === "development") {
           const file = req.files.find(f => f.fieldname === field);
+
+          console.log(`file.path: ${file.path}`);
+
           if (file && fs.existsSync(file.path)) {
             filePath = file.path;
             console.log(`[LOCAL] Found file ${field}: ${filePath}`);
@@ -1291,6 +1327,7 @@ export const analyze = [
       }
 
       // Flask API
+      console.log("🔗 Flask URL →", `${process.env.FLASK_API_URL}/api/predict`);
       const response = await fetch(`${process.env.FLASK_API_URL}/api/predict`, {
         method: "POST",
         body: formData,
@@ -1839,12 +1876,16 @@ export const recycle_record = [
 
           if (action === "resume") {
 
+              console.log(`uploadDir_id: ${uploadDir_id}`);
+
               if (!fs.existsSync(uploadDir_id)) {
+                console.log(`建立資料夾 ${uploadDir_id}...`);
                 fs.mkdirSync(uploadDir_id, { recursive: true });
               }
 
               if (fs.existsSync(uploadDir_gb_id)) {
                 // move the files from folder with gb to that with original ones
+                console.log(`移動資料夾 ${uploadDir_gb_id} -> ${uploadDir_id}`);
                 const moveOk = await movefiles(uploadDir_gb_id, uploadDir_id);
                 if (moveOk === false) {
                   return res.status(401).json({ success: false, message: "Files transfer failed" });

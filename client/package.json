@@ -18,7 +18,7 @@
     "#validations/*": "./src/validations/*"
   },
   "scripts": {
-    "start:flask": "cd ../flask_api && python app.py",
+    "start:flask": "cd ../server && python app.py",
     "dev:node": "node --watch src/index.js",
     "dev": "concurrently \"npm run start:flask\" \"npm run start\"",
     "vercel": "vercel dev",

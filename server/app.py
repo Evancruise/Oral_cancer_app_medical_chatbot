@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from PIL import Image
 import torch
 from model.architecture import GroundingDINO
+from utils.config import GroundDINOConfig
 from model.inference import grounding_inference_single
 from transformers import AutoModel, AutoProcessor
 from langchain import LLMChain, PromptTemplate
@@ -65,11 +66,11 @@ def run_inference(task_id, patient_id, images_path_list, notes):
             tasks_list[task_id]["progress"] = progress
             print(f"[Task {task_id}] {stage}", flush=True)
 
-            model = GroundingDINO(img_dim=768, txt_dim=768, num_queries=100, decoder_depth=6, nhead=8)
+            cfg = GroundDINOConfig()
+            model = GroundingDINO(cfg).to("cuda" if torch.cuda.is_available() else "cpu")
 
             if stage == "Loading model weights...":
                 model.load_state_dict(torch.load("checkpoints/best_model_epoch10.pth", map_location="cpu"))
-                model.to("cuda" if torch.cuda.is_available() else "cpu")
             
             elif stage == "Extracting DINOv2 features...":
                 for img_path in images_path_list:

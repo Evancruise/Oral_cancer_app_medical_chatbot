@@ -88,12 +88,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const record_id = link.getAttribute("data-record_id");
 
             // filling the form
-            viewModal.querySelector("input[name='name']").value = name;
-            viewModal.querySelector("select[name='gender']").value = gender;
-            viewModal.querySelector("input[name='age']").value = age;
+            //viewModal.querySelector("input[name='name']").value = name;
+            //viewModal.querySelector("select[name='gender']").value = gender;
+            //viewModal.querySelector("input[name='age']").value = age;
             viewModal.querySelector("textarea[name='notes']").value = notes;
             viewModal.querySelector("input[name='patient_id']").value = patient_id;
 
+            /*
             let hiddenId = viewModal.querySelector("input[name='record_id']");
             if (!hiddenId) {
                 hiddenId = document.createElement("input");
@@ -102,6 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 viewModal.querySelector("form").appendChild(hiddenId);
             }
             hiddenId.value = record_id;
+            */
 
             const lightbox = document.getElementById("lightbox");
             const lightboxImg = document.getElementById("lightbox-img");
@@ -112,22 +114,30 @@ document.addEventListener("DOMContentLoaded", () => {
             // 口腔圖片
             for (let i = 1; i <= 8; i++) {
                 const picVal = link.getAttribute(`data-pic${i}`);  // 原本的檔案路徑
-                const img = viewModal.querySelector(`#preview_${i}`);  // 預覽 <img>
+                const input = viewModal.querySelector(`#upload2_view_${i}`); // hidden input
+                const img = viewModal.querySelector(`#preview_view_${i}`);  // 預覽 <img>
 
-                console.log(`picVal: ${picVal}`);
+                console.log("picVal:", picVal);
+                if (input && img) {
 
-                if (img) {
-                    img.src = (picVal && picVal.split('/')[3] !== "undefined") ? picVal : `/static/images/${i}.png`;
+                    if (picVal && !picVal.includes("undefined")) {
+                        const fixedPath = picVal.startsWith("/") ? picVal : "/" + picVal;
+                        img.src = fixedPath;
 
-                    if (img.src !== `/static/images/${i}.png`) {
-                        img.addEventListener("click", () => {
-                            lightboxImg.src = img.src;
-                            lightbox.classList.add("show");
-                        });
+                        // const filename = picVal.split("/").pop() || `/static/images/${i}.png`;
+                        // const filename = `/static/images/${i}.png`;
+                        // setFileInputFromURL(input, picVal, filename);
+                    } else {
+                        img.src = `/static/images/${i}.png`;
                     }
-                }
 
-                console.log("img.src:", img.src);
+                    // if (img.src !== `/static/images/${i}.png`) {
+                    //     img.addEventListener("click", () => {
+                    //         lightboxImg.src = img.src;
+                    //         lightbox.classList.add("show");
+                    //     });
+                    // }
+                }
             }
 
             let currentIndex = 0;
@@ -212,9 +222,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const view = document.getElementById("viewRecordModal_rec");
             bootstrap.Modal.getOrCreateInstance(view).show();
 
-            view.querySelector("input[name='name']").value = currentRecord.name;
-            view.querySelector("select[name='gender']").value = currentRecord.gender;
-            view.querySelector("input[name='age']").value = currentRecord.age;
+            //view.querySelector("input[name='name']").value = currentRecord.name;
+            //view.querySelector("select[name='gender']").value = currentRecord.gender;
+            //view.querySelector("input[name='age']").value = currentRecord.age;
             view.querySelector("textarea[name='notes']").value = currentRecord.notes;
             view.querySelector("input[name='patient_id']").value = currentRecord.patient_id;
             // 圖片也重新帶回去
@@ -223,5 +233,35 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (img) {img.src = pic || `/static/images/${idx+1}.png`;}
             });
         });
+    }
+
+    async function setFileInputFromURL(input, imageURL, filename = "image.jpg") {
+    // try {
+        /*
+        const response = await fetch(imageURL);
+        const blob = await response.blob();
+
+        const file = new File([blob], filename, { type: blob.type });
+
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        input.files = dataTransfer.files;
+
+        console.log(`✅ File object created for ${filename}`);
+        */
+
+        console.log(`[setFileInputFromURL] Fetching: ${imageURL}`);
+        const response = await fetch(`http://localhost:5000/${imageURL}`, { mode: "cors" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+
+        const file = new File([blob], filename, { type: blob.type });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        input.files = dataTransfer.files;
+
+    // } catch (err) {
+    //    console.error(`❌ Failed to fetch or set file: ${imageURL}`, err);
+    //}
     }
 });

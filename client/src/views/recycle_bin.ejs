@@ -65,28 +65,10 @@
                 </div>
 
                 <input type="hidden" name="token" id="token" value="<%= token %>">
+                <input type="hidden" name="name" id="name" value="<%= name %>">
 
                 <div id="basicInfoCollapse" class="collapse show">
                     <div class="modal-body">
-                        <div class="form-inline mb-3">
-                            <label class="form-label me-2"> <%= t("record.name") %> </label>
-                            <input type="text" name="name" class="form-control" value="<%= name %>" readonly>
-                        </div>
-
-                        <div class="form-inline mb-3">
-                            <label class="form-label me-2"> <%= t("record.gender") %> </label>
-                            <select name="gender" class="form-control">
-                            <option value=""> <%= t("record.gender") %> </option>
-                            <option value="男"> <%= t("male") %> </option>
-                            <option value="女"> <%= t("female") %> </option>
-                            </select>
-                        </div>
-
-                        <div class="form-inline mb-3">
-                            <label class="form-label me-2"> <%= t("record.age") %> </label>
-                            <input type="number" name="age" class="form-control" required>
-                        </div>
-
                         <div class="form-inline mb-3">
                             <label class="form-label me-2"> <%= t("record.patient_id") %> </label>
                             <input type="text" name="patient_id" class="form-control" value="<%= patient_id %>" readonly>
@@ -131,7 +113,8 @@
                                         alt="<%= label %>"
                                         class="zoomable"
                                         style="width: 100%; border-radius: 6px; margin-bottom: 5px;"
-                                        id="preview_<%= code %>">
+                                        id="preview_view_<%= code %>">
+                                    <input type="text" name="pic<%= code %>_2" id="upload2_view_<%= code %>" hidden>
                                     <div style="font-size: 14px; font-weight: 500;"><%= label %></div>
                                 </div>
                                 <% } %>
