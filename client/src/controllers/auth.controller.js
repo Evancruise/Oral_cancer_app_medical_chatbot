@@ -7,6 +7,8 @@ import crypto from "crypto";
 import { DateTime } from "luxon";
 // import { fileURLToPath } from "url";
 
+import { Storage } from "@google-cloud/storage";
+
 import fs from "fs";
 import path from "path";
 import multer from "multer";
@@ -22,7 +24,7 @@ import { getRecord, createRecord, updateRecord, updateRecordStatus, deleteRecord
 
 import { signupSchema, signinSchema } from "#validations/auth.validation.js";
 // import { generateToken } from "#middleware/users.middleware.js";
-import { movefiles, deletefiles } from "#utils/func.js";
+import { movefiles, deletefiles, deleteFilesByPrefix, deletefile } from "#utils/func.js";
 
 import { removeUserTable, createUsersTable } from "#services/user.service.js";
 import { removeRegisterTable, createRegisterTable } from "#services/register.service.js";
@@ -33,14 +35,21 @@ console.log(`process.cwd(): ${process.cwd()}`);
 const configRoot_dir = "/tmp/config";
 const uploadRoot_dir = "/tmp/public";
 
-const uploadDir = path.join(process.cwd(), `${uploadRoot_dir}/uploads`);
-const uploadDir_gb = path.join(process.cwd(), `${uploadRoot_dir}/uploads_gb`);
-const config_dir = path.join(process.cwd(), configRoot_dir);
-let configPath = path.join(process.cwd(), `${configRoot_dir}/settings.json`);
+const uploadDir = path.join(uploadRoot_dir, "uploads");
+const uploadDir_gb = path.join(uploadRoot_dir, "uploads_gb");
+const config_dir = configRoot_dir;
+let configPath = path.join(configRoot_dir, "settings.json");
 
-const storage_temp = multer.diskStorage({ // cb(null, tempDir)
+const storage_gcs = new Storage();
+const bucket = storage_gcs.bucket(process.env.GCS_BUCKET_NAME || "oral-cancer-uploads");
+
+const storage_upload = multer.diskStorage({ // cb(null, tempDir)
   destination: (req, file, cb) => {
-    const { patient_id } = req.query;
+
+    const { patient_id, code } = req.query || req.body;
+
+    console.log(`patient_id: ${patient_id}`);
+    console.log(`code: ${code}`);
 
     if (!patient_id) {return cb(new Error("Missing patient_id"));}
 
@@ -48,11 +57,14 @@ const storage_temp = multer.diskStorage({ // cb(null, tempDir)
     fs.mkdirSync(patientDir, { recursive: true });
     cb(null, patientDir);
   },
-  filename: (req, file, cb) => {
+  filename: async (req, file, cb) => {
     try {
-      const { patient_id, code } = req.query;  // <-- 注意是 req.query
+      const { patient_id, code } = req.query || req.body;
       
-      if (!patient_id || !code) {
+      console.log(`patient_id: ${patient_id}`);
+      console.log(`code: ${code}`);
+
+      if (!patient_id) {
         return cb(new Error("Missing patient_id or code"));
       }
 
@@ -65,14 +77,24 @@ const storage_temp = multer.diskStorage({ // cb(null, tempDir)
       const filename = `${safePatientId}-${safeCode}-${file.originalname}`;
       const filepath = path.join(uploadDir, patient_id, filename);
 
-      const files = fs.readdirSync(patientDir);
+      console.log(`patientDir: ${patientDir}`);
+
+      const files = fs.existsSync(patientDir) ? fs.readdirSync(patientDir) : [];
+
+      console.log(`files: ${files}`);
 
       for (const file of files) {
+        await deletefile(file);
+
+        /*
+        console.log(`file: ${file}, prefix: ${prefix}`);
+
         if (file.startsWith(prefix)) {
           const targetPath = path.join(patientDir, file);
           fs.unlinkSync(targetPath);
           console.log(`🗑️ Delete old file (prefix match): ${targetPath}`);
         }
+        */
       }
 
       /*
@@ -89,9 +111,10 @@ const storage_temp = multer.diskStorage({ // cb(null, tempDir)
   }
 });
 
+/*
 const storage_upload = multer.diskStorage({
   destination: (req, file, cb) => {
-    const patientId = req.body?.patient_id || "unknown";
+    const patientId = req.query?.patient_id || "unknown";
     req.patientId = patientId;  // ✅ 存起來讓 filename 能用
     const uploadDir_sub = path.join(uploadDir, patientId);
     fs.mkdirSync(uploadDir_sub, { recursive: true });
@@ -116,6 +139,7 @@ const storage_upload = multer.diskStorage({
     }
   }
 });
+*/
 
 const storage_upload_gb = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -146,11 +170,56 @@ const storage_upload_gb = multer.diskStorage({
   }
 });
 
-const upload_temp = multer({ storage: storage_temp });
+/*
+const upload_temp = multer({
+  storage: storage_temp,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  dest: "/tmp",
+});
+*/
+
 const upload = multer({ storage: storage_upload });
 const upload_gb = multer({ storage: storage_upload_gb });
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+const safeMoveFile = async (srcPath, destPath, patient_id, code) => {
+  console.log(`destPath: ${destPath}`);
+
+  const parts = destPath.split(/[/\\]/);
+  const filename = parts[parts.length - 1];
+  const fileCode = filename.split("_")[1];
+
+  console.log(`fileCode: ${fileCode}, code: ${code}`);
+
+  // 確保目錄存在
+  const dir = path.dirname(destPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  // 移動檔案
+  //try {
+    const destDir = path.dirname(destPath);
+    const files = fs.existsSync(destDir) ? fs.readdirSync(destDir) : [];
+    
+    console.log(`files: ${files}`);
+
+    for (const file of files) {
+      const filePath = path.join(destDir, file);
+      console.log(`file: ${file}`);
+
+      if (fs.existsSync(filePath) && file.startsWith(`${patient_id}_${code}_`)) {
+        await deletefile(filePath);
+      }
+    }
+
+    fs.renameSync(srcPath, destPath);
+    console.log(`✅ 檔案已移動到 ${destPath}`);
+  //} catch (err) {
+  //  console.error(`❌ 移動檔案失敗: ${srcPath} → ${destPath}`, err);
+  //}
+};
 
 export const cloud_upload = async (req, res) => {
   const { file } = req;
@@ -868,8 +937,13 @@ export const temp_upload = [
   async (req, res) => {
     try {
       const file = req.file;
-      const patientId = req.body.patient_id || "unknown";
-      const code = req.body.code || "x";
+      const body = req.body;
+
+      console.log(`body: ${JSON.stringify(body)}`);
+      
+      const patientId = body.patient_id || "unknown";
+      const code = body.code || "x";
+      // const content_type = req.body.contentType;
 
       if (!file) {
         return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -879,39 +953,59 @@ export const temp_upload = [
       // 開發環境：存本地 (client/tmp/public/uploads)
       // ============================================
       if (process.env.NODE_ENV === "development") {
+        // upload_temp
+        const localUploadDir = path.join(process.cwd(), `tmp/public/uploads/`);
         const filename = `${patientId}_${code}_${file.originalname}`;
-        const localPath = path.join(localUploadDir, filename);
-        fs.renameSync(file.path, localPath);
+        const localPath = path.join(localUploadDir, patientId, filename);
+        //fs.renameSync(file.path, localPath);
+        await safeMoveFile(file.path, localPath, patientId, code);
         console.log(`📂 [LOCAL UPLOAD] Saved at ${localPath}`);
 
         return res.json({
           success: true,
           env: "development",
-          filename,
-          temp_path: `/tmp/public/uploads/${filename}`,
+          uploadedUrl: "none",
+          filePath: `/tmp/public/uploads/${patientId}/${filename}`,
+        });
+
+      } else if (process.env.NODE_ENV === "production") {
+        /*
+        const [ url ] = await file.getSignedUrl({
+          version: "v4",
+          action: "write",
+          expires: Date.now() + 5 * 60 * 1000,
+          content_type,
+        });
+        */
+
+        // ============================================
+        // 生產環境：上傳到 GCS Bucket
+        // ============================================
+        const destPath = `uploads/${patientId}/${code}_${file.originalname}`;
+        await bucket.upload(file.path, {
+          destination: destPath,
+          metadata: {
+            cacheControl: "public, max-age=31536000",
+          },
+        });
+
+        fs.unlinkSync(file.path);
+
+        const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destPath}`;
+        console.log(`☁️ [GCS UPLOAD] ${publicUrl}`);
+
+        return res.json({
+          success: true,
+          env: "production",
+          uploadedUrl: publicUrl,
+          gcsPath: destPath,
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: `Unsupported NODE_ENV: ${process.env.NODE_ENV}`,
         });
       }
-
-      // ============================================
-      // 生產環境：上傳到 GCS Bucket
-      // ============================================
-      const destPath = `uploads/${patientId}/${code}_${file.originalname}`;
-      await bucket.upload(file.path, {
-        destination: destPath,
-        metadata: {
-          cacheControl: "public, max-age=31536000",
-        },
-      });
-
-      const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destPath}`;
-      console.log(`☁️ [GCS UPLOAD] ${publicUrl}`);
-
-      return res.json({
-        success: true,
-        env: "production",
-        filename: file.originalname,
-        temp_path: publicUrl,
-      });
 
     } catch (err) {
       console.error("❌ Upload error:", err);
@@ -921,14 +1015,14 @@ export const temp_upload = [
 ];
 
 export const new_record = [
-  upload.any(),  // multer 處理 multipart/form-data
+  upload.any(),
   async (req, res) => {
     const body = req.body;
     const files = req.files;
     // generateToken(body);
 
     console.log("req.headers:", req.headers);
-    console.log("body:", body);
+    console.log("body:", JSON.stringify(body));
     console.log("files:", JSON.stringify(files, null, 2));
 
     const token = body.token;
@@ -959,15 +1053,28 @@ export const new_record = [
       */
       newRecord = await createRecord(body);
 
-      // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
-      return res.status(200).json({
-        layout: false,
-        success: true,
-        redirect: `/api/auth/record?token=${token}`,
-        message: "Create new record successfully",
-        patient_id: patientId,
-        // files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
-      });
+      console.log(`[new_record] newRecord: ${newRecord}`);
+
+      if (newRecord.length === 0) {
+        return res.status(200).json({
+          layout: false,
+          success: false,
+          redirect: `/api/auth/record?token=${token}`,
+          message: "Please upload all required images",
+          patient_id: patientId,
+          // files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
+        });
+      } else {
+        // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
+        return res.status(200).json({
+          layout: false,
+          success: true,
+          redirect: `/api/auth/record?token=${token}`,
+          message: "Create new record successfully",
+          patient_id: patientId,
+          // files: files.map(f => ({ field: f.fieldname, name: f.originalname }))
+        });
+      }
     } else if (action === "infer") {
       /* 
       update current new add user file into records table from body
@@ -995,8 +1102,7 @@ export const new_record = [
           message: "unknown action"
         });
     }
-  }
-];
+}];
 
 export const edit_record = [
   upload.any(),
@@ -1006,7 +1112,7 @@ export const edit_record = [
     // generateToken(body);
 
     console.log("req.headers:", req.headers);
-    console.log("body:", body);
+    console.log("body:", JSON.stringify(body));
     console.log("files:", JSON.stringify(files, null, 2));
 
     const token = body.token;
@@ -1015,7 +1121,7 @@ export const edit_record = [
     }
 
     const action = body.action;
-    const patientId = body.patient_id;
+    const patientId = body.patient_id_edit;
 
     console.log("patientId:", patientId);
 
@@ -1063,7 +1169,7 @@ export const edit_record = [
 
         console.log("imgUpdates:", imgUpdates);
     
-        const editRecord = await updateRecord(body, imgUpdates);
+        await updateRecord(body, imgUpdates);
 
         // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
         return res.status(200).json({
@@ -1114,17 +1220,16 @@ export const edit_record = [
           patient_id: patientId
         });
     }
-  }
-];
+}];
 
 export const analyze = [
   upload.any(),
   async (req, res) => {
 
+    // try {
       console.log("🧾 Received fields:", Object.keys(req.body));
       const token = req.body.token;
 
-    //try {
       const formData = new FormData();
       formData.append("patient_id", String(req.body.patient_id));
 
@@ -1132,6 +1237,7 @@ export const analyze = [
       logEntries.push(["patient_id", req.body.patient_id]);
 
       for (let i = 1; i <= 8; i++) {
+        /*
         const file = req.files.find(f => f.fieldname === `pic${i}`);
         if (file && fs.existsSync(file.path)) {
           console.log(`Appending file: ${file.path}`);
@@ -1139,6 +1245,42 @@ export const analyze = [
           logEntries.push([`pic${i}`, file.path]);
         } else {
           console.log(`File not found or empty: pic${i}`);
+        }
+        */
+        const field = `pic${i}`;
+        let filePath = null;
+
+        // 開發環境: multer 本地 /tmp 檔案
+        if (process.env.NODE_ENV === "development") {
+          const file = req.files.find(f => f.fieldname === field);
+          if (file && fs.existsSync(file.path)) {
+            filePath = file.path;
+            console.log(`[LOCAL] Found file ${field}: ${filePath}`);
+            formData.append(field, fs.createReadStream(filePath));
+            logEntries.push([field, filePath]);
+          } else {
+            console.log(`[LOCAL] File missing: ${field}`);
+          }
+        }
+        // 生產環境: GCS模式
+        else if (process.env.NODE_ENV === "production") {
+          const gcsPath = req.body[`pic${i}`];
+          if (!gcsPath) {
+            console.log(`[GCS] Missing path for ${field}`);
+            continue;
+          }
+
+          const tmpPath = `/tmp/${path.basename(gcsPath)}`;
+          console.log(`[GCS] Downloading ${gcsPath} -> ${tmpPath}`);
+
+          await bucket.file(gcsPath).download({ destination: tmpPath });
+
+          if (fs.existsSync(tmpPath)) {
+            formData.append(field, fs.createReadStream(tmpPath));
+            logEntries.push([field, tmpPath]);
+          } else {
+            console.log(`[GCS] Download failed for ${gcsPath}`);
+          }
         }
       }
 
@@ -1148,27 +1290,36 @@ export const analyze = [
         console.log(`  ${key}:`, value?.path || value?.name || value);
       }
 
+      // Flask API
       const response = await fetch(`${process.env.FLASK_API_URL}/api/predict`, {
         method: "POST",
         body: formData,
       });
 
       const result = await response.json();
-
       console.log("result:", result);
 
+      // 結果回傳給前端
       if (result.status === "ok") {
-        return res.status(201).json({ success: true, message: "Inference started", task_id: result.task_id, patient_id: result.patient_id, redirect: `/api/auth/record?token=${token}` });
+        return res.status(201).json({ 
+          success: true, 
+          message: "Inference started", 
+          task_id: result.task_id, 
+          patient_id: result.patient_id, 
+          redirect: `/api/auth/record?token=${token}` });
       } else {
-        return res.status(401).json({ success: false, message: "Failed to start inference" });
+        return res.status(401).json({ 
+          success: false, 
+          message: "Failed to start inference",
+          flask_message: result.message || null,
+        });
       }
 
     //} catch (err) {
     //  console.error("Error starting inference");
     //  return res.status(500).json({ success: false, message: "Server error" });
     //}
-  }
-]; 
+}];
 
 export const get_inference_status = async (req, res) => {
     const { task_id } = req.params;

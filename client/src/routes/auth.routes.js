@@ -49,7 +49,7 @@ import { lang_get,
          tracking,
          education} from '#controllers/auth.controller.js';
 
-import { handleUpload } from "#services/upload.service.js";
+// import { handleUpload } from "#services/upload.service.js";
 import multer from "multer";
 import i18next from "i18next";
 import i18nextMiddleware from "i18next-http-middleware";

@@ -92,7 +92,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           const file = event.target.files[0];
           const patient_id = newModal.querySelector("input[name='patient_id']").value;
 
-          console.log("file:", file.name);
+          console.log("file:", file);
+
           if (file) {
             const reader = new FileReader();
             reader.onload = e => {
@@ -106,6 +107,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             formData.append("file", file);
             formData.append("patient_id", patient_id);
             formData.append("code", code);
+            formData.append("filename", file.name);
+            formData.append("contentType", file.type);
+
+            console.log(`[add_form] patient_id: ${patient_id}`);
 
             const res = await fetch(`/api/auth/temp_upload?patient_id=${patient_id}&code=${code}`, {
                 method: "POST",
@@ -116,10 +121,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("Temp upload result:", data);
 
             if (data.success === true) {
-                console.log(`data.temp_path: ${data.temp_path}`);
-                btn.innerText = uploaded_msg;
-                input2.value = `tmp/public/uploads/${patient_id}/${data.filename}`;
-                console.log(`input2.value: ${input2.value}`);
+                if (data.env === "development") {
+                    console.log(`data.filePath: ${data.filePath}`);
+                    btn.innerText = uploaded_msg;
+                    input2.value = data.filePath;
+                    console.log(`input2.value: ${input2.value}`);
+                } else if (data.env === "production") {
+                    await fetch(data.uploadedUrl, {
+                        method: "PUT",
+                        headers: { "Content-Type": file.type },
+                        body: file,
+                    });
+                }
             } else {
                 showModal("上傳失敗，請再上傳一次");
             }
@@ -144,7 +157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // 當使用者選擇圖片後，更新預覽圖
         input.addEventListener("change", async (event) => {
           const file = event.target.files[0];
-          const patient_id = newModal.querySelector("input[name='patient_id']").value;
+          const patient_id = editModal.querySelector("input[name='patient_id']").value;
 
           console.log("file:", file.name);
           if (file) {
@@ -160,6 +173,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             formData.append("file", file);
             formData.append("patient_id", patient_id);
             formData.append("code", code);
+            formData.append("filename", file.name);
+            formData.append("contentType", file.type);
 
             const res = await fetch(`/api/auth/temp_upload?patient_id=${patient_id}&code=${code}`, {
                 method: "POST",
@@ -170,10 +185,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("Temp upload result:", data);
 
             if (data.success === true) {
-                console.log(`data.temp_path: ${data.temp_path}`);
-                btn.innerText = uploaded_msg;
-                input2.value = `tmp/public/uploads/${patient_id}/${data.filename}`;
-                console.log(`input2.value: ${input2.value}`);
+                if (data.env === "development") {
+                    console.log(`data.temp_path: ${data.temp_path}`);
+                    btn.innerText = uploaded_msg;
+                    input2.value = data.filePath;
+                    console.log(`input2.value: ${input2.value}`);
+                } else if (data.env === "production") {
+                    await fetch(data.uploadedUrl, {
+                        method: "PUT",
+                        headers: { "Content-Type": file.type },
+                        body: file,
+                    });
+                }
             } else {
                 showModal("上傳失敗，請再上傳一次");
             }
@@ -199,7 +222,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const patientId = formData.get("patient_id");
 
-            console.log(`formData: ${formData}`);
+            for (const [key, value] of formData.entries()) {
+                console.log(`${key}: ${value}`);
+            }
 
             const res = await fetch(`/api/auth/new_record?patient_id=${patientId}`, {
                 method: "POST",
@@ -247,13 +272,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 console.log(key, value);
             }
 
+            const patientId = formData.get("patient_id");
+
             if (e.submitter.value === "infer") {
 
                 showingModal("Waiting for system warm up...", () => {
                     closingModal();
                 });
 
-                const res = await fetch("/api/auth/analyze", {
+                const res = await fetch(`/api/auth/analyze?patient_id=${patientId}`, {
                     method: "POST",
                     body: formData,
                 });
@@ -290,7 +317,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     closingModal();
                 });
 
-                const res = await fetch("/api/auth/edit_record", {
+                const res = await fetch(`/api/auth/edit_record?patient_id=${patientId}`, {
                     method: "POST",
                     body: formData,
                 });
@@ -392,13 +419,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log(`record_id: ${record_id}`);
 
             // filling the form
-            editModal.querySelector("input[name='name']").value = name;
-            editModal.querySelector("select[name='gender']").value = gender;
-            editModal.querySelector("input[name='age']").value = age;
-            editModal.querySelector("textarea[name='notes']").value = notes;
-            editModal.querySelector("input[name='patient_id']").value = patient_id;
+            /*
+            editModal.querySelector("input[name='name_edit']").value = name;
+            editModal.querySelector("select[name='gender_edit']").value = gender;
+            editModal.querySelector("input[name='age_edit']").value = age;
+            editModal.querySelector("textarea[name='notes_edit']").value = notes;
+            editModal.querySelector("input[name='patient_id_edit']").value = patient_id;
 
-            let hiddenId = editModal.querySelector("input[name='record_id']");
+            let hiddenId = editModal.querySelector("input[name='record_id_edit']");
             if (!hiddenId) {
                 hiddenId = document.createElement("input");
                 hiddenId.type = "hidden";
@@ -406,6 +434,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 editModal.querySelector("form").appendChild(hiddenId);
             }
             hiddenId.value = record_id;
+            */
 
             const lightbox = document.getElementById("lightbox");
             const lightboxImg = document.getElementById("lightbox-img");
@@ -547,7 +576,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             */
 
             console.log(`[setFileInputFromURL] Fetching: ${imageURL}`);
-            const response = await fetch(`http://localhost:5000/${imageURL}`, { mode: "cors" });
+            const response = await fetch(`http://localhost:5000${imageURL}`, { mode: "cors" });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const blob = await response.blob();
 

@@ -343,8 +343,8 @@ export const createRecordTable = async () => {
           CREATE TABLE IF NOT EXISTS records (
             id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             name TEXT NOT NULL,
-            gender TEXT NOT NULL,
-            age INTEGER NOT NULL,
+            gender TEXT,
+            age INTEGER,
             patient_id TEXT NOT NULL,
             result TEXT,
             notes TEXT,
@@ -391,16 +391,24 @@ export const createRecord = async (body) => {
       throw new Error(`Record with patient_id ${body.patient_id} already exists`);
     }
 
+    for (let i = 1; i <= 8; i++) {
+      if (!body[`pic${i}_2`]) {
+        console.log(`body[pic${i}_2] is null, return`);
+        return [];
+      }
+      console.log(`body[pic${i}_2]: ${body[`pic${i}_2`]}`);
+    }
+
     console.log(`
-      INSERT INTO records (name, gender, age, patient_id, notes, updated_at, status, img1, img2, img3, img4, img5, img6, img7, img8)
-      VALUES (${body.name}, ${body.gender}, ${body.age}, ${body.patient_id}, ${body.notes}, NOW(), 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
-      RETURNING name, gender, age, patient_id, notes, created_at, updated_at, img1, img2, img3, img4, img5, img6, img7, img8
+      INSERT INTO records (name, patient_id, updated_at, status, img1, img2, img3, img4, img5, img6, img7, img8)
+      VALUES (${body.name}, ${body.patient_id}, NOW(), 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
+      RETURNING *
     `);
 
     const newRecord = await sql`
-      INSERT INTO records (name, gender, age, patient_id, notes, updated_at, status, img1, img2, img3, img4, img5, img6, img7, img8)
-      VALUES (${body.name}, ${body.gender}, ${body.age}, ${body.patient_id}, ${body.notes}, NOW(), 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
-      RETURNING name, gender, age, patient_id, notes, created_at, updated_at, img1, img2, img3, img4, img5, img6, img7, img8
+      INSERT INTO records (name, patient_id, updated_at, status, img1, img2, img3, img4, img5, img6, img7, img8)
+      VALUES (${body.name}, ${body.patient_id}, NOW(), 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
+      RETURNING *
     `;
 
     console.log("✅ Step 2 完成:", newRecord[0]);
@@ -420,8 +428,8 @@ export const createDiscardRecordTable = async () => {
           CREATE TABLE IF NOT EXISTS records_gb (
             id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             name TEXT NOT NULL,
-            gender TEXT NOT NULL,
-            age INTEGER NOT NULL,
+            gender TEXT,
+            age INTEGER,
             patient_id TEXT NOT NULL,
             result TEXT,
             notes TEXT,
@@ -461,42 +469,82 @@ Update functions
 
 *******************************/
 
-export const updateRecord = async (body = null, imgUpdates = null) => {
+export const updateRecord = async (body = {}, imgUpdates = {}) => {
   try {
-    // raw SQL 查詢
-    const existingRecord = await sql`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
-    // const existingRecord = await getRecord(fieldname, value);
+    const patientId = body.patient_id;
+    const existing = await sql`SELECT * FROM records WHERE patient_id = ${patientId}`;
+    if (existing.length === 0) throw new Error(`Record ${patientId} not found`);
 
-    console.log("✅ Step 1 結果:", existingRecord);
+    // -------------------------------
+    // 1️⃣ 收集要更新的欄位
+    // -------------------------------
+    const updateFields = {};
 
-    if (existingRecord.length === 0) {
-      throw new Error(`Record with patient_id ${body.patient_id} not exists`);
+    for (const [key, val] of Object.entries(body || {})) {
+      console.log(`key: ${key}, val: ${val}`);
+      
+      if (key === "name") {
+        updateFields[key] = val;
+      }
+      if (key.endsWith("_2") && val) {
+        continue;
+      }
+
+      if (key.endsWith("_edit") && val) {
+        const newKey = key.replace("_edit", "");
+        console.log(`newKey: ${newKey}`);
+        updateFields[newKey] = val;
+      } else if (key.startsWith("pic") && val) {
+        const newKey = key.replace("pic", "img");
+        console.log(`newKey: ${newKey}`);
+        updateFields[newKey] = val;
+      }
     }
 
-    const editRecord = await sql`
-        UPDATE records
-        SET 
-          name = ${body.name},
-          gender = ${body.gender},
-          age = ${body.age},
-          notes = ${body.notes},
-          updated_at = NOW(),
-          img1 = ${imgUpdates.pic1_2},
-          img2 = ${imgUpdates.pic2_2},
-          img3 = ${imgUpdates.pic3_2},
-          img4 = ${imgUpdates.pic4_2},
-          img5 = ${imgUpdates.pic5_2},
-          img6 = ${imgUpdates.pic6_2},
-          img7 = ${imgUpdates.pic7_2},
-          img8 = ${imgUpdates.pic8_2}
-        WHERE patient_id = ${body.patient_id}
-        RETURNING *
-      `;
+    console.log(`updateFields: ${JSON.stringify(updateFields)}`);
 
-    console.log("✅ Step 2 完成:", editRecord[0]);
-    return editRecord[0];
+    if (Object.keys(updateFields).length === 0) {
+      console.log("⚠️ 沒有欄位需要更新");
+      return existing[0];
+    }
+
+    // -------------------------------
+    // 2️⃣ 動態生成 SQL 語法
+    // -------------------------------
+    const setClauses = [];
+    const values = [];
+    let index = 1;
+    for (const [col, val] of Object.entries(updateFields)) {
+      setClauses.push(`${col} = $${index++}`);
+      values.push(val);
+    }
+
+    // 加上 updated_at
+    setClauses.push(`updated_at = NOW()`);
+
+    const query = `
+      UPDATE records
+      SET ${setClauses.join(", ")}
+      WHERE patient_id = $${index}
+      RETURNING *;
+    `;
+
+    console.log(`
+      UPDATE records
+      SET ${setClauses.join(", ")}
+      WHERE patient_id = $${index}
+      RETURNING *;
+    `);
+
+    values.push(patientId);
+
+    // -------------------------------
+    // 3️⃣ 用新版 API 執行
+    // -------------------------------
+    const updated = await sql.query(query, values);
+
   } catch (e) {
-    console.error("❌ createRecord 發生錯誤:", e);
+    console.error("❌ updateRecord 發生錯誤:", e);
     throw e;
   }
 };

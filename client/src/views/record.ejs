@@ -67,15 +67,20 @@
             </div>
 
             <!-- 基本資料 -->
+            <!--
             <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#basicInfoCollapse"
             role="button" aria-expanded="true" aria-controls="basicInfoCollapse">
                 <h5 class="toggle-title">
                     <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#basicInfoCollapse"></i> <%= t("record.basic_info") %>
                 </h5>
             </div>
+            -->
 
             <input type="hidden" name="token" id="token" value="<%= token %>">
+            <input type="hidden" name="name" id="name" value="<%= name %>">
+            <input type="hidden" name="patient_id" value="<%= new_patient_id %>">
 
+            <!--
             <div id="basicInfoCollapse" class="collapse show">
                 <div class="modal-body">
                     <div class="form-inline mb-3">
@@ -108,6 +113,7 @@
                     </div>
                 </div>
             </div>
+            -->
 
             <!-- 口腔照片 -->
             <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#imageCollapse"
@@ -196,23 +202,31 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            
+            <!--
             <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#basicInfoCollapse"
                 role="button" aria-expanded="true" aria-controls="basicInfoCollapse">
                 <h5 class="toggle-title">
                     <i class="fas fa-chevron-down me-2 rotate-icon" data-target="#basicInfoCollapse"></i> <%= t("record.basic_info") %>
                 </h5>
             </div>
-            <input type="hidden" name="token" id="token" value="<%= token %>">
+            -->
+
+            <input type="hidden" name="token" id="token_edit" value="<%= token %>">
+            <input type="hidden" name="name" id="name_edit" value="<%= name %>">
+            <input type="hidden" name="patient_id" id="patient_id_edit" value="<%= patient_id %>">
+
+            <!--
             <div id="basicInfoCollapse" class="collapse show">
                 <div class="modal-body">
                     <div class="form-inline mb-3">
                         <label class="form-label me-2"> <%= t("record.name") %> </label>
-                        <input type="text" name="name" class="form-control" value="<%= name %>" readonly>
+                        <input type="text" name="name_edit" class="form-control" value="<%= name %>" readonly>
                     </div>
                     
                     <div class="form-inline mb-3">
                         <label class="form-label me-2"> <%= t("record.gender") %> </label>
-                        <select name="gender" class="form-control">
+                        <select name="gender_edit" class="form-control">
                         <option value=""> <%= t("select") %> </option>
                         <option value="男"> <%= t("male") %> </option>
                         <option value="女"> <%= t("female") %> </option>
@@ -220,18 +234,20 @@
                     </div>
                     <div class="form-inline mb-3">
                         <label class="form-label me-2"> <%= t("record.age") %> </label>
-                        <input type="number" name="age" class="form-control" required>
+                        <input type="number" name="age_edit" class="form-control" required>
                     </div>
                     <div class="form-inline mb-3">
                         <label class="form-label me-2"> <%= t("record.patient_id") %> </label>
-                        <input type="text" name="patient_id" class="form-control" value="<%= patient_id %>" readonly>
+                        <input type="text" name="patient_id_edit" class="form-control" value="<%= patient_id %>" readonly>
                     </div>
                     <div class="form-inline mb-3" style="align-items: flex-start;">
                         <label class="form-label me-2"> <%= t("record.note") %></label>
-                        <textarea name="notes" class="form-control"></textarea>
+                        <textarea name="notes_edit" class="form-control"></textarea>
                     </div>
                 </div>
             </div>
+            -->
+
             <div class="section-toggle styled-toggle" data-bs-toggle="collapse" data-bs-target="#imageCollapse"
             role="button" aria-expanded="true" aria-controls="imageCollapse">
                 <h5 class="toggle-title">
