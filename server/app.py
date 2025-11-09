@@ -2,6 +2,7 @@
 from flask import Flask, request, jsonify
 from PIL import Image
 import torch
+from transformers import pipeline
 from model.architecture import GroundingDINO
 from utils.config import GroundDINOConfig
 from model.inference import grounding_inference_single
@@ -96,6 +97,31 @@ def run_inference(task_id, patient_id, images_path_list, notes):
     except Exception as e:
         tasks_list[task_id]["status"] = "failed"
         tasks_list[task_id]["error"] = str(e)
+
+@app.route("/api/chatgpt", methods=["POST"])
+def chatgpt():
+    form = request.form
+
+    print("------ [Flask] Form Data ------", form, flush=True)
+
+    prompt = form["prompt"]
+
+    pipe = pipeline(
+        "text-generation",
+        model="meta-llama/Llama-3.2-3B-Instruct",
+        torch_dtype=torch.float16,
+        device_map="auto",
+    )
+    messages = [
+        {"role": "system", "content": "You are a medical chatbot who always responds in professional speak!"},
+        {"role": "user", "content": prompt},
+    ]
+    outputs = pipe(
+        messages,
+        max_new_tokens=256,
+    )
+    print(outputs[0]["generated_text"][-1])
+    return jsonify({ "status": "ok", "reply": outputs[0]["generated_text"][-1] })
 
 @app.route("/api/predict", methods=["POST"])
 def predict():

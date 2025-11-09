@@ -7,6 +7,8 @@ import crypto from "crypto";
 import { DateTime } from "luxon";
 // import { fileURLToPath } from "url";
 
+import OpenAI from "openai";
+
 import { Storage } from "@google-cloud/storage";
 
 import fs from "fs";
@@ -1265,6 +1267,7 @@ export const analyze = [
 
       const formData = new FormData();
       formData.append("patient_id", String(req.body.patient_id));
+      formData.append("notes", String(req.body.notes));
 
       const logEntries = [];
       logEntries.push(["patient_id", req.body.patient_id]);
@@ -1381,14 +1384,35 @@ export const get_inference_status = async (req, res) => {
 };
 
 export const chatbot = async (req, res) => {
-    const userMsg = req.body.message;
+    const prompt = req.body.message;
+    //const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // 模擬回應 (日後可以串接 Flask + LangChain)
-    console.log("[Chatbot] User:", userMsg);
+    //const completion = await openai.chat.completions.create({
+    //    model: "gpt-4",
+    //    prompt
+    //});
+
+    console.log(`prompt: ${prompt}`);
+
+    const formData = new FormData();
+    formData.append("prompt", prompt);
+
+    const response = await fetch(`${process.env.FLASK_API_URL}/api/chatgpt`, {
+        method: "POST",
+        body: formData
+    });
+
+    const text = await response.text();
+    console.log("🔍 Raw Response:", text);
+
+    const data = await response.json();
     
-    const mockReply = `AI 助理回覆：已收到「${userMsg}」，將分析相關口腔資訊。`;
-    
-    res.json({ reply: mockReply });
+    // const mockReply = `AI 助理回覆：已收到「${userMsg}」，將分析相關口腔資訊。`;
+    if (data.status === "ok") {
+        return res.status(200).json({ reply: data.reply });
+    } else {
+        return res.status(401).json({reply: "Error happened in chatbot"});
+    }
 };
 
 export const record_search = async (req, res) => {
