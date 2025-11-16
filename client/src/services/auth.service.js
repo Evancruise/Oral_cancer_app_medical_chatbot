@@ -1,4 +1,4 @@
-import { sql } from "#config/database.js";
+import { sql2 } from "#config/database.js";
 import bcrypt from "bcrypt";
 
 /*********************************
@@ -7,10 +7,10 @@ Create functions
 
 *********************************/
 
-export const createUser = async ({ name, email, password, role = "tester", login_role = "patient", unit = "personal", is_used = "deactivated", note = "none" }) => {
+export const createUser = async ({ name, email, password, role = "tester", login_role = "patient", unit = "personal", is_used = "deactivated", note = "none", line_user_id = "none", provider = "none" }) => {
   try { // const user = await createUser({ name, email, password, role, unit, is_used, notes });
     // raw SQL 查詢
-    const existingUser = await sql`SELECT * FROM users WHERE email = ${email}`;
+    const existingUser = await sql2`SELECT * FROM users WHERE email = ${email}`;
 
     console.log("✅ Step 1 結果:", existingUser);
 
@@ -24,11 +24,21 @@ export const createUser = async ({ name, email, password, role = "tester", login
 
     console.log("🔍 Step 3: 插入新使用者");
 
-    const newUser = await sql`
-      INSERT INTO users (name, email, password, role, login_role, unit, is_used, note)
-      VALUES (${name}, ${email}, ${password_hash}, ${role}, ${login_role}, ${unit}, ${is_used}, ${note})
-      RETURNING id, name, email, password, role, login_role, unit, note, status, is_used, created_at
-    `;
+    let newUser = null;
+
+    if (line_user_id === "none" && provider === "none") {
+      newUser = await sql2`
+        INSERT INTO users (name, email, password, role, login_role, unit, is_used, note)
+        VALUES (${name}, ${email}, ${password_hash}, ${role}, ${login_role}, ${unit}, ${is_used}, ${note})
+        RETURNING id, name, email, password, role, login_role, unit, note, status, is_used, created_at
+      `;
+    } else {
+      newUser = await sql2`
+        INSERT INTO users (name, email, login_role, line_user_id, provider)
+        VALUES (${name}, ${email}, ${login_role}, ${line_user_id}, ${provider})
+        RETURNING id, name, email, password, role, login_role, unit, note, status, is_used, created_at
+      `;
+    }
 
     console.log("✅ Step 3 完成:", newUser[0]);
 
@@ -43,11 +53,13 @@ export const createUsersTable = async () => {
   try {
     console.log("🔍 建立 users 資料表中...");
 
-    await sql`
+    await sql2`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) UNIQUE,
         email VARCHAR(255) UNIQUE,
+        line_user_id TEXT,
+        provider TEXT,
         password TEXT,
         retry_times INTEGER DEFAULT 5,
         role VARCHAR(50) DEFAULT 'tester',
@@ -81,13 +93,13 @@ export const createUsersTable = async () => {
 export const createRegister = async ({ name, email, role = "tester" }) => {
     try {
         // raw SQL 查詢
-        const existingRegister = await sql`SELECT * FROM registers WHERE email = ${email}`;
+        const existingRegister = await sql2`SELECT * FROM registers WHERE email = ${email}`;
 
         if (existingRegister.length > 0) {
             throw new Error(`Register with email ${email} already exists`);
         }
 
-        const newRegister = await sql`
+        const newRegister = await sql2`
         INSERT INTO registers (name, email, role, status, created_at, expired_at)
         VALUES (${name}, ${email}, ${role}, 'pending', NOW(), NOW() + interval '1 hour')
         RETURNING id, name, email, status, created_at, expired_at
@@ -105,7 +117,7 @@ export const createRegisterTable = async () => {
   try {
     console.log("🔍 建立 registers 資料表中...");
 
-    await sql`
+    await sql2`
       CREATE TABLE IF NOT EXISTS registers (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) UNIQUE NOT NULL,

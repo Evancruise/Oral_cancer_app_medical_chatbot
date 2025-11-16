@@ -1,4 +1,4 @@
-import { sql } from "#config/database.js";
+import { sql2 } from "#config/database.js";
 
 /***************************************
 
@@ -8,7 +8,7 @@ Get function
 
 export const getAllRegisters = async () => {
     try {
-        const result = await sql`
+        const result = await sql2`
           SELECT
             id,
             email,
@@ -31,11 +31,11 @@ export const getRegister = async (fieldname, value) => {
     let result = null;
 
     if (fieldname === "id") {
-      result = await sql`SELECT * FROM registers WHERE id = ${value}`;
+      result = await sql2`SELECT * FROM registers WHERE id = ${value}`;
     } else if (fieldname === "name") {
-      result = await sql`SELECT * FROM registers WHERE name = ${value}`;
+      result = await sql2`SELECT * FROM registers WHERE name = ${value}`;
     } else if (fieldname === "email") {
-      result = await sql`SELECT * FROM registers WHERE email = ${value}`;
+      result = await sql2`SELECT * FROM registers WHERE email = ${value}`;
     }
 
     return result[0] || null;
@@ -50,7 +50,7 @@ Delete functions
 export const removeRegisterTable = async() => {
   try {
     console.log("🔍 刪除 registers 資料表中...");
-    await sql`DROP TABLE IF EXISTS registers`;
+    await sql2`DROP TABLE IF EXISTS registers`;
 
     console.log("✅ 刪除 registers 資料表完成");
   } catch (e) {
@@ -69,7 +69,7 @@ export const createRegisterTable = async () => {
   try {
     console.log("🔍 建立 registers 資料表中...");
 
-    await sql`
+    await sql2`
       CREATE TABLE IF NOT EXISTS registers (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) UNIQUE NOT NULL,
@@ -111,7 +111,7 @@ export const updateRegister = async (fieldname, value, updates) => {
     console.log(`updates: ${JSON.stringify(updates)}`);
     console.log("applying update sql command");
     
-    const updated = await sql`UPDATE registers
+    const updated = await sql2`UPDATE registers
     SET name = ${updates.name}, email = ${updates.email}, role = ${updates.role}, status = ${updates.status}
     WHERE id = ${updates.id}
     RETURNING id, name, email, status

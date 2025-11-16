@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title> 口腔醫療回診App </title>
+    <link rel="stylesheet" href="/static/css/liff_login.css">
+</head>
+<body>
+    <div class="card">
+        <h3>回診管理 WebApp</h3>
+        <!-- <p>讀取中</p> -->
+        <button id="btnOpenDashboard">綁定並進入</button>
+    </div>
+    
+    <div id="modal-container"></div>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    
+    <script>
+        window.LIFF_ID = "<%= liffId %>";
+    </script>
+    <script type="module" src="/static/js/liff_login.js"></script>
+</body>
+</html>

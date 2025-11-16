@@ -47,13 +47,18 @@ import { lang_get,
          web_setting,
          user_setting,
          tracking,
-         education} from '#controllers/auth.controller.js';
+         education,
+         // webhook_login_event,
+         link_line_account,
+         webhook_entry,
+         login_line} from '#controllers/auth.controller.js';
 
 // import { handleUpload } from "#services/upload.service.js";
 import multer from "multer";
 import i18next from "i18next";
 import i18nextMiddleware from "i18next-http-middleware";
 import Backend from "i18next-fs-backend";
+import { middleware, Client } from "@line/bot-sdk";
 
 i18next
   .use(Backend)
@@ -68,6 +73,12 @@ i18next
 
 const router = express.Router();
 const upload = multer();
+
+const config = {
+    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+    channelSecret: process.env.LINE_CHANNEL_SECRET,
+};
+const lineClient = new Client(config);
 
 console.log(`[auth.route.js] process.cwd(): ${process.cwd()}`);
 
@@ -138,5 +149,9 @@ router.get("/rebind-qr", rebind_qr);
 router.post("/scan_result", scan_result);
 
 router.post("/chatbot", chatbot);
+
+router.post("/line/link-user", link_line_account);
+router.post("/line/webhook", middleware(config), webhook_entry);
+router.post("/line/login_line", login_line);
 
 export default router;

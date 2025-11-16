@@ -329,6 +329,10 @@ export function loadInferenceStageModal(containerId) {
     runStages();
   };
 
+  modal.hide = () => {
+    modal.style.display = "none";
+  };
+
   // 更新進度條
   function updateProgress(percent, text = "") {
     progressPath.setAttribute("stroke-dasharray", `${percent},100`);

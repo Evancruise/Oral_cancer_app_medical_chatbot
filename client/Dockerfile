@@ -1,15 +1,17 @@
-FROM node:20
+FROM node:18-alpine
 
 WORKDIR /app
 
-RUN npm install
+# 只需要 client 的 package.json
+COPY package*.json ./
 
+RUN npm install --production
+
+# 把 client 所有程式碼複製進 image
 COPY . .
 
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
+ENV PORT=8080
+EXPOSE 8080
 
-RUN npm run build
-
-EXPOSE 3000
-CMD ["npm", "start"]
+# 確保 Express 會 listen 在 PORT
+CMD ["node", "src/index.js"]

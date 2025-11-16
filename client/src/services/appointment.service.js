@@ -1,4 +1,4 @@
-import { sql } from "#config/database.js";
+import { sql2 } from "#config/database.js";
 
 /******************************
  
@@ -26,7 +26,7 @@ export const fetchAllAppointments = async () => {
 
 export const getAllAppointments = async () => {
     try {
-        const result = await sql`
+        const result = await sql2`
           SELECT * FROM appointment_data
         `;
         return result;
@@ -39,9 +39,9 @@ export const getAllAppointments = async () => {
 export const getAppointment = async (key, value) => {
     let result = null;
     if (key === "name") {
-        result = await sql`SELECT * FROM appointment_data WHERE name = ${value}`;
+        result = await sql2`SELECT * FROM appointment_data WHERE name = ${value}`;
     } else if (key === "email") {
-        result = await sql`SELECT * FROM appointment_data WHERE email = ${value}`;
+        result = await sql2`SELECT * FROM appointment_data WHERE email = ${value}`;
     }
     return result;
 };
@@ -66,7 +66,7 @@ export const removeAppointmentTable = async () => {
 export const deleteAppointmentTable = async (body) => {
   try {
     // raw SQL 查詢
-    const existingAppointment = await sql`SELECT * FROM appointment_data WHERE date = ${body.date}`;
+    const existingAppointment = await sql2`SELECT * FROM appointment_data WHERE date = ${body.date}`;
 
     console.log("✅ Step 1 結果:", existingAppointment);
 
@@ -88,7 +88,7 @@ export const deleteAppointmentTable = async (body) => {
 export const deleteAppoint = async (body) => {
   try {
     // raw SQL 查詢
-    const existingAppointment = await sql`SELECT * FROM appointment_data WHERE name = ${body.name}`;
+    const existingAppointment = await sql2`SELECT * FROM appointment_data WHERE name = ${body.name}`;
 
     console.log("✅ Step 1 結果:", existingAppointment);
 
@@ -117,7 +117,7 @@ export const createAppointmentTable = async () => {
     try {
         console.log("🔍 建立 users 資料表中...");
 
-        await sql`CREATE TABLE IF NOT EXISTS appointment_data (
+        await sql2`CREATE TABLE IF NOT EXISTS appointment_data (
             id SERIAL PRIMARY KEY,
             name VARCHAR(100) UNIQUE,
             email VARCHAR(255) UNIQUE,
@@ -170,7 +170,7 @@ export const createAppointment = async (body) => {
             VALUES (${name}, ${email}, ${date}, ${doctor_name}, ${location}, ${notify_switch}, ${notify_timer}, ${notes})
             RETURNING *`);
 
-        const createAppointmentData = await sql`
+        const createAppointmentData = await sql2`
             INSERT INTO appointment_data (name, email, date, doctor_name, location, notify_switch, notify_timer, notes)
             VALUES (${name}, ${email}, ${date}, ${doctor_name}, ${location}, ${notify_switch}, ${notify_timer}, ${notes})
             RETURNING *`;
@@ -195,14 +195,14 @@ export const updateAppointment = async (body) => {
         const { name, token, email, date, doctor_name, location, notify_switch, notify_timer, notes } = body;
 
         // raw SQL 查詢
-        const existingAppointmentData = await sql`SELECT * FROM appointment_data WHERE name = ${name}`;
+        const existingAppointmentData = await sql2`SELECT * FROM appointment_data WHERE name = ${name}`;
         console.log("✅ Step 1 結果:", existingAppointmentData);
 
         if (existingAppointmentData.length === 0) {
             throw new Error(`Appointments with name ${name} not exists`);
         }
         
-        const updated = await sql`UPDATE appointment_data
+        const updated = await sql2`UPDATE appointment_data
         SET date = ${date}, doctor_name = ${doctor_name}, location = ${location}, notify_switch = ${notify_switch}, notify_timer = ${notify_timer}, notes = ${notes}
         WHERE name = ${name}
         RETURNING *
@@ -219,7 +219,7 @@ export const updateAppointment = async (body) => {
 export const updateAppointmentStatus = async (name, date, fieldname, value) => {
     try {
         // raw SQL 查詢
-        const existingAppointmentData = await sql`SELECT * FROM appointment_data WHERE name = ${name} AND date = ${date}`;
+        const existingAppointmentData = await sql2`SELECT * FROM appointment_data WHERE name = ${name} AND date = ${date}`;
         console.log("✅ Step 1 結果:", existingAppointmentData);
 
         if (existingAppointmentData.length === 0) {
@@ -227,7 +227,7 @@ export const updateAppointmentStatus = async (name, date, fieldname, value) => {
         }
 
         if (fieldname === "checkin") {
-            const updated = await sql`UPDATE appointment_data
+            const updated = await sql2`UPDATE appointment_data
                 SET checkin = ${value} 
                 WHERE name = ${name} AND date = ${date} 
                 RETURNING *

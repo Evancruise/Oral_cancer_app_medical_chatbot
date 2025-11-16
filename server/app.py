@@ -2,172 +2,149 @@
 from flask import Flask, request, jsonify
 from PIL import Image
 import torch
+import json
 from transformers import pipeline
-from model.architecture import GroundingDINO
-from utils.config import GroundDINOConfig
-from model.inference import grounding_inference_single
-from transformers import AutoModel, AutoProcessor
-from langchain import LLMChain, PromptTemplate
-from google.cloud import storage
-import threading, time, uuid
+# from model.architecture import GroundingDINO
+# from utils.config import GroundDINOConfig
+# from model.inference import grounding_inference_single
+# from transformers import AutoModel, AutoProcessor
+# from langchain import LLMChain, PromptTemplate
+from google.cloud import storage, firestore, run_v2
+from concurrent.futures import ThreadPoolExecutor
+from job_main import run_inference_job
+import threading, uuid
 import os
+from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 
-model = AutoModel.from_pretrained("facebook/dinov2-base")
-processor = AutoProcessor.from_pretrained("facebook/dinov2-base")
-tasks_list = {}
+project_id = os.environ.get("GOOGLE_CLOUD_PROJECT_ID")
+region = os.environ.get("REGION", "asia-east1")
+image_bucket = os.environ.get("GCS_IMAGE_BUCKET", "Oral-images")
+model_bucket = os.environ.get("GCS_MODEL_BUCKET", "Oral-models")
+job_name = os.environ.get("JOB_NAME", "oral-infer-job")
+mode = os.environ.get("NODE_ENV", "developemnt")
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-def upload_to_gcs(local_path, remote_path):
-    client = storage.Client()
-    bucket = client.bucket(os.getenv("BUCKET_NAME"))
-    blob = bucket.blob(remote_path)
-    blob.upload_from_filename(local_path)
-    print(f"Uploaded: gs://{bucket.name}/{remote_path}")
+# model = AutoModel.from_pretrained("facebook/dinov2-base")
+# processor = AutoProcessor.from_pretrained("facebook/dinov2-base")
 
-def download_from_gcs(remote_path, local_path):
-    client = storage.Client()
-    bucket = client.bucket(os.getenv("BUCKET_NAME"))
-    blob = bucket.blob(remote_path)
-    blob.download_to_filename(local_path)
-    print(f"Downloaded: {remote_path}")
+storage_client = storage.Client()
+firestore_client = firestore.Client(project=project_id)
+job_client = run_v2.JobsClient(client_options={
+    "api_endpoint": f"{region}-run.googleapis.com"
+})
 
-def run_inference(task_id, patient_id, images_path_list, notes):
-
-    print("Running inference...", flush=True)
-
-    '''
-    inputs = processor(images=image, return_tensors="pt")
-    features = model(**inputs).last_hidden_state.mean(dim=1)
-
-    prompt = PromptTemplate.from_template(
-        "Describe possible oral lesion findings from this embedding vector."
-    )
-    llm_chain = LLMChain(llm=..., prompt=prompt)
-    report = llm_chain.run(features.tolist())
-
-    return jsonify({
-        "risk_level": "moderate",
-        "report": report
+def trigger_job(task_id, image_paths, notes, patient_id):
+    """
+    Call Cloud Run Job -> Feed into task_id / image path / note / patient_id
+    """
+    job_full_name = job_client.job_path(project_id, region, job_name)
+    payload = json.dumps({
+        "task_id": task_id,
+        "image_paths": image_paths,
+        "notes": notes,
+        "patient_id": patient_id
     })
-    '''
 
-    stages = [
-        ("Loading model weights...", 10),
-        ("Extracting DINOv2 features...", 40),
-        ("Analyzing lesion patterns...", 60),
-        ("Generating LangChain report...", 100)
-    ]
-
-    tasks_list[task_id] = {"patient_id": patient_id, "status": "running", "progress": 0, "stage": "Starting..."}
-
-    try:
-        for stage, progress in stages:
-            tasks_list[task_id]["stage"] = stage
-            tasks_list[task_id]["progress"] = progress
-            print(f"[Task {task_id}] {stage}", flush=True)
-
-            cfg = GroundDINOConfig()
-            model = GroundingDINO(cfg).to("cuda" if torch.cuda.is_available() else "cpu")
-
-            if stage == "Loading model weights...":
-                model.load_state_dict(torch.load("checkpoints/best_model_epoch10.pth", map_location="cpu"))
-            
-            elif stage == "Extracting DINOv2 features...":
-                for img_path in images_path_list:
-                    if img_path is not None:
-                        grounding_inference_single(
-                            model=model,
-                            image_path=img_path,
-                            prompt= f"find oral lesion, patient notes: {notes}",
-                            checkpoint_path="checkpoints/best_model_epoch10.pth",
-                            device="cuda" if torch.cuda.is_available() else "cpu",
-                            box_thresh=0.3,
-                            text_thresh=0.25
-                        )
-
-        tasks_list[task_id]["progress"] = 100
-        tasks_list[task_id]["stage"] = "Completed"
-        tasks_list[task_id]["status"] = "completed"
-        tasks_list[task_id]["result"] = {
-            "risk_level": "moderate",
-            "report": "Lesion detected on right buccal mucosa." # Get from grounded LLM
-        }
-
-    except Exception as e:
-        tasks_list[task_id]["status"] = "failed"
-        tasks_list[task_id]["error"] = str(e)
-
-@app.route("/api/chatgpt", methods=["POST"])
-def chatgpt():
-    form = request.form
-
-    print("------ [Flask] Form Data ------", form, flush=True)
-
-    prompt = form["prompt"]
-
-    pipe = pipeline(
-        "text-generation",
-        model="meta-llama/Llama-3.2-3B-Instruct",
-        torch_dtype=torch.float16,
-        device_map="auto",
+    req = run_v2.RunJobRequest(
+        name=job_full_name,
+        overrides=run_v2.RunJobRequest.Overrides(
+            container_overrides=[
+                run_v2.RunJobRequest.Overrides.ContainerOverride(
+                    name="job-container",
+                    args=[payload],
+                )
+            ]
+        )
     )
-    messages = [
-        {"role": "system", "content": "You are a medical chatbot who always responds in professional speak!"},
-        {"role": "user", "content": prompt},
-    ]
-    outputs = pipe(
-        messages,
-        max_new_tokens=256,
-    )
-    print(outputs[0]["generated_text"][-1])
-    return jsonify({ "status": "ok", "reply": outputs[0]["generated_text"][-1] })
+    job_client.run_job(request=req)
 
 @app.route("/api/predict", methods=["POST"])
 def predict():
     form = request.form
+    files = request.files    
+    patient_id = request.form["patient_id"]
+    notes = request.form.get("notes", "")
+    task_id = request.form.get("task_id", str(uuid.uuid4()))
 
-    print("------ [Flask] Headers ------")
-    print(dict(request.headers), flush=True)
-    
-    print("------ [Flask] Form Keys ------")
-    print(list(request.form.keys()), flush=True)
-    
-    print("------ [Flask] File Keys ------")
-    print(list(request.files.keys()), flush=True)
-
-    print("------ [Flask] Form Data ------", form, flush=True)
     for key, value in request.form.items():
         print(f"{key}: {value}", flush=True)
 
-    patient_id = request.form["patient_id"]
-    notes = request.form.get("notes", "")
+    task_folder = f"tasks/{task_id}"
+    print("------ [Flask] task_id ------", task_id, flush=True)
     images_path_list = []
 
-    for i in range(1, 9):
-        if f"pic{i}" in request.files:
-            f = request.files[f"pic{i}"]
-            save_path = os.path.join("uploads", f.filename)
-            images_path_list.append(save_path)
-        elif f"pic{i}" in request.form:
-            images_path_list.append(request.form[f"pic{i}"])
-        else:
-            images_path_list.append(None)
-    
+    if mode == "developemnt":
+        for i in range(1, 9):
+            key = f"pic{i}"
+            if key in files:
+                f = files[key]
+                save_path = os.path.join("uploads", f.filename)
+                images_path_list.append(save_path)
+            elif key in form:
+                images_path_list.append(form[key])
+            else:
+                images_path_list.append(None)
+    elif mode == "production":
+        bucket = storage_client.bucket(image_bucket)
+
+        for i in range(1, 9):
+            key = f"pic{i}"
+            if key in files:
+                f = files[key]
+                if f.filename == "":
+                    continue
+                blob_path = f"{task_folder}/{f.filename}"
+                blob = bucket.blob(blob_path)
+                blob.upload_from_file(f, content_type=f.mimetype)
+                gcs_uri = f"gs://{image_bucket}/{blob_path}"
+                images_path_list.append(gcs_uri)
+
+        firestore_client.collection("tasks").document(task_id).set({
+            "task_id": task_id,
+            "patient_id": patient_id,
+            "notes": notes,
+            "status": "pending",
+            "progress": 0,
+            "stage": "Waiting for job...",
+        })
+
     print("------ [Flask] images_path_list ------", images_path_list, flush=True)
 
-    task_id = str(uuid.uuid4())
+    # 啟動 Cloud Run Job （非同步）
+    # trigger_job(task_id, images_path_list, notes, patient_id)
 
-    print("------ [Flask] task_id ------", task_id, flush=True)
-
-    threading.Thread(target=run_inference, args=(task_id, patient_id, images_path_list, notes)).start()
-    # run_inference(task_id, images_path_list)
-    return jsonify({ "status": "ok", "task_id": task_id, "patient_id": patient_id })
+    # 🔥 立刻回 response，不等待 model 推論
+    return jsonify({
+        "status": "ok",
+        "task_id": task_id,
+        "patient_id": patient_id
+    })
 
 @app.route("/api/status/<task_id>", methods=["GET"])
 def status(task_id):
-    task = tasks_list.get(task_id, {"status": "not_found"})
-    return jsonify(task)
+    if mode == "development":
+        return jsonify({"status": "completed"})
+    elif mode == "production":
+        '''
+        doc = firestore_client.collection("tasks").document(task_id).get()
+        if not doc.exists:
+            return jsonify({"status": "not_found"}), 404
+        return jsonify(doc.to_dict())
+        '''
+        return jsonify({"status": "completed"})
+
+@app.route("/")
+def home():
+    return "OK", 200
+
+@app.route("/login")
+def login():
+    return "OK", 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True, port=5001)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="127.0.0.1", port=port)

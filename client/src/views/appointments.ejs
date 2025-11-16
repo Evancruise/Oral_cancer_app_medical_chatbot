@@ -46,7 +46,7 @@
                                             data-notify="<%= ap.notify_switch ? 'true' : 'false' %>"
                                             data-timer="<%= ap.notify_timer || '' %>"
                                             data-notes="<%= ap.notes || '' %>">
-                                        編輯 / 查看提醒
+                                            查看 / 變更預約
                                     </button>
                                     <button type="button" name="action" value="confirm" class="btn secondary btn-confirm" 
                                             data-id="<%= ap.id %>"
@@ -57,7 +57,7 @@
                                             data-timer="<%= ap.notify_timer || '' %>"
                                             data-notes="<%= ap.notes || '' %>"
                                             data-token="<%= token %>">
-                                            確認出席
+                                            確認出席 / 開啟提醒
                                     </button>
                                     <button type="button" name="action" value="cancel" class="btn danger btn-cancel" 
                                             data-id="<%= ap.id %>"
@@ -79,7 +79,7 @@
             </div>
             <!-- <button class="btn secondary" id="btnAddFromUpcoming">新增/更改提醒</button> -->
             <div class="center-btn">
-                <button class="btn secondary" id="btnAddFromUpcoming">新增提醒</button>
+                <button class="btn primary" id="btnAddFromUpcoming">新增預約</button>
             </div>
         </div>
         <% } %>
@@ -226,7 +226,7 @@
                     <textarea id="notes" name="notes" placeholder="此欄位只能由醫師填入" <% if (priority !== 1) { %> disabled <% }%>></textarea>
                     <!-- <p id="reminderHint" class="muted">儲存後即可觸發伺服器排程（例如：Celery + Redis）。</p> -->
                     <div class="row" style="margin-top:8px">
-                        <button type="submit" name="action" value="create" class="btn" id="btnAddReminder">新增提醒</button>
+                        <button type="submit" name="action" value="create" id="btnAddAppointment">新增預約</button>
                         <button type="button" class="btn" data-bs-dismiss="modal"> <%= t("cancel") %> </button>
                         <!-- <button class="btn secondary" type="reset">清除</button> -->
                     </div>

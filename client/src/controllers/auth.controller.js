@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import sgMail from "@sendgrid/mail";
 import crypto from "crypto";
 import { DateTime } from "luxon";
-// import { fileURLToPath } from "url";
+import { fileURLToPath } from "url";
 
 import OpenAI from "openai";
 
@@ -21,7 +21,7 @@ import { createUser, createRegister } from "#services/auth.service.js";
 import { getRegister, updateRegister } from "#services/register.service.js";
 import { updateUserPassword, updateUserTableFromRegister, updateUserGroup, 
          getUser, getAllUsers, updateUser, deleteUser, getTempUser } from "#services/user.service.js";
-import { getRecord, createRecord, updateRecord, updateRecordStatus, deleteRecord, getAllRecords,
+import { getRecord, createRecord, updateRecord, updateRecordIndividual, deleteRecord, getAllRecords,
          getDiscardRecord, deleteDiscardRecord, recoverRecord} from "#services/record.service.js";
 
 import { signupSchema, signinSchema } from "#validations/auth.validation.js";
@@ -37,14 +37,67 @@ console.log(`process.cwd(): ${process.cwd()}`);
 const configRoot_dir = "/tmp/config";
 const uploadRoot_dir = "/tmp/public";
 
+const node_uri = process.env.GCS_IMAGE_BUCKET || "http//:127.0.0.1:5000";
+const gcs_web_prefix = process.env.GCS_WEB_PREFIX || "https://storage.googleapis.com/";
+
 const uploadDir = path.join(uploadRoot_dir, "uploads");
 const uploadDir_gb = path.join(uploadRoot_dir, "uploads_gb");
 
 const config_dir = configRoot_dir;
 let configPath = path.join(configRoot_dir, "settings.json");
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const storage_gcs = new Storage();
-const bucket = storage_gcs.bucket(process.env.GCS_BUCKET_NAME || "oral-cancer-uploads");
+const bucket = storage_gcs.bucket(process.env.GCS_IMAGE_BUCKET || "Oral-images");
+
+export async function download_from_gcs(gcsPath, localPath) {
+    if (!gcsPath.startsWith("gs://")) {
+      throw new Error("Invalid GCS path. Must start with gs://");
+    }
+
+    // 解析 gs://bucket/path/to/file
+    const parts = gcsPath.replace("gs://", "").split("/");
+    const bucketName = parts.shift();
+    const blobName = parts.join("/");
+
+    const bucket = storage_gcs.bucket(bucketName);
+    const file = bucket.file(blobName);
+
+    // 確保本地目錄存在
+    await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
+
+    // 開始下載
+    await file.download({ destination: localPath });
+
+    console.log(`Downloaded GCS → ${localPath}`);
+    return localPath;
+}
+
+async function countSubFolders(prefix) {
+  const options = {
+    prefix: prefix.endsWith("/") ? prefix : prefix + "/",
+    delimeter: "/",
+  };
+
+  const [files, apiResponse] = await bucket.getFiles(options);
+
+  const prefixes = apiResponse.prefixes || [];
+
+  console.log("Subfolders:", prefixes);
+  console.log("Count:", prefixes.length);
+
+  return {"prefixes": prefixes, "count": prefixes.length};
+}
+
+async function countFilesInFolder(folderPath) {
+  const [files] = await bucket.getFiles({
+    prefix: folderPath.endsWith("/") ? folderPath : folderPath + "/",
+  });
+
+  return files.length;
+}
 
 const storage_upload = multer.diskStorage({ // cb(null, tempDir)
   destination: async (req, file, cb) => {
@@ -270,7 +323,28 @@ export const lang_get = (req, res) => {
   });
 };
 
+export const load_images_from_gcs = async () => {
+    if (process.env.NODE_ENV === "production") {
+       const { prefixes, count } = await countSubFolders("uploads");
+
+       console.log(`[load_images_from_gcs] GCS folder: ${prefixes} (count: ${count})`);
+
+       let local_images = "";
+
+       for (const gcs_folder of prefixes) {
+          for (let i = 1; i <= 8; i++) {
+              local_file = `tmp/public/uploads/${gcs_folder}/${i}.jpg`;
+              gcs_file = `uploads/${gcs_folder}/${i}.jpg`;
+
+              download_from_gcs(gcs_uri, local_file);
+              local_images.append(local_file);
+          }
+       }
+    }
+}
+
 export const homepage = async (req, res) => {
+    await load_images_from_gcs();
     res.render("homePage", { layout: false });
 };
 
@@ -458,10 +532,10 @@ export const signin = async (req, res, next) => {
       { expiresIn: config.expireTime },
     );
 
-    req.session.token = token;
-    req.session.userName = user.name;
-    req.session.userId = user.id;
-    req.session.t = req.t;
+    //req.session.token = token;
+    //req.session.userName = user.name;
+    //req.session.userId = user.id;
+    //req.session.t = req.t;
 
     res.cookie("token", token, {
       httpOnly: true,
@@ -510,7 +584,7 @@ function priority_from_role(role) {
 };
 
 // dashboard 首頁
-export const dashboard = (req, res) => {
+export const dashboard = async (req, res) => {
   try {
     const token = req.query.token;  // 從 cookie 拿 token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -715,20 +789,6 @@ export const appointments = async (req, res) => {
         console.log(`grouped: ${JSON.stringify(grouped)}`);
     }
 
-    /*
-    await sql`CREATE TABLE IF NOT EXISTS appointment_data (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) UNIQUE,
-        email VARCHAR(255) UNIQUE,
-        date TIMESTAMPTZ DEFAULT NOW(),
-        doctor_name TEXT,
-        location TEXT,
-        notify_switch BOOLEAN DEFAULT false,
-        notify_timer TEXT,
-        notes TEXT
-    )`;
-    */
-
     console.log(`priority_from_role(decoded.role): ${priority_from_role(decoded.role)}`);
 
     res.render("appointments", { 
@@ -868,6 +928,8 @@ export const record = async (req, res) => {
     const token = req.query.token;  // 從 cookie 拿 token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    console.log(`[record] token=${token}`);
+
     if (!token) {
       if (!decoded) {
         return res.redirect(`/api/auth/homepage`);
@@ -883,6 +945,8 @@ export const record = async (req, res) => {
     let length = 0;
 
     console.log(`record: ${JSON.stringify(record)}`);
+
+    await load_images_from_gcs();
 
     let grouped = {};
 
@@ -928,6 +992,8 @@ export const record = async (req, res) => {
       name: decoded.name,
       token: token, 
       t: req.t,
+      node_uri: node_uri,
+      gcs_web_prefix: gcs_web_prefix,
       formatDateTime });
   //} catch (err) {
   //  console.error("Internal error");
@@ -978,11 +1044,11 @@ export const temp_upload = [
         return res.status(400).json({ success: false, message: "No file uploaded" });
       }
 
-      // ============================================
-      // 開發環境：存本地 (client/tmp/public/uploads)
-      // ============================================
       if (process.env.NODE_ENV === "development") {
-        // upload_temp
+        // ============================================
+        // 開發環境：存本地 (client/tmp/public/uploads)
+        // ============================================
+
         const localUploadDir = path.join(process.cwd(), `tmp/public/uploads/`);
         const filename = `${patientId}_${code}_${file.originalname}`;
         const localPath = path.join(localUploadDir, patientId, filename);
@@ -999,36 +1065,36 @@ export const temp_upload = [
         });
 
       } else if (process.env.NODE_ENV === "production") {
-        /*
-        const [ url ] = await file.getSignedUrl({
-          version: "v4",
-          action: "write",
-          expires: Date.now() + 5 * 60 * 1000,
-          content_type,
-        });
-        */
-
         // ============================================
         // 生產環境：上傳到 GCS Bucket
         // ============================================
-        const destPath = `uploads/${patientId}/${code}_${file.originalname}`;
-        await bucket.upload(file.path, {
+        const localUploadDir = "tmp/public/uploads";
+        // const filename = `${patientId}_${code}_${file.originalname}`;
+        const localPath = `${localUploadDir}/${patientId}/${code}.jpg`;
+        
+        //fs.renameSync(file.path, localPath);
+        
+        const destPath = `${localUploadDir}/${patientId}/${code}.jpg`;
+        await safeMoveFile(file.path, destPath, patientId, code);
+        console.log(`📂 [LOCAL UPLOAD] Saved at ${destPath}`);
+
+        await bucket.upload(localPath, {
           destination: destPath,
           metadata: {
             cacheControl: "public, max-age=31536000",
           },
         });
 
-        fs.unlinkSync(file.path);
+        // fs.unlinkSync(file.path);
 
-        const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destPath}`;
+        const publicUrl = `https://storage.googleapis.com/${process.env.GCS_IMAGE_BUCKET}/${destPath}`;
         console.log(`☁️ [GCS UPLOAD] ${publicUrl}`);
 
         return res.json({
           success: true,
           env: "production",
           uploadedUrl: publicUrl,
-          gcsPath: destPath,
+          filePath: destPath,
         });
       } else {
         return res.status(500).json({
@@ -1081,7 +1147,7 @@ export const new_record = [
       /* 
       update current new add user file into records table from body
       */
-      newRecord = await createRecord(body);
+      newRecord = await createRecord(body, process.env.NODE_ENV);
 
       console.log(`[new_record] newRecord: ${newRecord}`);
 
@@ -1109,7 +1175,7 @@ export const new_record = [
       /* 
       update current new add user file into records table from body
       */
-      newRecord = await createRecord(body);
+      newRecord = await createRecord(body, process.env.NODE_ENV);
 
       return res.status(200).json({
         layout: false,
@@ -1199,7 +1265,7 @@ export const edit_record = [
 
         console.log("imgUpdates:", imgUpdates);
     
-        await updateRecord(body, imgUpdates);
+        await updateRecord(body, imgUpdates, process.env.NODE_ENV);
 
         // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
         return res.status(200).json({
@@ -1234,6 +1300,18 @@ export const edit_record = [
           }
         }
 
+        if (process.env.NODE_ENV === "production") {
+
+            const folderPath = `tmp/public/uploads/${patientId}`;
+            const prefix = folderPath.endsWith("/") ? folderPath : folderPath + "/";
+
+            console.log(`🗑️ Deleting folder prefix: ${prefix}`);
+
+            await bucket.deleteFiles({ prefix });
+
+            console.log(`🗑️ Deleted GCS file: ${folderPath}`);
+        }
+
         // TODO: 把 files 存到資料夾，例如 uploads/{patient_id}/
         return res.status(200).json({
           layout: false,
@@ -1259,18 +1337,24 @@ export const analyze = [
   upload_analyze.any(),
   async (req, res) => {
 
-    // try {
+  try {
       console.log("🧾 Received fields:", Object.keys(req.body));
       console.log("Files received:", req.files);
 
       const token = req.body.token;
+      const patient_id = req.body.patient_id;
+      const notes = req.body.notes;
+      const task_id = uuidv4();
 
       const formData = new FormData();
-      formData.append("patient_id", String(req.body.patient_id));
-      formData.append("notes", String(req.body.notes));
+      formData.append("patient_id", String(patient_id));
+      formData.append("notes", String(notes));
+      formData.append("task_id", String(task_id));
+
+      const updated = await updateRecordIndividual("patient_id", patient_id, "task_id", task_id);
 
       const logEntries = [];
-      logEntries.push(["patient_id", req.body.patient_id]);
+      logEntries.push(["patient_id", patient_id]);
 
       for (let i = 1; i <= 8; i++) {
         /*
@@ -1330,8 +1414,8 @@ export const analyze = [
       }
 
       // Flask API
-      console.log("🔗 Flask URL →", `${process.env.FLASK_API_URL}/api/predict`);
-      const response = await fetch(`${process.env.FLASK_API_URL}/api/predict`, {
+      console.log("🔗 Flask URL →", `${process.env.GOOGLE_FLASK_APP_URL}/api/predict`);
+      const response = await fetch(`${process.env.GOOGLE_FLASK_APP_URL}/api/predict`, {
         method: "POST",
         body: formData,
       });
@@ -1344,7 +1428,7 @@ export const analyze = [
         return res.status(201).json({ 
           success: true, 
           message: "Inference started", 
-          task_id: result.task_id, 
+          task_id: task_id, 
           patient_id: result.patient_id, 
           redirect: `/api/auth/record?token=${token}` });
       } else {
@@ -1355,10 +1439,10 @@ export const analyze = [
         });
       }
 
-    //} catch (err) {
-    //  console.error("Error starting inference");
-    //  return res.status(500).json({ success: false, message: "Server error" });
-    //}
+    } catch (err) {
+      console.error("Error starting inference");
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
 }];
 
 export const get_inference_status = async (req, res) => {
@@ -1366,14 +1450,14 @@ export const get_inference_status = async (req, res) => {
     console.log(`Fetch get_inference_status...`);
 
     //try {
-      const response = await fetch(`${process.env.FLASK_API_URL}/api/status/${task_id}`);
+      const response = await fetch(`${process.env.GOOGLE_FLASK_APP_URL}/api/status/${task_id}`);
       const result = await response.json();
 
       console.log(`[get_inference_status] result=${JSON.stringify(result)}`);
 
       if (result && result.status === "completed") {
         console.log(`Inference complete for task_id: ${task_id}`);
-        const updated = await updateRecordStatus(result.patient_id, "status", "completed");
+        const updated = await updateRecordIndividual("task_id", task_id, "status", "completed");
       }
 
       return res.status(200).json(result);
@@ -1397,7 +1481,7 @@ export const chatbot = async (req, res) => {
     const formData = new FormData();
     formData.append("prompt", prompt);
 
-    const response = await fetch(`${process.env.FLASK_API_URL}/api/chatgpt`, {
+    const response = await fetch(`${process.env.GOOGLE_FLASK_APP_URL}/api/chatgpt`, {
         method: "POST",
         body: formData
     });
@@ -2412,3 +2496,110 @@ export const stream_fallback = async (req, res) => {
     });
 };
 */
+
+export const liff_toppage = (req, res) => {
+    // res.sendFile(path.join(__dirname, "../public", "html", "liff_app.html"));
+    return res.status(200).render("liff_login", { layout: false, liffId: process.env.LIFF_ID });
+};
+
+export const link_line_account = async (req, res) => {
+    try {
+        const { user_id, display_name, id_token } = req.body;
+
+        if (!user_id) {
+            return res.status(400).json({ status: false, error: "Missing Line user_id"})
+        }
+
+        // Verify LINE login settings
+        // Write into DB - Bind LINE id
+        console.log("Binding LINE id:", { user_id, display_name });
+
+        return res.json({ status: true });
+
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ status: false, error: err.message});
+    }
+};
+
+export const send_liff_entry = async (client, reply_token) => {
+    const message = {
+      type: "flex",
+      altText: "點我開啟回診系統",
+      contents: {
+        type: "bubble",
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            { type: "text", text: "回診小幫手", weight: "bold", size: "xl" },
+            { type: "text", text: "點選按鈕開啟App", margin: "sm"},
+          ],
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "button",
+              style: "primary",
+              action: {
+                type: "uri",
+                label: "打開回診小程式",
+                uri: `https://liff.line.me/${process.env.LIFF_ID}`,
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    return client.replyMessage(reply_token, message);
+};
+
+export const webhook_entry = async (req, res) => {
+    const events = req.body.events;
+
+    await Promise.all(events.map(async (event) => {
+        if (event.type === "message" && event.message.type === "text" ) {
+            if (event.message.text === "menu") {
+                return send_liff_entry(client, event.replyToken);
+            }
+        }
+    }));
+
+    return res.status(200).end();
+};
+
+export const login_line = async (req, res) => {
+  // try {
+    const {name, line_user_id} = req.body;
+
+    if (!line_user_id) {
+        return res.status(400).json({ ok: false, error: "missing line_user_id" });
+    }
+
+    const user = await getUser("line_user_id", line_user_id);
+
+    if (!user) {
+        user = await createUser({
+            name: name || "LINE User",
+            email: `${line_user_id}@line-login.local`,
+            login_role: "tester",
+            line_user_id: line_user_id,
+            provider: "line"
+        });
+    }
+
+    const token = jwt.sign(
+        { id: user.id, name: user.name, email: user.email, password: "1234", role: "tester", login_role: user.login_role },
+        process.env.JWT_SECRET,
+        { expiresIn: config.expireTime },
+      );
+
+    return res.status(200).json({ ok: true, redirect: `/api/auth/dashboard?token=${token}`, message: "取得 token 成功"});
+  // } catch (err) {
+  //    console.error("loginWithLine Error:", err);
+  //    return res.status(500).json({ ok: false });
+  // }
+};

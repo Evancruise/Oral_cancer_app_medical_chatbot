@@ -1,4 +1,4 @@
-import { sql } from "#config/database.js";
+import { sql2 } from "#config/database.js";
 import bcrypt from "bcrypt";
 import { createUser } from "#services/auth.service.js";
 
@@ -11,7 +11,7 @@ Delete functions
 export const removeUserTable = async() => {
   try {
     console.log("🔍 刪除 users 資料表中...");
-    await sql`DROP TABLE IF EXISTS users;`;
+    await sql2`DROP TABLE IF EXISTS users;`;
 
     console.log("✅ 刪除 users 資料表完成");
   } catch (e) {
@@ -28,11 +28,11 @@ export const deleteUser = async (fieldname, value) => {
     }
 
     if (fieldname === "id") {
-      await sql`DELETE FROM users WHERE id = ${value}`;
+      await sql2`DELETE FROM users WHERE id = ${value}`;
     } else if (fieldname === "name") {
-      await sql`DELETE FROM users WHERE name = ${value}`;
+      await sql2`DELETE FROM users WHERE name = ${value}`;
     } else if (fieldname === "email") {
-      await sql`DELETE FROM users WHERE email = ${value}`;
+      await sql2`DELETE FROM users WHERE email = ${value}`;
     }
     return { message: `User deleted successfully` };
 };
@@ -47,7 +47,7 @@ export const createUsersTable = async () => {
   try {
     console.log("🔍 建立 users 資料表中...");
 
-    await sql`
+    await sql2`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) UNIQUE,
@@ -90,7 +90,7 @@ Get functions
 
 export const getAllUsers = async () => {
     try {
-        const result = await sql`
+        const result = await sql2`
           SELECT
             *
           FROM users
@@ -105,24 +105,25 @@ export const getAllUsers = async () => {
 export const getUser = async (fieldname, value) => {
     console.log(`Search for ${fieldname}=${value}`);
 
-    let result;
+    let result=null;
+
     if (fieldname === "name") {
-      result = await sql`SELECT * FROM users WHERE name = ${value}`;
+      result = await sql2`SELECT * FROM users WHERE name = ${value}`;
     }
 
     if (fieldname === "email") {
-      result = await sql`SELECT * FROM users WHERE email = ${value}`;
+      result = await sql2`SELECT * FROM users WHERE email = ${value}`;
     }
 
     if (fieldname === "id") {
-      result = await sql`SELECT * FROM users WHERE id = ${value}`;
+      result = await sql2`SELECT * FROM users WHERE id = ${value}`;
     }
 
     return result[0] || null;
 };
 
 export const getTempUser = async (qr_token) => {
-    const existingUser = await sql`SELECT * FROM users WHERE qr_token = ${qr_token}`;
+    const existingUser = await sql2`SELECT * FROM users WHERE qr_token = ${qr_token}`;
 
     console.log("Step 1 結果:", existingUser);
 
@@ -140,7 +141,7 @@ Update functions
 ****************************************/
 
 export const markQrUsed = async (qr_token) => {
-    const existingUser = await sql`SELECT * FROM users WHERE qr_token = ${qr_token}`;
+    const existingUser = await sql2`SELECT * FROM users WHERE qr_token = ${qr_token}`;
 
     console.log("Step 1 結果:", existingUser);
 
@@ -148,7 +149,7 @@ export const markQrUsed = async (qr_token) => {
       throw new Error(`User with qr_token ${qr_token} not exists`);
     }
 
-    const updated = await sql`UPDATE users
+    const updated = await sql2`UPDATE users
     SET is_used = true 
     WHERE qr_token = ${qr_token}
     RETURNING qr_token, is_used, expired_at`;
@@ -263,7 +264,7 @@ export const updateUser = async (fieldname, value = null, updates = null) => {
 
     console.log("applying update sql command");
     
-    const updated = await sql`UPDATE users
+    const updated = await sql2`UPDATE users
     SET name = ${updates.name}, email = ${updates.email}, role = ${updates.role}, password = ${updates.password}, unit = ${updates.unit}, is_used = ${updates.is_used}, note = ${updates.notes}, updated_at = NOW() AT TIME ZONE timezone
     WHERE id = ${existing.id}
     RETURNING *
@@ -283,7 +284,7 @@ export const updateUserPassword = async (flag = false, fieldname, value = null) 
     {
         if (fieldname === "name") 
         {
-            await sql`UPDATE users
+            await sql2`UPDATE users
             SET retry_times = retry_times - 1,
                 updated_at = NOW(),
                 allowed_loggin_at = CASE
@@ -295,7 +296,7 @@ export const updateUserPassword = async (flag = false, fieldname, value = null) 
         } 
         else if (fieldname === "email") 
         {
-            await sql`UPDATE users
+            await sql2`UPDATE users
             SET retry_times = retry_times - 1,
                 updated_at = NOW(),
                 allowed_loggin_at = CASE
@@ -308,7 +309,7 @@ export const updateUserPassword = async (flag = false, fieldname, value = null) 
     } else {
         if (fieldname === "name") 
         {
-            await sql`UPDATE users
+            await sql2`UPDATE users
             SET retry_times = 5,
                 updated_at = NOW(),
                 allowed_loggin_at = NOW()
@@ -316,7 +317,7 @@ export const updateUserPassword = async (flag = false, fieldname, value = null) 
         }
         else if (fieldname === "email") 
         {
-            await sql`UPDATE users
+            await sql2`UPDATE users
             SET retry_times = 5,
                 updated_at = NOW(),
                 allowed_loggin_at = NOW()
@@ -332,11 +333,11 @@ export const check_user_login = async (fieldname, value = null) => {
     let allowed = false;  
 
     if (fieldname === "name") {
-        allowed = await sql`SELECT * FROM users
+        allowed = await sql2`SELECT * FROM users
         WHERE name = ${value}
         AND allowed_loggin_at <= NOW();`;
     } else if (fieldname === "email") {
-        allowed = await sql`SELECT * FROM users
+        allowed = await sql2`SELECT * FROM users
         WHERE email = ${value}
         AND allowed_loggin_at <= NOW();`;
     }
@@ -354,13 +355,13 @@ Update user info from register
 
 export const updateUserTableFromRegister = async (id, name) => {
 
-    const result = await sql`SELECT * FROM users WHERE name = ${name}`;
+    const result = await sql2`SELECT * FROM users WHERE name = ${name}`;
 
     if (result.length !== 0) {
       throw new Error(`Update failed: user ${name} has already existed`);
     }
     
-    const updated = await sql`INSERT INTO users (
+    const updated = await sql2`INSERT INTO users (
                 name, email, role, created_at
               )
               SELECT name, email, role, created_at FROM registers

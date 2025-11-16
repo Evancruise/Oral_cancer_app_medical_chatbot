@@ -51,6 +51,7 @@
     "@arcjet/inspect": "^1.0.0-beta.11",
     "@arcjet/node": "^1.0.0-beta.11",
     "@google-cloud/storage": "^7.17.3",
+    "@line/bot-sdk": "^10.5.0",
     "@neondatabase/serverless": "^1.0.1",
     "@sendgrid/mail": "^8.1.6",
     "ai": "^5.0.89",

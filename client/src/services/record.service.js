@@ -1,4 +1,6 @@
-import { sql } from "#config/database.js";
+import { sql2, query } from "#config/database.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 /******************************
  
@@ -44,7 +46,7 @@ export const fetchAllDiscardRecords = async (req, res, next) => {
 
 export const getAllRecords = async () => {
     try {
-        const result = await sql`
+        const result = await sql2`
           SELECT * FROM records
         `;
         return result;
@@ -56,7 +58,7 @@ export const getAllRecords = async () => {
 
 export const getAllDiscardRecords = async () => {
     try {
-        const result = await sql`
+        const result = await sql2`
           SELECT * FROM records_gb
         `;
         return result;
@@ -69,11 +71,11 @@ export const getAllDiscardRecords = async () => {
 export const getRecord = async (key, value) => {
     let result = null;
     if (key === "name") {
-        result = await sql`SELECT * FROM records WHERE name = ${value}`;
+        result = await sql2`SELECT * FROM records WHERE name = ${value}`;
     } else if (key === "id") {
-        result = await sql`SELECT * FROM records WHERE id = ${value}`;
+        result = await sql2`SELECT * FROM records WHERE id = ${value}`;
     } else if (key === "patient_id") {
-        result = await sql`SELECT * FROM records WHERE patient_id = ${value}`;
+        result = await sql2`SELECT * FROM records WHERE patient_id = ${value}`;
     }
     return result;
 };
@@ -81,9 +83,9 @@ export const getRecord = async (key, value) => {
 export const getDiscardRecord = async (key, value) => {
     let result = null;
     if (key === "name") {
-        result = await sql`SELECT * FROM records_gb WHERE name = ${value}`;
+        result = await sql2`SELECT * FROM records_gb WHERE name = ${value}`;
     } else if (key === "id") {
-        result = await sql`SELECT * FROM records_gb WHERE id = ${value}`;
+        result = await sql2`SELECT * FROM records_gb WHERE id = ${value}`;
     }
     return result;
 };
@@ -97,7 +99,7 @@ Remove functions
 export const removeRecordTable = async () => {
   try {
     console.log("🔍 刪除 records 資料表中...");
-    await sql`DROP TABLE IF EXISTS records`;
+    await sql2`DROP TABLE IF EXISTS records`;
     console.log("✅ 刪除 records 資料表完成");
   } catch (e) {
     console.error("❌ 刪除 records 資料表失敗:", e);
@@ -108,7 +110,7 @@ export const removeRecordTable = async () => {
 export const removeDiscardRecordTable = async () => {
   try {
     console.log("🔍 刪除 records_gb 資料表中...");
-    await sql`DROP TABLE IF EXISTS records_gb`;
+    await sql2`DROP TABLE IF EXISTS records_gb`;
     console.log("✅ 刪除 records_gb 資料表完成");
   } catch (e) {
     console.error("❌ 刪除 records_gb 資料表失敗:", e);
@@ -119,7 +121,7 @@ export const removeDiscardRecordTable = async () => {
 export const deleteRecord = async (body) => {
   try {
     // raw SQL 查詢
-    const existingRecord = await sql`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
+    const existingRecord = await sql2`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
 
     console.log("✅ Step 1 結果:", existingRecord);
 
@@ -127,7 +129,7 @@ export const deleteRecord = async (body) => {
       throw new Error(`Record with patient_id ${body.patient_id} has already deleted`);
     }
 
-    const inserted = await sql`
+    const inserted = await sql2`
       INSERT INTO records_gb (
         patient_id, name, notes, status, progress, message, created_at, updated_at, 
         img1, img2, img3, img4, img5, img6, img7, img8,
@@ -147,7 +149,7 @@ export const deleteRecord = async (body) => {
 
     console.log("✅ Copied Record:", inserted);
 
-    const img_dic = await sql`SELECT * FROM records_gb WHERE patient_id = ${body.patient_id}`;
+    const img_dic = await sql2`SELECT * FROM records_gb WHERE patient_id = ${body.patient_id}`;
     const oldRecord = img_dic[0];    
 
     console.log("✅ Step 2 結果:", oldRecord);
@@ -171,7 +173,7 @@ export const deleteRecord = async (body) => {
         img8_result: "tmp/public/uploads_gb/" + oldRecord.img8_result?.split("/")[3] + "/" + oldRecord.img8_result?.split("/")[4] ?? "",
     };
 
-    const updated = await sql`
+    const updated = await sql2`
       UPDATE records_gb
       SET img1 = ${newRecord.img1},
           img2 = ${newRecord.img2},
@@ -194,7 +196,7 @@ export const deleteRecord = async (body) => {
       RETURNING *;
     `;
 
-    await sql`DELETE FROM records 
+    await sql2`DELETE FROM records 
         WHERE patient_id = ${body.patient_id}
     `;
 
@@ -209,7 +211,7 @@ export const deleteRecord = async (body) => {
 export const deleteDiscardRecordTable = async (body) => {
   try {
     // raw SQL 查詢
-    const existingRecord = await sql`SELECT * FROM records_gb WHERE patient_id = ${body.patient_id}`;
+    const existingRecord = await sql2`SELECT * FROM records_gb WHERE patient_id = ${body.patient_id}`;
 
     console.log("✅ Step 1 結果:", existingRecord);
 
@@ -217,7 +219,7 @@ export const deleteDiscardRecordTable = async (body) => {
       throw new Error(`Record with patient_id ${body.patient_id} has already deleted`);
     }
 
-    await sql`DELETE FROM records_gb 
+    await sql2`DELETE FROM records_gb 
         WHERE patient_id = ${body.patient_id}
     `;
 
@@ -233,7 +235,7 @@ export const recoverRecord = async (body, imgUpdates = null) => {
 
     console.log(`body:`, JSON.stringify(body));
     // raw SQL 查詢
-    const existingRecord = await sql`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
+    const existingRecord = await sql2`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
 
     console.log("✅ Step 1 結果:", existingRecord);
 
@@ -241,7 +243,7 @@ export const recoverRecord = async (body, imgUpdates = null) => {
       throw new Error(`Record with patient_id ${body.patient_id} already exists`);
     }
 
-    const record = await sql`INSERT INTO records (
+    const record = await sql2`INSERT INTO records (
             patient_id, name, result, notes, status, progress, message, created_at, updated_at, 
             img1, img2, img3, img4, img5, img6, img7, img8,
             img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
@@ -255,7 +257,7 @@ export const recoverRecord = async (body, imgUpdates = null) => {
         RETURNING *
     `;
 
-    const img_dic = await sql`SELECT img1, img2, img3, img4, img5, img6, img7, img8,
+    const img_dic = await sql2`SELECT img1, img2, img3, img4, img5, img6, img7, img8,
                                      img1_result, img2_result, img3_result, img4_result, img5_result, img6_result, img7_result, img8_result
                                      FROM records_gb WHERE patient_id = ${body.patient_id}`;
     const oldRecord = img_dic[0];    
@@ -280,7 +282,7 @@ export const recoverRecord = async (body, imgUpdates = null) => {
         img8_result: "tmp/public/uploads/" + oldRecord.img8_result?.split("/")[3] + "/" + oldRecord.img8_result?.split("/")[4] ?? "",
     };
 
-    const updated = await sql`
+    const updated = await sql2`
       UPDATE records
       SET img1 = ${newRecord.img1},
           img2 = ${newRecord.img2},
@@ -303,7 +305,7 @@ export const recoverRecord = async (body, imgUpdates = null) => {
       RETURNING *;
     `;
 
-    await sql`DELETE FROM records_gb
+    await sql2`DELETE FROM records_gb
         WHERE patient_id = ${body.patient_id}
     `;
 
@@ -318,7 +320,7 @@ export const recoverRecord = async (body, imgUpdates = null) => {
 export const deleteDiscardRecord = async (body) => {
   try {
     // raw SQL 查詢
-    const existingRecord = await sql`SELECT * FROM records_gb WHERE patient_id = ${body.patient_id}`;
+    const existingRecord = await sql2`SELECT * FROM records_gb WHERE patient_id = ${body.patient_id}`;
 
     console.log("✅ Step 1 結果:", existingRecord);
 
@@ -326,7 +328,7 @@ export const deleteDiscardRecord = async (body) => {
       throw new Error(`Record with patient_id ${body.patient_id} already deleted`);
     }
 
-    await sql`DELETE FROM records_gb
+    await sql2`DELETE FROM records_gb
         WHERE patient_id = ${body.patient_id}
     `;
 
@@ -346,10 +348,11 @@ export const createRecordTable = async () => {
     try {
         console.log("🔍 建立 records 資料表中...");
         
-        await sql`
+        await sql2`
           CREATE TABLE IF NOT EXISTS records (
             id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             name TEXT NOT NULL,
+            task_id TEXT,
             gender TEXT,
             age INTEGER,
             patient_id TEXT NOT NULL,
@@ -385,12 +388,12 @@ export const createRecordTable = async () => {
     }
 };
 
-export const createRecord = async (body) => {
+export const createRecord = async (body, mode) => {
   //try {
     // raw SQL 查詢
     console.log(`body: ${JSON.stringify(body)}`);
 
-    const existingRecord = await sql`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
+    const existingRecord = await sql2`SELECT * FROM records WHERE patient_id = ${body.patient_id}`;
 
     console.log("✅ Step 1 結果:", existingRecord);
 
@@ -406,16 +409,33 @@ export const createRecord = async (body) => {
       console.log(`body[pic${i}_2]: ${body[`pic${i}_2`]}`);
     }
 
+    // tmp/public/uploads/1-1/1-1_8_000060_00.png
+
     console.log(`
       INSERT INTO records (name, patient_id, updated_at, notes, status, img1, img2, img3, img4, img5, img6, img7, img8)
       VALUES (${body.name}, ${body.patient_id}, NOW(), ${body.notes}, 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
       RETURNING *
     `);
 
-    const newRecord = await sql`
-      INSERT INTO records (name, patient_id, updated_at, notes, status, img1, img2, img3, img4, img5, img6, img7, img8)
-      VALUES (${body.name}, ${body.patient_id}, NOW(), ${body.notes}, 'not_started', ${body.pic1_2}, ${body.pic2_2}, ${body.pic3_2}, ${body.pic4_2}, ${body.pic5_2}, ${body.pic6_2}, ${body.pic7_2}, ${body.pic8_2})
-      RETURNING *
+    const newRecord = await sql2`
+        INSERT INTO records 
+        (name, patient_id, updated_at, notes, status, img1, img2, img3, img4, img5, img6, img7, img8)
+        VALUES (
+          ${body.name},
+          ${body.patient_id},
+          NOW(),
+          ${body.notes},
+          'not_started',
+          ${body.pic1_2},
+          ${body.pic2_2},
+          ${body.pic3_2},
+          ${body.pic4_2},
+          ${body.pic5_2},
+          ${body.pic6_2},
+          ${body.pic7_2},
+          ${body.pic8_2}
+        )
+        RETURNING *
     `;
 
     console.log("✅ Step 2 完成:", newRecord[0]);
@@ -431,7 +451,7 @@ export const createDiscardRecordTable = async () => {
     try {
         console.log("🔍 建立 records_gb 資料表中...");
         
-        await sql`
+        await sql2`
           CREATE TABLE IF NOT EXISTS records_gb (
             id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             name TEXT,
@@ -476,11 +496,24 @@ Update functions
 
 *******************************/
 
-export const updateRecord = async (body = {}, imgUpdates = {}) => {
+export const updateRecord = async (
+  body = {},
+  imgUpdates = {},
+  mode = "development"
+) => {
   try {
     const patientId = body.patient_id;
-    const existing = await sql`SELECT * FROM records WHERE patient_id = ${patientId}`;
-    if (existing.length === 0) throw new Error(`Record ${patientId} not found`);
+    if (!patientId) {
+      throw new Error("patient_id is required for updateRecord");
+    }
+
+    // 先確認該紀錄是否存在（用 template literal 寫法）
+    const existing = await sql2`
+      SELECT * FROM records WHERE patient_id = ${patientId}
+    `;
+    if (!existing || existing.length === 0) {
+      throw new Error(`Record ${patientId} not found`);
+    }
 
     // -------------------------------
     // 1️⃣ 收集要更新的欄位
@@ -489,66 +522,84 @@ export const updateRecord = async (body = {}, imgUpdates = {}) => {
 
     for (const [key, val] of Object.entries(body || {})) {
       console.log(`key: ${key}, val: ${val}`);
-      
+
+      if (val === undefined || val === null || val === "") continue;
+
+      // 直接更新的欄位
       if (key === "name" || key === "notes") {
         updateFields[key] = val;
+        continue;
       }
+
+      // *_2 -> 通常是原始上傳路徑，這裡你原本選擇略過
       if (key.endsWith("_2") && val) {
         continue;
       }
 
+      // *_edit -> 對應到實際欄位名稱
       if (key.endsWith("_edit") && val) {
         const newKey = key.replace("_edit", "");
-        console.log(`newKey: ${newKey}`);
+        console.log(`newKey (from *_edit): ${newKey}`);
         updateFields[newKey] = val;
-      } else if (key.startsWith("pic") && val) {
+        continue;
+      }
+
+      // picX -> imgX (開發模式使用)
+      if (key.startsWith("pic") && val && mode === "development") {
         const newKey = key.replace("pic", "img");
-        console.log(`newKey: ${newKey}`);
+        console.log(`newKey (from picX): ${newKey}`);
         updateFields[newKey] = val;
+        continue;
       }
     }
 
     console.log(`updateFields: ${JSON.stringify(updateFields)}`);
 
     if (Object.keys(updateFields).length === 0) {
-      console.log("⚠️ 沒有欄位需要更新");
+      console.log("⚠️ 沒有欄位需要更新，直接回傳原本紀錄");
       return existing[0];
     }
 
     // -------------------------------
-    // 2️⃣ 動態生成 SQL 語法
+    // 2️⃣ 動態生成 SQL 語法（用 query()）
     // -------------------------------
     const setClauses = [];
     const values = [];
     let index = 1;
+
     for (const [col, val] of Object.entries(updateFields)) {
-      setClauses.push(`${col} = $${index++}`);
+      // 用 escapeIdentifier 保護欄位名稱
+      const safeCol = escapeIdentifier(col);
+      setClauses.push(`${safeCol} = $${index++}`);
       values.push(val);
     }
 
-    // 加上 updated_at
-    setClauses.push(`updated_at = NOW()`);
+    // updated_at
+    setClauses.push(`"updated_at" = NOW()`);
 
-    const query = `
+    const sqlText = `
       UPDATE records
       SET ${setClauses.join(", ")}
-      WHERE patient_id = $${index}
+      WHERE "patient_id" = $${index}
       RETURNING *;
     `;
 
-    console.log(`
-      UPDATE records
-      SET ${setClauses.join(", ")}
-      WHERE patient_id = $${index}
-      RETURNING *;
-    `);
-
     values.push(patientId);
 
+    console.log("Final UPDATE SQL:", sqlText);
+    console.log("With values:", values);
+
     // -------------------------------
-    // 3️⃣ 用新版 API 執行
+    // 3️⃣ 用 query() 執行
     // -------------------------------
-    const updated = await sql.query(query, values);
+    const rows = await query(sqlText, values);
+
+    if (!rows || rows.length === 0) {
+      throw new Error(`Update failed for patient_id=${patientId}`);
+    }
+
+    console.log("✅ updateRecord 完成:", rows[0]);
+    return rows[0];
 
   } catch (e) {
     console.error("❌ updateRecord 發生錯誤:", e);
@@ -556,26 +607,36 @@ export const updateRecord = async (body = {}, imgUpdates = {}) => {
   }
 };
 
-export const updateRecordStatus = async (patient_id, fieldname, value) => {
+function escapeIdentifier(column) {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(column)) {
+    throw new Error(`Invalid SQL identifier: ${column}`);
+  }
+  return `"${column}"`;
+};
+
+export const updateRecordIndividual = async (
+  fieldname_ref,
+  value_ref,
+  fieldname,
+  value
+) => {
   try {
-    const existingRecord = await getRecord("patient_id", patient_id);
+    const colRef = escapeIdentifier(fieldname_ref);
+    const colUpdate = escapeIdentifier(fieldname);
 
-    if (existingRecord.length === 0) {
-      throw new Error(`Record with patient_id ${patient_id} not exists`);
-    }
-
-    const editRecord = await sql`
+    const sql = `
       UPDATE records
-      SET
-        status = ${value}
-      WHERE patient_id = ${patient_id}
+      SET ${colUpdate} = $1
+      WHERE ${colRef} = $2
       RETURNING *
     `;
 
-    console.log("✅ Step 2 完成:", editRecord[0]);
-    return editRecord[0];
+    const rows = await query(sql, [value, value_ref]);
+
+    return rows[0];
+
   } catch (e) {
-    console.error("❌ updateRecordStatus 發生錯誤:", e);
+    console.error("❌ updateRecordIndividual error:", e);
     throw e;
   }
 };

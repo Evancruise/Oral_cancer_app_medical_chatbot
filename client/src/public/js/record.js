@@ -12,6 +12,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const goBackBtn = document.getElementById("btnGoBack");
     const inferenceModal = loadInferenceStageModal("modal-infer-container");
     const images = document.querySelectorAll(".preview-img");
+    const node_uri = document.getElementById("app-config")?.dataset.nodeUri;
+    const web_prefix = document.getElementById("app-config")?.dataset.webPrefix;
+    const token = document.getElementById("app-config")?.dataset.token;
+
+    console.log(`token: ${token}`);
 
     let uploaded_msg = null;
     let infer_again_msg = null;
@@ -111,6 +116,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             formData.append("contentType", file.type);
 
             console.log(`[add_form] patient_id: ${patient_id}`);
+            console.log(`Processing /api/auth/temp_upload?patient_id=${patient_id}&code=${code}...`);
 
             const res = await fetch(`/api/auth/temp_upload?patient_id=${patient_id}&code=${code}`, {
                 method: "POST",
@@ -121,18 +127,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("Temp upload result:", data);
 
             if (data.success === true) {
-                if (data.env === "development") {
-                    console.log(`data.filePath: ${data.filePath}`);
-                    btn.innerText = uploaded_msg;
-                    input2.value = data.filePath;
-                    console.log(`input2.value: ${input2.value}`);
-                } else if (data.env === "production") {
-                    await fetch(data.uploadedUrl, {
-                        method: "PUT",
-                        headers: { "Content-Type": file.type },
-                        body: file,
-                    });
-                }
+                btn.innerText = uploaded_msg;
+                input2.value = data.filePath;
+                console.log(`input2.value: ${input2.value}`);
             } else {
                 showModal("上傳失敗，請再上傳一次");
             }
@@ -185,18 +182,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("Temp upload result:", data);
 
             if (data.success === true) {
-                if (data.env === "development") {
-                    console.log(`data.temp_path: ${data.temp_path}`);
-                    btn.innerText = uploaded_msg;
-                    input2.value = data.filePath;
-                    console.log(`input2.value: ${input2.value}`);
-                } else if (data.env === "production") {
-                    await fetch(data.uploadedUrl, {
-                        method: "PUT",
-                        headers: { "Content-Type": file.type },
-                        body: file,
-                    });
-                }
+                btn.innerText = uploaded_msg;
+                input2.value = data.filePath;
+                console.log(`input2.value: ${input2.value}`);
             } else {
                 showModal("上傳失敗，請再上傳一次");
             }
@@ -305,10 +293,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                         inferenceModal.updateProgress(data_p.progress, data_p.message);
                     } else if (data_p.status === "completed") {
                         inferenceModal.complete("Report Ready", data.redirect);
+                        inferenceModal.hide();
                         clearInterval(interval);
+                        closingModal();
+                        showModal("辨識完成，目前可以查看檢測報告", () => {
+                            window.location.href = `/api/auth/record?token=${token}`;
+                        }, () => {
+                            window.location.href = `/api/auth/record?token=${token}`;
+                        });
                     } else if (data_p.status === "failed") {
                         inferenceModal.updateProgress(100, "Failed");
+                        inferenceModal.hide();
                         clearInterval(interval);
+                        closingModal();
+                        showModal("請稍後再幫我試一次", () => {
+                            window.location.href = `/api/auth/record?token=${token}`;
+                        }, () => {
+                            window.location.href = `/api/auth/record?token=${token}`;
+                        });
                     }
                 }, 2000);
             } else {
@@ -404,19 +406,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             // const { name, gender, age, patient_id, notes, record_id } = link.dataset;
 
             // fetch data-* attributes' value
-            const name = link.getAttribute("data-name");
-            const gender = link.getAttribute("data-gender");
-            const age = link.getAttribute("data-age");
+            //const name = link.getAttribute("data-name");
+            //const gender = link.getAttribute("data-gender");
+            //const age = link.getAttribute("data-age");
             const patient_id = link.getAttribute("data-patient_id");
             const notes = link.getAttribute("data-notes");
-            const record_id = link.getAttribute("data-record_id");
+            //const record_id = link.getAttribute("data-record_id");
             
-            console.log(`name: ${name}`);
-            console.log(`gender: ${gender}`);
-            console.log(`age: ${age}`);
+            //console.log(`name: ${name}`);
+            //console.log(`gender: ${gender}`);
+            //console.log(`age: ${age}`);
             console.log(`patient_id: ${patient_id}`);
             console.log(`notes: ${notes}`);
-            console.log(`record_id: ${record_id}`);
+            //console.log(`record_id: ${record_id}`);
 
             editModal.querySelector("textarea[name='notes']").value = notes;
 
@@ -460,7 +462,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                         const filename = picVal.split("/").pop() || `/static/images/${i}.png`;
                         // const filename = `/static/images/${i}.png`;
+                        // setFileInputFromURL(input, web_prefix, node_uri, picVal, filename);
+                        console.log(`filename: ${filename}, picVal: ${picVal}`);
                         setFileInputFromURL(input, picVal, filename);
+
                     } else {
                         img.src = `/static/images/${i}.png`;
                     }
@@ -529,7 +534,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else {
                 // document.getElementById("infer").innerText = check_result_edit;
                 document.getElementById("infer").style.width = "48%";
-                document.getElementById("check_result_edit").style.display = true;
+                document.getElementById("check_result_edit").style.display = "flex";
                 document.getElementById("check_result_edit").style.width = "48%";
             }
             
@@ -563,23 +568,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    async function setFileInputFromURL(input, imageURL, filename = "image.jpg") {
+    async function setFileInputFromURL(input, imageURL, filename) {
         // try {
             /*
-            const response = await fetch(imageURL);
-            const blob = await response.blob();
-
-            const file = new File([blob], filename, { type: blob.type });
-
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            input.files = dataTransfer.files;
-
-            console.log(`✅ File object created for ${filename}`);
-            */
-
-            console.log(`[setFileInputFromURL] Fetching: ${imageURL} (http://localhost:5000/${imageURL})`);
-            const response = await fetch(`http://localhost:5000/${imageURL}`, { mode: "cors" });
+            console.log(`[setFileInputFromURL] Fetching: ${imageURL} (${web_prefix}/${nodeURL}/${imageURL})`);
+            const response = await fetch(`${web_prefix}/${nodeURL}/${imageURL}`, { mode: "cors" });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const blob = await response.blob();
 
@@ -587,7 +580,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(file);
             input.files = dataTransfer.files;
+            */
+            
+            const response = await fetch(`../../${imageURL}`, { mode: "cors" });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const blob = await response.blob();
 
+            const file = new File([blob], filename, { type: blob.type });
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            input.files = dataTransfer.files;
+            
         // } catch (err) {
         //    console.error(`❌ Failed to fetch or set file: ${imageURL}`, err);
         //}

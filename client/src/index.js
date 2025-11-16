@@ -1,9 +1,9 @@
 import express from "express";
 import dotenv from "dotenv";
 import path from "path";
+import cors from "cors";
 import { fileURLToPath } from "url";
 
-import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import expressLayouts from "express-ejs-layouts";
@@ -13,7 +13,7 @@ import i18next from "i18next";
 import i18nextMiddleware from "i18next-http-middleware";
 import Backend from "i18next-fs-backend";
 
-import { homepage } from "#controllers/auth.controller.js";
+import { homepage, liff_toppage } from "#controllers/auth.controller.js";
 
 import authRoutes from "#routes/auth.routes.js";
 import userRoutes from "#routes/user.routes.js";
@@ -164,11 +164,23 @@ app.use("/api/records", recordRoutes);
 app.use("/api/appointments", appointmentRoutes);
 
 // =============================================
+// LIFF 登入
+// =============================================
+app.get("/liff-toppage", liff_toppage);
+
+// =============================================
 // 🖥️ 啟動伺服器
 // =============================================
-const PORT = process.env.PORT || 7860;
+const PORT = process.env.PORT || 8080;
+
+/*
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
   console.log(`📂 Public uploads served at /tmp/public`);
+});
+*/
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });
