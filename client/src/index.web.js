@@ -15,11 +15,11 @@ import Backend from "i18next-fs-backend";
 
 import { homepage, liff_toppage } from "#controllers/auth.controller.js";
 
-import authRoutes from "#routes/auth.routes.js";
-import userRoutes from "#routes/user.routes.js";
-import registerRoutes from "#routes/register.routes.js";
-import recordRoutes from "#routes/record.routes.js";
-import appointmentRoutes from "#routes/appointment.routes.js";
+import authRoutes from "#src/routes/web/auth.routes.js";
+import userRoutes from "#src/routes/web/user.routes.js";
+import registerRoutes from "#src/routes/web/register.routes.js";
+import recordRoutes from "#src/routes/web/record.routes.js";
+import appointmentRoutes from "#src/routes/web/appointment.routes.js";
 
 import { removeUserTable } from "#services/user.service.js";
 import { createUsersTable } from "#services/auth.service.js";
@@ -32,6 +32,7 @@ import {
   removeDiscardRecordTable,
   removeRecordTable,
 } from "#services/record.service.js";
+import { setupSwagger } from "#config/swagger.js";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -56,6 +57,7 @@ if (process.env.NODE_ENV !== "production") {
 */
 
 const app = express();
+setupSwagger(app);
 
 // =============================================
 // 🌐 i18next 國際化設定

@@ -51,7 +51,7 @@ import { lang_get,
          // webhook_login_event,
          link_line_account,
          webhook_entry,
-         login_line} from '#controllers/auth.controller.js';
+         login_line} from '#controllers/web/auth.controller.js';
 
 // import { handleUpload } from "#services/upload.service.js";
 import multer from "multer";

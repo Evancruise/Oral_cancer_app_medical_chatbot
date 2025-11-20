@@ -1,0 +1,187 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Oral Cancer Web App API",
+    "description": "RESTful API documentation for Oral Cancer web system (Node.js + Express).",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "註冊 / 登入 / 密碼重設 / Token 驗證"
+    },
+    {
+      "name": "Record",
+      "description": "影像紀錄上傳 / 編輯 / 刪除 / 回收桶"
+    },
+    {
+      "name": "Appointment",
+      "description": "預約建立 / 修改 / 取消 / 查詢"
+    },
+    {
+      "name": "File",
+      "description": "檔案上傳 / GCS / 影像分析"
+    },
+    {
+      "name": "System",
+      "description": "系統設定 / Web 設定 / 隱私設定 / 匯入匯出"
+    },
+    {
+      "name": "LINE",
+      "description": "LINE Login / LIFF / Webhook / QR 綁定"
+    },
+    {
+      "name": "Chatbot",
+      "description": "與 Flask / OpenAI 後端聊天介面"
+    }
+  ],
+  "paths": {
+    "/register": {
+      "get": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "12345678"
+          },
+          "login_role": {
+            "type": "string",
+            "example": "professor"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Login successful"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string",
+                "example": "jwt-token-string"
+              },
+              "user": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "number",
+                    "example": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Professor A"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                  },
+                  "role": {
+                    "type": "string",
+                    "example": "professor"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "SignupRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "New User"
+          },
+          "email": {
+            "type": "string",
+            "example": "new@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "12345678"
+          },
+          "role": {
+            "type": "string",
+            "example": "professor"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password"
+        ]
+      },
+      "GenericSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Operation successful"
+          }
+        }
+      },
+      "GenericErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Something went wrong"
+          },
+          "error": {
+            "type": "string",
+            "example": "Error message detail (optional)"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "JWT token，格式：Bearer <token>"
+      }
+    }
+  }
+}

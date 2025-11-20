@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { body, param } from "express-validator";
 import { updateUserSchema, userIdSchema } from "#validations/users.validation.js";
+import { errorResponse } from "#src/utils/responses.js";
 
 export function generateToken(user) {
   return jwt.sign(
@@ -38,6 +39,23 @@ export const validateUpdateUser = (req, res, next) => {
   req.body = bodyCheck.data;
 
   next();
+};
+
+export const authenticateJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return errorResponse(res, "Missing or invalid Authentication header", {}, 401);
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch(err) {
+    return errorResponse(res, "Invalid or expired token", {}, 400);
+  }
 };
 
 export const authenticateToken = (req, res, next) => {
