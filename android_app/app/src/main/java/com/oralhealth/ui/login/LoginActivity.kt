@@ -23,7 +23,8 @@ class LoginActivity : ComponentActivity() {
         ) {
           LoginScreen(
             onLoginSuccess = { response ->
-              ApiClient.setToken(response.token)
+              val token = response.data.token
+              ApiClient.setToken(token)
               startActivity(Intent(this, MainActivity::class.java))
             }
           )

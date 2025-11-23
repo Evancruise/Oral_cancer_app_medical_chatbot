@@ -7,6 +7,6 @@ import com.oralhealth.data.model.LoginRequest
 import com.oralhealth.data.model.LoginResponse
 
 interface AuthApi {
-    @POST("auth/login")
+    @POST("auth/sign-in")
     suspend fun login(@Body body: LoginRequest): Response<LoginResponse>
 }

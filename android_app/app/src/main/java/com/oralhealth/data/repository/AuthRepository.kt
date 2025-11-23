@@ -13,7 +13,7 @@ class AuthRepository {
         val res = api.login(LoginRequest(account, password))
         if (res.isSuccessful) {
             val body = res.body()
-            ApiClient.setToken(body?.token ?: "")
+            ApiClient.setToken(body?.data?.token ?: "")
             return body
         }
         return null

@@ -125,6 +125,9 @@ export const signup = async (req, res) => {
 
 export const signin = async (req, res) => {
   try {
+
+    console.log(`req.body: ${req.body}`);
+
     const validationResult = signinSchema.safeParse(req.body);
 
     if (!validationResult.success) {
@@ -146,17 +149,15 @@ export const signin = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, name: user.name, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: config.expireTime },
+      { expiresIn: process.env.JWT_EXPIRES_IN },
     );
 
     return successResponse(res, "Login successful", {
       token, 
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
     });
 
   } catch (e) {

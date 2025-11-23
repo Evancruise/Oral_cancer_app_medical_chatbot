@@ -1,5 +1,6 @@
 package com.oralhealth.ui.login
 
+import LoginState
 import android.util.Log
 import androidx.lifecycle.*
 import com.oralhealth.data.api.AuthRepository
@@ -10,27 +11,27 @@ import kotlinx.coroutines.launch
 class LoginViewModel : ViewModel() {
 
     private val repository = AuthRepository()
-    private val _loginResult = MutableLiveData<LoginResponse?>()
-    val result: LiveData<LoginResponse?> get() = _loginResult
 
-    private val _errorMessage = MutableLiveData<String?>()
-    val errorMessage: LiveData<String?> get() = _errorMessage
+    private val _loginState = MutableLiveData<LoginState>()
+    val loginState: LiveData<LoginState> get() = _loginState
 
     fun login(email: String, password: String) {
-      viewModelScope.launch {
-        try {
-          val response = repository.login(LoginRequest(email, password))
-          if (response.isSuccessful && response.body() != null) {
-              _loginResult.postValue(response.body())
-              _errorMessage.postValue(null)
-          } else {
-              _loginResult.postValue(null)
-              _errorMessage.postValue("Login failed: ${response.message()}")
-          }
-        } catch (e: Exception) {
-            _errorMessage.postValue("Network error: ${e.message}")
-            Log.e("LoginViewModel", "Login failed", e)
+        _loginState.value = LoginState.Loading  // 🔹 顯示 loading UI
+
+        viewModelScope.launch {
+            try {
+                val response = repository.login(LoginRequest(email, password))
+
+                if (response.isSuccessful && response.body()?.data?.token != null) {
+                    _loginState.postValue(LoginState.Success(response.body()!!))
+                } else {
+                    _loginState.postValue(LoginState.Error("Invalid login or empty token"))
+                }
+
+            } catch (e: Exception) {
+                _loginState.postValue(LoginState.Error("Network error: ${e.message}"))
+                Log.e("LoginViewModel", "Login failed", e)
+            }
         }
-      }
     }
 }

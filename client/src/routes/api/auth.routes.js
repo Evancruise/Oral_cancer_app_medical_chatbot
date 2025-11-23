@@ -18,9 +18,27 @@ import {
     resend,
     rebind_qr
  } from "#controllers/api/auth.controller.js";
+
 import { request } from "http";
+import { getAllUsers } from "#src/services/user.service.js";
 
 const router = express.Router();
+
+router.get('/users', async (req, res, next) => {
+    try {
+        const allUsers = await getAllUsers();
+
+        res.json({
+            message: 'Successfully retrieved users',
+            users: allUsers,
+            count: allUsers.length,
+        });
+
+    } catch(e) {
+        console.error(e);
+        next(e);
+    }
+  });
 
 router.get("/register", 
   /* 

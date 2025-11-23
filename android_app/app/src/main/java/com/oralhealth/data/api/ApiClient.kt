@@ -10,8 +10,10 @@ object ApiClient {
     private const val BASE_URL = "http://10.0.2.2:5000/api/"
     private var token: String? = null
 
-    fun setToken(t: String) {
-        token = t
+    fun setToken(t: String?) {
+        if (!t.isNullOrEmpty()) {
+            token = t
+        }
     }
 
     private val client by lazy {
