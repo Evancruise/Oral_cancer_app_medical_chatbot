@@ -35,6 +35,8 @@ android {
 
 dependencies {
     // 🟢 Compose 基礎
+    // Jetpack Compose
+    implementation platform("androidx.compose:compose-bom:2024.02.00")
 
     implementation "androidx.appcompat:appcompat:1.7.0"
     implementation "androidx.core:core-ktx:1.12.0"
@@ -47,8 +49,13 @@ dependencies {
     debugImplementation "androidx.compose.ui:ui-tooling:1.6.7"
 
     // 🟢 必須加入：Compose 的 ViewModel 支援
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.3"
     implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.8.3"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+
+    // DataStore
+    implementation "androidx.datastore:datastore-preferences:1.1.1"
 
     // 🟢 必須加入：observeAsState() 使用 LiveData 轉 Compose state
     implementation "androidx.compose.runtime:runtime-livedata:1.5.1"
@@ -58,7 +65,7 @@ dependencies {
     implementation "androidx.activity:activity-ktx:1.9.0"
 
     // Retrofit & OkHttp
-    implementation "com.squareup.retrofit2:retrofit:2.9.0"
-    implementation "com.squareup.retrofit2:converter-gson:2.9.0"
+    implementation "com.squareup.retrofit2:retrofit:2.11.0"
+    implementation "com.squareup.retrofit2:converter-gson:2.11.0"
     implementation "com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.11"
 }
