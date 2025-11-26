@@ -22,6 +22,8 @@ class LoginViewModel : ViewModel() {
             try {
                 val response = repository.login(LoginRequest(email, password))
 
+                Log.d("LoginDebug", "Token = ${response.body()?.data?.token}")
+
                 if (response.isSuccessful && response.body()?.data?.token != null) {
                     _loginState.postValue(LoginState.Success(response.body()!!))
                 } else {
@@ -33,5 +35,9 @@ class LoginViewModel : ViewModel() {
                 Log.e("LoginViewModel", "Login failed", e)
             }
         }
+    }
+
+    fun register() {
+
     }
 }

@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace "com.oralhealth"
-    compileSdk 34   // 或 33，依你目前穩定版本
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.oralhealth"
@@ -19,53 +19,54 @@ android {
         compose true
     }
 
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
     composeOptions {
         kotlinCompilerExtensionVersion "1.5.3"
     }
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
     kotlinOptions {
         jvmTarget = "17"
     }
 }
 
 dependencies {
-    // 🟢 Compose 基礎
-    // Jetpack Compose
-    implementation platform("androidx.compose:compose-bom:2024.02.00")
 
-    implementation "androidx.appcompat:appcompat:1.7.0"
-    implementation "androidx.core:core-ktx:1.12.0"
+    // 🟢 Jetpack Compose BOM → 統一管理版本，不要再手動指定 UI 版本
+    implementation platform("androidx.compose:compose-bom:2024.04.01")
+    implementation "androidx.compose.material3:material3"
+    implementation "androidx.compose.ui:ui"
+    implementation "androidx.compose.ui:ui-tooling-preview"
+    implementation "androidx.compose.runtime:runtime-livedata"
+    debugImplementation "androidx.compose.ui:ui-tooling"
 
-    implementation "androidx.compose.material3:material3:1.2.1"
-    implementation "com.google.android.material:material:1.12.0"
+    // 🟢 Navigation Compose (穩定推薦版本)
+    implementation "androidx.navigation:navigation-compose:2.8.0"
 
-    implementation "androidx.compose.ui:ui:1.6.7"
-    implementation "androidx.compose.ui:ui-tooling-preview:1.6.7"
-    debugImplementation "androidx.compose.ui:ui-tooling:1.6.7"
-
-    // 🟢 必須加入：Compose 的 ViewModel 支援
+    // 🟢 Lifecycle / ViewModel
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.3"
     implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2"
     implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.8.3"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.8.3"
+
+    // 🟢 Activity Compose
+    implementation "androidx.activity:activity-compose:1.9.0"
+
+    // 🟢 Kotlin Coroutines
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
 
-    // DataStore
+    // 🟢 DataStore (推薦版本)
     implementation "androidx.datastore:datastore-preferences:1.1.1"
 
-    // 🟢 必須加入：observeAsState() 使用 LiveData 轉 Compose state
-    implementation "androidx.compose.runtime:runtime-livedata:1.5.1"
-
-    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.6.2"
-    implementation "androidx.activity:activity-compose:1.9.0"
-    implementation "androidx.activity:activity-ktx:1.9.0"
-
-    // Retrofit & OkHttp
+    // 🟢 Retrofit + OkHttp
     implementation "com.squareup.retrofit2:retrofit:2.11.0"
     implementation "com.squareup.retrofit2:converter-gson:2.11.0"
     implementation "com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.11"
+
+    // 🟢 Base Android support
+    implementation "androidx.core:core-ktx:1.12.0"
+    implementation "androidx.appcompat:appcompat:1.7.0"
+    implementation "com.google.android.material:material:1.12.0"
 }

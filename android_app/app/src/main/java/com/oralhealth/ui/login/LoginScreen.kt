@@ -92,5 +92,14 @@ fun LoginScreen(
         TextButton(onClick = {}) {
             Text("Forgot Password?")
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(onClick = { vm.register() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp)) {
+            Text("No account? Sign Up")
+        }
     }
 }

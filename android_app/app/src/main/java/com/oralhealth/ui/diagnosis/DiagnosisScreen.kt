@@ -2,6 +2,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 
 @Composable
-fun HomeScreen() {
-    ScreenTemplate("Welcome to Oral Health System")
+fun DiagnosisScreen() {
+    ScreenTemplate("AI Diagnosis Record")
 }

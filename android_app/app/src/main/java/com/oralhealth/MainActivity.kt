@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.oralhealth.data.local.TokenManager
+import com.oralhealth.ui.home.DashboardScreen
 import com.oralhealth.ui.login.LoginActivity
 import com.oralhealth.ui.theme.OralHealthAppTheme
 import kotlinx.coroutines.launch
@@ -26,7 +27,17 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OralHealthAppTheme {
-                Surface {
+                DashboardScreen (
+                    onLogout = {
+                        lifecycleScope.launch {
+                            tokenManager.clearToken()
+                            startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                            finish()
+                        }
+                    }
+                )
+
+                /* Surface {
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -49,6 +60,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                */
             }
         }
     }
