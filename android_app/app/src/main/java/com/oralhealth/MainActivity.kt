@@ -1,5 +1,6 @@
 package com.oralhealth
 
+import AppointmentScreen
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -13,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import com.oralhealth.data.local.TokenManager
 import com.oralhealth.ui.home.DashboardScreen
 import com.oralhealth.ui.login.LoginActivity
+import com.oralhealth.ui.navigation.AppNavigation
 import com.oralhealth.ui.theme.OralHealthAppTheme
 import kotlinx.coroutines.launch
 
@@ -27,41 +29,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OralHealthAppTheme {
-                DashboardScreen (
-                    onLogout = {
-                        lifecycleScope.launch {
-                            tokenManager.clearToken()
-                            startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                            finish()
-                        }
+                AppNavigation(tokenManager, onLogout = {
+                    lifecycleScope.launch {
+                        tokenManager.clearToken()
+                        startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                        finish()
                     }
-                )
-
-                /* Surface {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-
-                        Text("Welcome!", style = MaterialTheme.typography.headlineMedium)
-
-                        Button(
-                            onClick = {
-                                lifecycleScope.launch {
-                                    tokenManager.clearToken()
-                                    startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                                    finish()
-                                }
-                            },
-                            modifier = Modifier.padding(top = 24.dp)
-                        ) {
-                            Text("Logout")
-                        }
-                    }
-                }
-                */
+                })
             }
         }
     }
 }
+

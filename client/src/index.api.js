@@ -2,7 +2,10 @@ import fs from "fs";
 import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { setupSwagger } from "#config/swagger.js";
+
 import authRoutes from "#routes/api/auth.routes.js";
+import lineRoutes from "#routes/api/line.routes.js";
+import chatBotRoutes from "#routes/api/chat.routes.js";
 
 import { removeUserTable } from "#services/user.service.js";
 import { createUsersTable } from "#services/auth.service.js";
@@ -44,6 +47,8 @@ if (process.env.NODE_ENV !== "production") {
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/line", lineRoutes);
+app.use("/api/chatbot", chatBotRoutes);
 
 app.listen(process.env.PORT, "127.0.0.1", () => {
   console.log(`🚀 Server running on http://127.0.0.1:${process.env.PORT}`);

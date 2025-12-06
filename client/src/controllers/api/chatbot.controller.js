@@ -108,3 +108,27 @@ export const chat_clear = async (req, res) => {
     return errorResponse(res, "Failed to clear chat history", err.message, 500);
   }
 };
+
+export const chat_cap_guide = async (req, res) => {
+  try {
+    const { image_base64, view_type } = req.body;
+
+    if (!image_base64) {
+      return res.status(400).json({ error: "Image required" });
+    }
+
+    const diagnosis = await run_landmark_model(image_base64, view_type);
+
+    return successResponse(res, "Capture image successfully", { success: true, data: diagnosis });
+  } catch (err) {
+    return errorResponse(res, "Failed to capture image", err.message, 500);
+  }
+};
+
+export const chat_cap_explain = async (req, res) => {
+  try {
+
+  } catch (err) {
+    
+  }
+};

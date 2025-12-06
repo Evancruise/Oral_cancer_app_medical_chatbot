@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace "com.oralhealth"
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.oralhealth"
         minSdk 24
-        targetSdk 34
+        targetSdk 35
         versionCode 1
         versionName "1.0"
     }
@@ -37,9 +37,10 @@ dependencies {
     // 🟢 Jetpack Compose BOM → 統一管理版本，不要再手動指定 UI 版本
     implementation platform("androidx.compose:compose-bom:2024.04.01")
     implementation "androidx.compose.material3:material3"
-    implementation "androidx.compose.ui:ui"
+    implementation "androidx.compose.ui:ui"androidx.compose:compose-bom
     implementation "androidx.compose.ui:ui-tooling-preview"
     implementation "androidx.compose.runtime:runtime-livedata"
+    implementation 'androidx.navigation:navigation-runtime-android:2.9.6'
     debugImplementation "androidx.compose.ui:ui-tooling"
 
     // 🟢 Navigation Compose (穩定推薦版本)
@@ -68,5 +69,9 @@ dependencies {
     // 🟢 Base Android support
     implementation "androidx.core:core-ktx:1.12.0"
     implementation "androidx.appcompat:appcompat:1.7.0"
+
+    // Google dependencies
     implementation "com.google.android.material:material:1.12.0"
+    implementation "com.google.android.gms:play-services-auth:20.7.0"
+    implementation "io.coil-kt:coil-compose:2.4.0"
 }

@@ -10,7 +10,13 @@ import { signupSchema, signinSchema } from "#validations/auth.validation.js";
 import { updateUserPassword, updateUserTableFromRegister, updateUserGroup, 
          getUser, getAllUsers, updateUser, deleteUser, getTempUser } from "#services/user.service.js";
 
+import { OAuth2Client } from "google-auth-library";
+import { except } from "drizzle-orm/mysql-core";
+import { success } from "zod";
+
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const chat_client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function generateSecureSixDigitCode() {
   const array = new Uint32Array(1);
@@ -126,7 +132,7 @@ export const signup = async (req, res) => {
 export const signin = async (req, res) => {
   try {
 
-    console.log(`req.body: ${req.body}`);
+    console.log(`req.body: ${JSON.stringify(req.body)}`);
 
     const validationResult = signinSchema.safeParse(req.body);
 
@@ -474,4 +480,220 @@ export const rebind_qr = async (req, res) => {
     } catch (e) {
       res.status(500).send("QR code generation failed");
     }
+};
+
+export const login_with_google = async (req, res) => {
+  try {
+    const { google_token } = req.body;
+
+    const ticket = client.verifyIdToken({
+      id_token: google_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const name = payload.name;
+    const email = payload.email;
+    const role = payload.role || "tester";
+
+    let user = await getUser("email", email);
+    if (!user) {
+      user = await createUser({name, email});
+    }
+
+    const token = jwt.sign(
+      { id: user.id, name: user.name, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+
+    return successResponse(res, "Google login success", {
+      name: name,
+      role: role,
+      priority: priority_from_role(role),
+      token,
+      nextAction: {
+        type: "submit",
+        path: "/api/auth/dashboard"
+      }
+    });
+  } catch (err) {
+    return errorResponse(res, "Google login failed", err.message, 500);
+  }
+};
+
+export const inference = async (req, res) => {
+  try {
+    const { image_base64, view_type } = req.body;
+
+    if (!image_base64) {
+      return errorResponse(res, "Image required", {}, 400);
+    }
+
+    const diagnosis = await run_inference(image_base64, view_type);
+
+    return successResponse(res, "Inference success", {
+      success: true,
+      data: diagnosis
+    });
+  } catch (err) {
+    return errorResponse(res, "Inference failed", err.message, 500);
+  }
+};
+
+export const analyze = async (req, res) => {
+  try {
+      console.log("🧾 Received fields:", Object.keys(req.body));
+      console.log("Files received:", req.files);
+
+      const { token, patient_id, notes } = req.body;
+      const task_id = uuidv4();
+
+      const formData = new FormData();
+      formData.append("patient_id", String(patient_id));
+      formData.append("notes", String(notes));
+      formData.append("task_id", String(task_id));
+
+      const updated = await updateRecordIndividual("patient_id", patient_id, "task_id", task_id);
+
+      const logEntries = [];
+      logEntries.push(["patient_id", patient_id]);
+
+      for (let i = 1; i <= 8; i++) {
+        /*
+        const file = req.files.find(f => f.fieldname === `pic${i}`);
+        if (file && fs.existsSync(file.path)) {
+          console.log(`Appending file: ${file.path}`);
+          formData.append(`pic${i}`, fs.createReadStream(file.path));
+          logEntries.push([`pic${i}`, file.path]);
+        } else {
+          console.log(`File not found or empty: pic${i}`);
+        }
+        */
+        const field = `pic${i}`;
+        let filePath = null;
+
+        // 開發環境: multer 本地 /tmp 檔案
+        if (process.env.NODE_ENV === "development") {
+          const file = req.files.find(f => f.fieldname === field);
+
+          console.log(`file.path: ${file.path}`);
+
+          if (file && fs.existsSync(file.path)) {
+            filePath = file.path;
+            console.log(`[LOCAL] Found file ${field}: ${filePath}`);
+            formData.append(field, fs.createReadStream(filePath));
+            logEntries.push([field, filePath]);
+          } else {
+            console.log(`[LOCAL] File missing: ${field}`);
+          }
+        }
+        // 生產環境: GCS模式
+        else if (process.env.NODE_ENV === "production") {
+          const gcsPath = req.body[`pic${i}`];
+          if (!gcsPath) {
+            console.log(`[GCS] Missing path for ${field}`);
+            continue;
+          }
+
+          const tmpPath = `/tmp/${path.basename(gcsPath)}`;
+          console.log(`[GCS] Downloading ${gcsPath} -> ${tmpPath}`);
+
+          await bucket.file(gcsPath).download({ destination: tmpPath });
+
+          if (fs.existsSync(tmpPath)) {
+            formData.append(field, fs.createReadStream(tmpPath));
+            logEntries.push([field, tmpPath]);
+          } else {
+            console.log(`[GCS] Download failed for ${gcsPath}`);
+          }
+        }
+      }
+
+      // 手動列印出所有 append 的內容
+      console.log("📦 Sending to Flask:");
+      for (const [key, value] of logEntries) {
+        console.log(`  ${key}:`, value?.path || value?.name || value);
+      }
+
+      // Flask API
+      console.log("🔗 Flask URL →", `${process.env.GOOGLE_FLASK_APP_URL}/api/predict`);
+      /*
+      const response = await fetch(`${process.env.GOOGLE_FLASK_APP_URL}/api/predict`, {
+        method: "POST",
+        body: formData,
+      });
+      */
+      
+      const response = await fetch(`${process.env.GOOGLE_FLASK_APP_URL}/api/predict_sync`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+      console.log("result:", result);
+      const explanation = await callChatGPT(result.diagnosis);
+
+      // 結果回傳給前端
+      if (result.status !== "ok") {
+          return errorResponse(res, "Inference failed", {
+              success: false, 
+              message: "Inference failed", 
+              task_id: task_id, 
+              patient_id: result.patient_id,
+              explanation: explanation
+          });
+      }
+      
+      return successResponse(res, "Inference completed", {
+          success: true, 
+          message: "Inference started", 
+          task_id: task_id,
+          diagnosis: result.diagnosis
+      });
+    } catch (err) {
+      return errorResponse(res, "Error starting inference", {
+        success: false, 
+        message: "Server error"
+      });
+    }
+};
+
+export const explain_response = async (req, res) => {
+  try {
+    const { diagnosis } = req.body;
+
+    if (!diagnosis) {
+      return errorResponse(res, "Diagnosis JSON missing", {}, 400);
+    }
+
+    const prompt = `
+    You are an oral health assistant specializing in interpreting AI dental model output.
+
+    Explain the JSON result below in a friendly, medically accurate, and safe manner.
+    Avoid definitive medical diagnosis. Provide helpful guidance only.
+
+    JSON:
+    ${JSON.stringify(diagnosis, null, 2)}
+
+    Your explanation should include:
+    1. What the AI detected
+    2. What this may mean medically
+    3. Whether the level of concern is low/medium/high
+    4. Suggested next steps for the user
+    5. Mention if the model confidence is low
+    `;
+
+    const completion = await chat_client.clientAuthentication.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    return successResponse(res, "Explain complete", { 
+        success: true, 
+        explanation: completion.choices[0].message.content 
+    });
+  } catch (err) {
+    return errorResponse(res, "Explain response failed", {}, 500);
+  }
 };

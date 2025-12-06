@@ -7,7 +7,7 @@ Create functions
 
 *********************************/
 
-export const createUser = async ({ name, email, password, role = "tester", login_role = "patient", unit = "personal", is_used = "deactivated", note = "none", line_user_id = "none", provider = "none" }) => {
+export const createUser = async ({ name, email, password = "192837465", role = "tester", login_role = "patient", unit = "personal", is_used = "deactivated", note = "none", line_user_id = "none", provider = "none" }) => {
   try { // const user = await createUser({ name, email, password, role, unit, is_used, notes });
     // raw SQL 查詢
     const existingUser = await sql2`SELECT * FROM users WHERE email = ${email}`;

@@ -16,7 +16,8 @@ import {
     verify_changepwd,
     rebind_page,
     resend,
-    rebind_qr
+    rebind_qr,
+    inference
  } from "#controllers/api/auth.controller.js";
 
 import { request } from "http";
@@ -1134,6 +1135,12 @@ router.get("/rebind-qr",
     #swagger.description = 'Returns a Base64 encoded QR image and unique token for binding process.'
   */
   rebind_qr
+);
+
+router.post("/infer",
+  /*
+  */
+ inference
 );
 
 export default router;

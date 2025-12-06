@@ -3,7 +3,9 @@ import {
     liff_toppage,
     link_line_account,
     webhook_entry,
-    login_line
+    login_line,
+    lineMobileLogin,
+    lineMobileCallback
 } from "#controllers/api/line.controller.js";
 
 const router = express.Router();
@@ -205,5 +207,8 @@ router.post("/login_line",
   */
   login_line
 );
+
+router.get("/mobile/login", lineMobileLogin);
+router.get("/mobile/callback", lineMobileCallback);
 
 export default router;

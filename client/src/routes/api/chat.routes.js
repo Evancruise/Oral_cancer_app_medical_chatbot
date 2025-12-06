@@ -1,14 +1,16 @@
 import { 
   send,
   chat_history,
-  chat_clear
+  chat_clear,
+  chat_cap_guide,
+  chat_cap_explain
 } from "#src/controllers/api/chatbot.controller.js";
 import { authenticateToken } from "#src/middleware/users.middleware.js";
 import express from "express";
 
 const router = express.Router();
 
-router.post("/send", authenticateToken,
+router.post("/chatbot/record_inquire/send", authenticateToken,
   /*
     #swagger.tags = ['Chatbot']
     #swagger.summary = 'Chatbot interaction'
@@ -63,7 +65,7 @@ router.post("/send", authenticateToken,
   send
 );
 
-router.get("/chatbot/history", authenticateToken,
+router.get("/chatbot/record_inquire/history", authenticateToken,
   /*
     #swagger.tags = ['Chatbot']
     #swagger.summary = 'Get user chat history'
@@ -85,7 +87,7 @@ router.get("/chatbot/history", authenticateToken,
   chat_history
 );
 
-router.delete("/chatbot/history", authenticateToken,
+router.delete("/chatbot/record_inquire/history", authenticateToken,
   /*
     #swagger.tags = ['Chatbot']
     #swagger.summary = 'Clear chat history'
@@ -101,6 +103,18 @@ router.delete("/chatbot/history", authenticateToken,
     }
   */
   chat_clear
+);
+
+router.post("/chatbot/photo/cap_guide", authenticateToken,
+  /*
+  */
+  chat_cap_guide
+);
+
+router.post("/chatbot/photo/explain", authenticateToken, 
+  /*
+  */
+  chat_cap_explain
 );
 
 export default router;

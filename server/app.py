@@ -124,6 +124,25 @@ def predict():
         "patient_id": patient_id
     })
 
+@app.route("/api/predict_sync", methods=["POST"])
+def predict_sync():
+    files = request.files
+    view_type = request.form.get("view_type", "unknown")
+
+    if "image" not in files:
+        return jsonify({"error": "Missing image"}), 400
+    
+    image_file = files["image"]
+
+    img = Image.open(image_file.stream)
+
+    result = run_inference_job(img)
+
+    return jsonify({
+        "status": "ok",
+        "diagnosis": result
+    })
+
 @app.route("/api/status/<task_id>", methods=["GET"])
 def status(task_id):
     if mode == "development":

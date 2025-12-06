@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="google_web_client_id">xxxxxxxxxxxxx.apps.googleusercontent.com</string>
+    <string name="app_name">OralHealth</string>
+    <string name="line_channel_id">YOUR_LINE_CHANNEL_ID</string>
+</resources>

@@ -409,3 +409,84 @@ export const login_line = async (req, res) => {
     return errorResponse(res, "LINE login failed", err.message, 500);
   }
 };
+
+export const lineMobileLogin = (req, res) => {
+  const state = crypto.randomUUID();
+
+  const authorizeUrl =
+    `${process.env.LINE_AUTH_URL}` +
+    `?response_type=code` +
+    `&client_id=${process.env.LINE_CHANNEL_ID}` +
+    `&redirect_uri=${encodeURIComponent(process.env.CALLBACK_URL)}` +
+    `&state=${state}` +
+    `&scope=openid%20profile%20email`;
+
+  res.redirect(authorizeUrl);
+};
+
+export const lineMobileCallback = async (req, res) => {
+  try {
+    const { code } = req.query;
+
+    if (!code)
+      return res.redirect(`${process.env.APP_DEEPLINK}?error=Missing%20code`);
+
+    // ███ STEP 1 — 換 Access Token / ID Token ███
+    const tokenRes = await axios.post(
+      LINE_TOKEN_URL,
+      new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: process.env.CALLBACK_URL,
+        client_id: process.env.LINE_CHANNEL_ID,
+        client_secret: process.env.LINE_CHANNEL_SECRET,
+      }),
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      }
+    );
+
+    const { access_token, id_token } = tokenRes.data;
+
+    // ███ STEP 2 — 取得使用者 Profile ███
+    const profileRes = await axios.get(process.env.LINE_PROFILE_URL, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+
+    const profile = profileRes.data;
+    // profile = { userId, displayName, pictureUrl }
+
+    // ███ STEP 3 — 查找或建立使用者 ███
+    let user = await User.findOne({ lineId: profile.userId });
+
+    if (!user) {
+      user = await User.create({
+        name: profile.displayName,
+        email: null, // LINE 不一定有 email
+        lineId: profile.userId,
+        avatar: profile.pictureUrl,
+        role: "user",
+      });
+    }
+
+    // ███ STEP 4 — 產生你自己的 JWT ███
+    const appToken = jwt.sign(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        provider: "line",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // ███ STEP 5 — Redirect 回 App Deep Link ███
+    const redirectUrl = `${process.env.APP_DEEPLINK}?token=${encodeURIComponent(appToken)}`;
+
+    return res.redirect(redirectUrl);
+  } catch (err) {
+    console.error("LINE login error", err);
+    return res.redirect(`${process.env.APP_DEEPLINK}?error=LINE%20login%20failed`);
+  }
+};
