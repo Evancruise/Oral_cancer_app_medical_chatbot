@@ -1,16 +1,20 @@
-FROM python:3.11-slim
-
-RUN pip install --upgrade pip setuptools wheel
-RUN pip config set global.timeout 120
-RUN pip config set global.retries 20
-RUN pip config set global.trusted-host "files.pythonhosted.org pypi.org"
+FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
 
 WORKDIR /app
-COPY requirements.txt .
 
-RUN pip install -r requirements.txt
+# 系統套件
+RUN apt-get update && apt-get install -y \
+    git \
+    libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 專案 code
 COPY . .
 
-ENV PORT=8080
-EXPOSE 8080
-CMD ["python", "app.py"]
+ENV PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["python", "main.py"]

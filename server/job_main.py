@@ -1,3 +1,7 @@
+from kfp import dsl
+from kfp.dsl import Output, Artifact
+from google_cloud_pipeline_components.v1.custom_job import CustomTrainingJobOp
+
 import torch
 from model.architecture import GroundingDINO
 from utils.config import GroundDINOConfig
@@ -21,8 +25,41 @@ region = os.environ.get("REGION", "asia-east1")
 image_bucket = os.environ.get("GCS_IMAGE_BUCKET", "Oral-images")
 model_bucket = os.environ.get("GCS_MODEL_BUCKET", "Oral-models")
 job_name = os.environ.get("JOB_NAME", "oral-infer-job")
+model_name = os.environ.get("MODEL_NAME", "dinov3")
+tag = os.environ.get("TAG", "v1")
 mode = os.environ.get("NODE_ENV", "developemnt")
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+image_uri = os.environ.get("IMAGE_URI", f"{region}-docker.pkg.dev/{project_id}/{model_bucket}/{model_name}:{tag}")
+
+@dsl.pipeline(
+    name="dinov3-oral-retraining-pipeline",
+    description="Pipeline for retraining oral cancer DINOv3 multimodal model"
+)
+def retraining_pipeline(
+    num_epochs: int = 10
+):
+    job = CustomTrainingJobOp(
+        display_name="dinov3-train",
+        model_display_name="oral-dinov3-model",
+        project=project_id,
+        location=region,
+        worker_pool_specs=[{
+            "machine_spec": {
+                "machine_type": "g2-standard-8",
+                "accelerator_type": "NVIDIA_L4",
+                "accelerator_count": 1,
+            },
+            "replica_count": 1,
+            "container_spec": {
+                "image_uri": image_uri,
+                "args": [
+                    "--phase=train",
+                    f"--num_epochs={num_epochs}"
+                ],
+            },
+        }],
+    )
+    return job
 
 def generate_llm_report(notes, detections):
     prompt = f"""

@@ -213,7 +213,16 @@ class GroundingDINO(nn.Module):
         self.selector = QuerySelector(dim=cfg.img_dim, num_queries=cfg.num_queries)
         self.decoder = CrossModalDecoder(dim=cfg.img_dim, nhead=cfg.nhead, depth=cfg.decoder_depth)
         self.head = DetectionHead(dim=cfg.img_dim)
+
+        # ===== Retriever projection =====
+        txt_dim = cfg.text_embed_dim
+        retriever_dim = cfg.retriever_dim
+        self.retriever_proj = nn.Linear(txt_dim, retriever_dim)
     
+    def project_for_retriever(self, txt_feat):
+        proj = self.retriever_proj(txt_feat)
+        return F.normalize(proj, dim=-1)
+
     def forward(self, images, input_ids, attention_mask):
         # Feature extraction
         img_feats, img_pos = self.image_backbone(images)
@@ -278,6 +287,7 @@ class DINOv3ProjectionHead(nn.Module):
     def forward(self, x):
         return self.mlp(x)
 
+'''
 class TextEncoder(nn.Module):
     """DistilBERT backbone for text embedding"""
     def __init__(self, model_name="distilbert-base-uncased"):
@@ -289,7 +299,44 @@ class TextEncoder(nn.Module):
         out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
         pooled = out.last_hidden_state.mean(dim=1)  # [B, hidden_size]
         return pooled
+'''
 
+class TextEncoder(nn.Module):
+    """
+    Lightweight encoder-only text backbone for
+    - vision-language alignment
+    - region-text similarity
+    - retriever embedding
+    """
+    def __init__(self, 
+                 model_name="sentence-transformers/all-MiniLM-L6-v2",
+                 max_length=128):
+        super().__init__()
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.encoder = AutoModel.from_pretrained(model_name)
+        self.out_dim = self.encoder.config.hidden_size
+        self.max_length = max_length
+
+    def forward(self, texts):
+        """
+        texts: List[str] or Tuple[str]
+        return: [B, D] pooled embedding
+        """
+        device = next(self.parameters()).device
+
+        enc = self.tokenizer(
+            list(texts),
+            padding=True,
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors="pt"
+        ).to(device)
+
+        out = self.encoder(**enc)
+        # Mean pooling
+        feat = out.last_hidden_state.mean(dim=1)
+        return feat
+    
 class ImageEncoder(nn.Module):
     """
     Swin Transformer (或其他 timm backbone) 視覺特徵抽取模組。
@@ -489,6 +536,13 @@ class OralDINOv3(nn.Module):
 
         # ===== Center buffer =====
         self.register_buffer("center", torch.zeros(1, cfg.out_dim))
+
+        # ===== Distillation =====
+        self.retriever_proj = nn.Linear(cfg.txt_dim, cfg.retriever_dim)
+    
+    def project_for_retriever(self, txt_feat):
+        proj = self.retriever_proj(txt_feat)
+        return F.normalize(proj, dim=-1)
 
     def student_forward(self, x):
         feat = self.student_backbone(x)

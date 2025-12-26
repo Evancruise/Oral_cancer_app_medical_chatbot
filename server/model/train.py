@@ -7,19 +7,21 @@ from torchvision import transforms as T
 from PIL import Image
 from transformers import AutoTokenizer
 from tqdm import tqdm
-from utils.func import groundingdino_compute_loss, dinov3_compute_loss, compute_rag_loss
+from utils.func import groundingdino_compute_loss, dinov3_compute_loss, compute_rag_loss, distill_loss
 from model.architecture import DINOv3ToLLMAdapter
 from nltk.translate.bleu_score import sentence_bleu
 from rouge import Rouge
 
-def grounddino_train_val(model, train_loader, val_loader, optimizer, num_epochs, device):
+tqdm_disable = bool(os.environ.get("VERTEX_TQDM_DISABLE", "1"))
+
+def grounddino_train_val(model, train_loader, val_loader, optimizer, num_epochs, device, output_dir="checkpoints"):
     model.train()
     best_val_loss = float("inf")
     
     for epoch in range(num_epochs):
         running_loss = 0.0
         
-        for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
+        for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", disable=tqdm_disable):
             images = batch["image"].to(device)
             input_ids = batch["input_ids"].to(device)
             attn_mask = batch["attn_mask"].to(device)
@@ -75,7 +77,7 @@ def grounddino_train_val(model, train_loader, val_loader, optimizer, num_epochs,
             num_batches = 0
 
             with torch.no_grad():
-                for batch in tqdm(val_loader, desc=f"[Val] Epoch {epoch+1}/{num_epochs}"):
+                for batch in tqdm(val_loader, desc=f"[Val] Epoch {epoch+1}/{num_epochs}", disable=tqdm_disable):
                     images = batch["image"].to(device)
                     input_ids = batch["input_ids"].to(device)
                     attn_mask = batch["attn_mask"].to(device)
@@ -121,19 +123,249 @@ def grounddino_train_val(model, train_loader, val_loader, optimizer, num_epochs,
             # 保存最佳模型
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
-                torch.save(model.state_dict(), f"checkpoints/groundingdino_best_model.pth")
+                torch.save(model.state_dict(), f"{output_dir}/groundingdino_best_model.pth")
                 print(f"✅ Best model updated at epoch {epoch+1}")
 
-        torch.save(model.state_dict(), f"checkpoints/grounding_dino_oral_epoch{epoch+1}.pth")
+        torch.save(model.state_dict(), f"{output_dir}/grounding_dino_oral_epoch{epoch+1}.pth")
 
-def dinov3_train_val(model, llm, llm_tokenizer, adapter, train_loader, val_loader, optimizer, num_epochs, device, retriever_index=None, retreiver_meta=None):
+def build_embeds(llm, ctx_token, llm_inputs):
+    embeds = llm.get_input_embeddings()(llm_inputs["input_ids"])
+    embeds = torch.cat([0.5 * ctx_token.unsqueeze(1), embeds], dim=1)
+    attn = F.pad(llm_inputs["attention_mask"], (1, 0), value=1)
+    return embeds.to(llm.dtype), attn
+
+def dinov3_train_val(
+    model,
+    teacher_llm,
+    student_llm,
+    tokenizer,
+    adapter,
+    teacher_ctx_proj,
+    student_ctx_proj,
+    train_loader,
+    val_loader,
+    optimizer,
+    num_epochs,
+    device,
+    retriever_index=None,
+    retriever_meta=None,
+    output_dir="checkpoints"
+):
     best_val_loss = float("inf")
+
+    # ===== LLM control =====
+    LLM_UPDATE_INTERVAL = 10
+    FREEZE_LLM_EPOCHS = 5
+    GENERATE_EVERY = 10
+
+    global_step = 0
+
+    for epoch in range(num_epochs):
+        model.train()
+        student_llm.train()
+
+        if epoch < FREEZE_LLM_EPOCHS:
+            student_llm.eval()
+            for p in student_llm.parameters():
+                p.requires_grad = False
+        else:
+            for p in student_llm.parameters():
+                p.requires_grad = True
+        
+        total_train_loss = 0.0
+
+        for i, batch in enumerate(tqdm(train_loader, desc=f"[Train] Epoch {epoch+1}/{num_epochs}")):
+
+            global_step += 1
+
+            images = batch["image"].to(device)
+            boxes = [b.to(device) for b in batch["boxes"]]
+            labels = [b.to(device) for b in batch["labels"]]
+            neg_mask = batch["neg_mask"].to(device)
+
+            # ===== Fix empty GT ======
+            fixed_boxes, fixed_labels = [], []
+
+            for b, l in zip(boxes, labels):
+                fixed_boxes.append(b if b.numel() > 0 else torch.zeros((1, 4), device=device))
+                fixed_labels.append(l if l.numel() > 0 else torch.zeros((1, ), dtype=torch.long, device=device))
+            
+            gt_boxes = torch.nn.utils.rnn.pad_sequence(fixed_boxes, batch_first=True)
+            gt_labels = torch.nn.utils.rnn.pad_sequence(fixed_labels, batch_first=True)
+
+            # ===== DINO forward =====
+            outputs = model.forward_train(batch, epoch)
+            s_img_outs, s_txt_outs, t_img_outs, t_txt_outs, center, _ = outputs
+
+            # ===== Prompt & Text =====
+            gt_texts = batch["output_text"]
+            prompts = [
+                "[Patient Statement] " + "".join(s) + 
+                "[Doctor's Note] " + "".join(d) + 
+                "\n[Generate Pathology Report]" 
+                for s, d in zip(batch["patient_statement"], batch["doctor_note"])
+            ]
+
+            llm_inputs = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=512).to(device)
+            llm_targets = tokenizer(gt_texts, return_tensors="pt", padding=True, truncation=True, max_length=512).to(device)
+
+            # ===== Vision + Text feature =====
+            img_feat = model.img_enc(images)
+            txt_feat = model.text_enc(llm_inputs["input_ids"], llm_inputs["attention_mask"])
+            multi_feat = torch.cat([img_feat, txt_feat], dim=-1)
+
+            ctx = adapter(multi_feat)
+            teacher_ctx = teacher_ctx_proj(ctx)
+            student_ctx = student_ctx_proj(ctx)
+
+            # ===== Build LLM embeddings =====
+            t_embeds, t_attn = build_embeds(teacher_llm, teacher_ctx, llm_inputs)
+            s_embeds, s_attn = build_embeds(student_llm, student_ctx, llm_inputs)
+
+            # ===== Align labels =====
+            labels = llm_targets["input_ids"]
+            B, L_in = s_embeds.size(0), s_embeds.size(1)
+
+            if labels.size(1) < L_in:
+                labels = torch.cat(
+                    [torch.full((B, L_in, labels.size(1)), -100, device=device), labels],
+                    dim=1
+                )
+            else:
+                labels = labels[:, :L_in]
+
+            # ===== Distillation =====
+            use_llm = (epoch >= FREEZE_LLM_EPOCHS) and (global_step % LLM_UPDATE_INTERVAL == 0)
+
+            if use_llm:
+                with torch.no_grad():
+                    t_logits = teacher_llm(inputs_embeds=t_embeds, attention_mask=t_attn).logits
+                s_logits = student_llm(inputs_embeds=s_embeds, attention_mask=s_attn).logits
+
+                loss_text, _, _ = distill_loss(
+                    s_logits, t_logits, labels, T=2.0, alpha=0.2
+                )
+            else:
+                loss_text = torch.tensor(0.0, device=device)
+
+            # ---- DINO losses ----
+            Tt, Ts = model.cfg.teacher_temp_base, model.cfg.student_temp
+            dino_loss_img = (-F.softmax((t_img_outs - center) / Tt, dim=-1)
+                             * F.log_softmax(s_txt_outs / Ts, dim=-1)).sum(-1).mean()
+            dino_loss_txt = (-F.softmax((t_txt_outs - center) / Tt, dim=-1)
+                             * F.log_softmax(s_img_outs / Ts, dim=-1)).sum(-1).mean()
+
+            loss_box, loss_iou, loss_cls, loss_region = dinov3_compute_loss(
+                outputs, gt_boxes, gt_labels, pos_mask=None, neg_mask=neg_mask
+            )
+
+            # ---- RAG ----
+            if retriever_index is not None:
+                s_txt_proj = model.project_for_retriever(s_txt_outs)
+                rag_loss = compute_rag_loss(images, s_txt_proj, retriever_index, retriever_meta, k=3)
+            else:
+                rag_loss = torch.tensor(0.0, device=device)
+
+            loss_dino = 0.5 * (dino_loss_img + dino_loss_txt)
+            loss_total = (
+                loss_dino +
+                loss_box + loss_cls + loss_iou +
+                0.5 * loss_region +
+                0.5 * rag_loss +
+                0.5 * loss_text
+            )
+
+            optimizer.zero_grad()
+            loss_total.backward()
+            optimizer.step()
+            model.update_teacher(epoch, num_epochs)
+
+            total_train_loss += loss_total.item()
+
+        print(f"[Train] Epoch {epoch+1} | Avg Loss: {total_train_loss/len(train_loader):.4f}")
+
+        # ================= Validation =================
+        if val_loader is None:
+            continue
+
+        model.eval()
+        student_llm.eval()
+        total_val_loss = 0.0
+
+        with torch.no_grad():
+            for i, batch in enumerate(val_loader):
+                images = batch["image"].to(device)
+                outputs = model.forward_train(batch, epoch)
+                s_img_outs, s_txt_outs, t_img_outs, t_txt_outs, center, _ = outputs
+
+                loss_dino = 0.5 * (
+                    (-F.softmax((t_img_outs - center) / Tt, dim=-1)
+                     * F.log_softmax(s_txt_outs / Ts, dim=-1)).sum(-1).mean() +
+                    (-F.softmax((t_txt_outs - center) / Tt, dim=-1)
+                     * F.log_softmax(s_img_outs / Ts, dim=-1)).sum(-1).mean()
+                )
+
+                total_val_loss += loss_dino.item()
+
+                if epoch % GENERATE_EVERY == 0 and i == 0:
+                    prompts = [
+                        "[Patient Statement] " + "".join(s) +
+                        " [Doctor's Note] " + "".join(d) +
+                        "\n[Generate Pathology Report]:"
+                        for s, d in zip(batch["patient_statement"], batch["doctor_note"])
+                    ]
+                    llm_inputs = tokenizer(prompts, return_tensors="pt", padding=True).to(device)
+                    img_feat = model.img_enc(images)
+                    txt_feat = model.text_enc(llm_inputs["input_ids"], llm_inputs["attention_mask"])
+                    ctx = adapter(torch.cat([img_feat, txt_feat], dim=-1))
+                    s_ctx = student_ctx_proj(ctx)
+
+                    embeds = student_llm.get_input_embeddings()(llm_inputs["input_ids"])
+                    embeds = torch.cat([0.5 * s_ctx.unsqueeze(1), embeds], dim=1)
+                    attn = F.pad(llm_inputs["attention_mask"], (1, 0), value=1)
+
+                    gen_ids = student_llm.generate(
+                        inputs_embeds=embeds,
+                        attention_mask=attn,
+                        max_new_tokens=64
+                    )
+                    print("Generated:", tokenizer.decode(gen_ids[0], skip_special_tokens=True))
+
+        avg_val_loss = total_val_loss / len(val_loader)
+        print(f"[Val] Epoch {epoch+1} | Avg Loss: {avg_val_loss:.4f}")
+
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            torch.save(model.state_dict(), f"{output_dir}/dinov3_best_model.pth")
+            print("✅ Best model updated")
+
+'''
+def dinov3_train_val(
+    model,
+    teacher_llm,
+    student_llm,
+    tokenizer,
+    adapter,
+    teacher_ctx_proj,
+    student_ctx_proj,
+    train_loader,
+    val_loader,
+    optimizer,
+    num_epochs,
+    device,
+    retriever_index=None,
+    retriever_meta=None
+):
+    best_val_loss = float("inf")
+    LLM_UPDATE_INTERVAL = 10
+    GENERATE_EVERY = 10
+    FREEZE_LLM_EPOCHS = 5
     
     for epoch in range(num_epochs):
         model.train()
         total_train_loss = 0.0
         
-        for batch in tqdm(train_loader, desc=f"[Train] Epoch {epoch+1}/{num_epochs}"):
+        for i, batch in enumerate(tqdm(train_loader, desc=f"[Train] Epoch {epoch+1}/{num_epochs}", disable=tqdm_disable)):
             
             images = batch["image"].to(device)
             # input_ids = batch["input_ids"].to(device)
@@ -197,8 +429,16 @@ def dinov3_train_val(model, llm, llm_tokenizer, adapter, train_loader, val_loade
                 labels = labels[:, :L_in]
             
             # === Forward pass through LLM ===
-            outputs_llm = llm(inputs_embeds=input_embeds, attention_mask=attn_mask, labels=labels)
-            loss_text = outputs_llm.loss
+            use_llm = (epoch >= FREEZE_LLM_EPOCHS) and (i % LLM_UPDATE_INTERVAL == 0)
+            if use_llm:
+                outputs_llm = llm(
+                    inputs_embeds=input_embeds,
+                    attention_mask=attn_mask,
+                    labels=labels
+                )
+                loss_text = outputs_llm.loss
+            else:
+                loss_text = torch.tensor(0.0, device=images.device)
 
             # Contrastive loss
             T_t = model.cfg.teacher_temp_base
@@ -220,11 +460,18 @@ def dinov3_train_val(model, llm, llm_tokenizer, adapter, train_loader, val_loade
             loss_box, loss_iou, loss_cls, loss_region = dinov3_compute_loss(outputs, gt_boxes, gt_labels, pos_mask=None, neg_mask=neg_mask)
 
             # RAG loss
-            if retriever_index.d != s_txt_outs.shape[1]:
-                projector = nn.Linear(s_txt_outs.shape[1], retriever_index.d).to(s_txt_outs.device)
-                s_txt_outs = projector(s_txt_outs)
-            
-            rag_loss = compute_rag_loss(images, s_txt_outs, retriever_index, retreiver_meta, k=3)
+            if retriever_index is not None:
+                s_txt_outs = model.project_for_retriever(s_txt_outs)
+
+                rag_loss = compute_rag_loss(
+                    images,
+                    s_txt_outs,
+                    retriever_index,
+                    retriever_meta,
+                    k=3
+                )
+            else:
+                rag_loss = torch.tensor(0.0, device=images.device)
 
             optimizer.zero_grad()
             
@@ -248,7 +495,7 @@ def dinov3_train_val(model, llm, llm_tokenizer, adapter, train_loader, val_loade
             total_text_loss = 0.0
             bleu_scores, rouge_l_scores = [], []
 
-            for batch in tqdm(val_loader, desc=f"[Validation] Epoch {epoch+1}/{num_epochs}]"):
+            for i, batch in enumerate(tqdm(val_loader, desc=f"[Validation] Epoch {epoch+1}/{num_epochs}]", disable=tqdm_disable)):
                 images = batch["image"].to(device)
                 # input_ids = batch["input_ids"].to(device)
                 # attn_mask = batch["attn_mask"].to(device)
@@ -310,8 +557,16 @@ def dinov3_train_val(model, llm, llm_tokenizer, adapter, train_loader, val_loade
                     labels = labels[:, :L_in]
                 
                 # === Forward pass through LLM ===
-                outputs_llm = llm(inputs_embeds=input_embeds, attention_mask=attn_mask, labels=labels)
-                loss_text = outputs_llm.loss
+                use_llm = (epoch >= FREEZE_LLM_EPOCHS) and (i % LLM_UPDATE_INTERVAL == 0)
+                if use_llm:
+                    outputs_llm = llm(
+                        inputs_embeds=input_embeds,
+                        attention_mask=attn_mask,
+                        labels=labels
+                    )
+                    loss_text = outputs_llm.loss
+                else:
+                    loss_text = torch.tensor(0.0, device=images.device)
 
                 T_t = model.cfg.teacher_temp_base
                 T_s = model.cfg.student_temp
@@ -332,7 +587,7 @@ def dinov3_train_val(model, llm, llm_tokenizer, adapter, train_loader, val_loade
                     projector = nn.Linear(s_txt_outs.shape[1], retriever_index.d).to(s_txt_outs.device)
                     s_txt_outs = projector(s_txt_outs)
 
-                rag_loss = compute_rag_loss(images, s_txt_outs, retriever_index, retreiver_meta, k=3)
+                rag_loss = compute_rag_loss(images, s_txt_outs, retriever_index, retriever_meta, k=3)
 
                 # Text generation
                 with torch.no_grad():
@@ -372,33 +627,36 @@ def dinov3_train_val(model, llm, llm_tokenizer, adapter, train_loader, val_loade
                         labels = labels[:, :L_in]
 
                     # LLM forward
-                    outputs_llm = llm(
-                        inputs_embeds=input_embeds,
-                        attention_mask=attn_mask,
-                        labels=labels
-                    )
-                    loss_text = outputs_llm.loss
-                    total_text_loss += loss_text.item()
+                    loss_text = torch.tensor(0.0)
 
-                    # Generated text for assessment
-                    generated_ids = llm.generate(
-                        inputs_embeds=input_embeds,
-                        attention_mask=attn_mask,
-                        max_new_tokens=200,
-                        temperature=0.7,
-                        top_p=0.9
-                    )
+                    if epoch % GENERATE_EVERY == 0:
+                        outputs_llm = llm(
+                            inputs_embeds=input_embeds,
+                            attention_mask=attn_mask,
+                            labels=labels
+                        )
+                        loss_text = outputs_llm.loss
+                        total_text_loss += loss_text.item()
 
-                    generated_text = llm_tokenizer.decode(generated_ids[0], skip_special_tokens=True)
-                    ref_text = "".join(ground_truth_texts)
+                        # Generated text for assessment
+                        generated_ids = llm.generate(
+                            inputs_embeds=input_embeds,
+                            attention_mask=attn_mask,
+                            max_new_tokens=1,
+                            temperature=0.7,
+                            top_p=0.9
+                        )
 
-                    print("generated_text:", generated_text)
+                        generated_text = llm_tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                        ref_text = "".join(ground_truth_texts)
 
-                    # BLEU / ROUGE 
-                    bleu = sentence_bleu([ref_text.split()], generated_text.split())
-                    rouge = Rouge().get_scores(generated_text, ref_text)[0]
-                    bleu_scores.append(bleu)
-                    rouge_l_scores.append(rouge["rouge-l"]["f"])
+                        print("generated_text:", generated_text)
+
+                        # BLEU / ROUGE 
+                        bleu = sentence_bleu([ref_text.split()], generated_text.split())
+                        rouge = Rouge().get_scores(generated_text, ref_text)[0]
+                        bleu_scores.append(bleu)
+                        rouge_l_scores.append(rouge["rouge-l"]["f"])
 
                 loss_dino = (dino_loss_img + dino_loss_txt) / 2
                 loss_total = 1.0 * loss_dino + 1.0 * loss_box + 1.0 * loss_cls + 1.0 * loss_iou + 0.5 * rag_loss + 0.5 * loss_region
@@ -413,7 +671,8 @@ def dinov3_train_val(model, llm, llm_tokenizer, adapter, train_loader, val_loade
         # 保存最佳模型
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), f"checkpoints/dinov3_best_model.pth")
+            torch.save(model.state_dict(), f"{output_dir}/dinov3_best_model.pth")
             print(f"✅ Best model updated at epoch {epoch+1}")
 
-        torch.save(model.state_dict(), f"checkpoints/dinov3_oral_epoch{epoch+1}.pth")
+        torch.save(model.state_dict(), f"{output_dir}/dinov3_oral_epoch{epoch+1}.pth")
+'''

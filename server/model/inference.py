@@ -378,4 +378,168 @@ def dinov3_inference_single(model, image_path, prompt, device="cpu", score_thres
         "matched": matched
     }
 
+@torch.no_grad()
+def dinov3_student_inference(
+    model,
+    student_llm,
+    tokenizer,
+    adapter,
+    student_ctx_proj,
+    data_loader,
+    device,
+    max_new_tokens: int = 128,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+    retriever_index=None,
+    retriever_meta=None,
+    verbose: bool = True
+):
+    """
+    Student-only inference pipeline.
+
+    Args:
+        model: Trained OralDINOv3 model
+        student_llm: Distilled student LLM (trainable during training, eval here)
+        tokenizer: Tokenizer shared with training
+        adapter: DINOv3ToLLMAdapter
+        student_ctx_proj: Projection to student LLM hidden size
+        data_loader: DataLoader yielding OralDataset batches
+        device: cuda / cpu
+        max_new_tokens: LLM generation length
+        temperature, top_p: sampling params
+        retriever_index: (optional) FAISS index for RAG
+        retriever_meta: (optional) metadata for retriever
+        verbose: print outputs
+
+    Returns:
+        results: List[dict]
+    """
+
+    model.eval()
+    student_llm.eval()
+
+    results = []
+
+    for batch in tqdm(data_loader, desc="[Inference] Student-only"):
+
+        images = batch["image"].to(device)
+
+        # ----------------------------
+        # Build prompts
+        # ----------------------------
+        prompts = [
+            "[Patient Statement] " + "".join(s) +
+            " [Doctor's Note] " + "".join(d) +
+            "\n[Generate Pathology Report]:"
+            for s, d in zip(batch["patient_statement"], batch["doctor_note"])
+        ]
+
+        llm_inputs = tokenizer(
+            prompts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=512
+        ).to(device)
+
+        # ----------------------------
+        # Vision + Text features
+        # ----------------------------
+        img_feat = model.img_enc(images)
+        txt_feat = model.text_enc(
+            llm_inputs["input_ids"],
+            llm_inputs["attention_mask"]
+        )
+
+        multi_feat = torch.cat([img_feat, txt_feat], dim=-1)
+
+        # ----------------------------
+        # Adapter → Student context
+        # ----------------------------
+        ctx = adapter(multi_feat)
+        ctx = student_ctx_proj(ctx)
+
+        # ----------------------------
+        # (Optional) Retriever RAG
+        # ----------------------------
+        if retriever_index is not None:
+            # project text embedding for retriever
+            s_txt_proj = model.project_for_retriever(txt_feat)
+
+            retrieved = retrieve_topk(
+                s_txt_proj,
+                retriever_index,
+                retriever_meta,
+                k=3
+            )
+
+            # append retrieved cases to prompt
+            augmented_prompts = []
+            for p, r in zip(prompts, retrieved):
+                aug = (
+                    p +
+                    "\n[Similar Cases]\n" +
+                    "\n".join(r)
+                )
+                augmented_prompts.append(aug)
+
+            llm_inputs = tokenizer(
+                augmented_prompts,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=512
+            ).to(device)
+
+        # ----------------------------
+        # Inject context token
+        # ----------------------------
+        input_embeds = student_llm.get_input_embeddings()(
+            llm_inputs["input_ids"]
+        )
+        input_embeds = torch.cat(
+            [0.5 * ctx.unsqueeze(1), input_embeds],
+            dim=1
+        )
+        attn_mask = F.pad(
+            llm_inputs["attention_mask"],
+            (1, 0),
+            value=1
+        )
+
+        # ----------------------------
+        # Generate
+        # ----------------------------
+        gen_ids = student_llm.generate(
+            inputs_embeds=input_embeds,
+            attention_mask=attn_mask,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            do_sample=True
+        )
+
+        outputs = tokenizer.batch_decode(
+            gen_ids,
+            skip_special_tokens=True
+        )
+
+        # ----------------------------
+        # Collect results
+        # ----------------------------
+        for i in range(len(outputs)):
+            result = {
+                "image_id": batch.get("image_name", [None])[i],
+                "patient_statement": batch["patient_statement"][i],
+                "doctor_note": batch["doctor_note"][i],
+                "generated_report": outputs[i]
+            }
+            results.append(result)
+
+            if verbose:
+                print("----")
+                print("Generated Report:")
+                print(outputs[i])
+
+    return results
                 
