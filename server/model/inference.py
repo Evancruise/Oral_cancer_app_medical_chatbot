@@ -379,7 +379,7 @@ def dinov3_inference_single(model, image_path, prompt, device="cpu", score_thres
     }
 
 @torch.no_grad()
-def dinov3_student_inference(
+def dinov3_inference_llm(
     model,
     student_llm,
     tokenizer,
@@ -542,4 +542,74 @@ def dinov3_student_inference(
                 print(outputs[i])
 
     return results
-                
+
+@torch.no_grad()
+def dinov3_inference(
+    model,
+    data_loader,
+    device,
+    score_thresh: float = 0.3,
+    verbose: bool = True
+):
+    """
+    Bounding-box-only inference pipeline.
+
+    Args:
+        model: Trained DINOv3 detection model
+        data_loader: DataLoader yielding batches with "image"
+        device: cuda / cpu
+        score_thresh: confidence threshold
+        verbose: print predictions
+
+    Returns:
+        results: List[dict]
+    """
+
+    model.eval()
+    results = []
+
+    for batch in tqdm(data_loader, desc="[Inference] BBox-only"):
+
+        images = batch["image"].to(device)
+
+        # ===============================
+        # Forward (student only)
+        # ===============================
+        outputs = model.forward_inference(images)
+
+        # 假設 outputs 是 dict（請依你實作微調）
+        # outputs = {
+        #   "pred_boxes": Tensor[B, N, 4]  (cxcywh, normalized)
+        #   "pred_logits": Tensor[B, N, C]
+        # }
+
+        pred_boxes = outputs["pred_boxes"]
+        pred_logits = outputs["pred_logits"]
+
+        probs = pred_logits.softmax(-1)
+        scores, labels = probs.max(-1)
+
+        B = images.size(0)
+
+        for i in range(B):
+            keep = scores[i] > score_thresh
+
+            boxes_i = pred_boxes[i][keep]
+            scores_i = scores[i][keep]
+            labels_i = labels[i][keep]
+
+            result = {
+                "image_id": batch.get("image_name", [None])[i],
+                "boxes": boxes_i.cpu(),     # cxcywh (normalized)
+                "scores": scores_i.cpu(),
+                "labels": labels_i.cpu()
+            }
+
+            results.append(result)
+
+            if verbose:
+                print("----")
+                print(f"Image: {result['image_id']}")
+                print(f"Detections: {len(boxes_i)}")
+
+    return results

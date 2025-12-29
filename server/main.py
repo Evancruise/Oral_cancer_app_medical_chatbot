@@ -3,18 +3,18 @@ import json
 import torch
 import argparse
 from torch.utils.data import DataLoader
-from google.cloud import storage
+# from google.cloud import storage
 from pathlib import Path
 
 # ===== project imports =====
-from model.architecture import GroundingDINO, OralDINOv3 as DINOv3, DINOv3ToLLMAdapter
+from model.architecture import GroundingDINO as DINOv3, OralDINOv3 as DINOv3ToLLMAdapter, OralDINOv3BBox as DINOv3_Bbox
 from utils.config import GroundDINOConfig, DINOv3Cfg
 from utils.dataset import OralDataset, collate_fn, ReferenceDataset, CaseLevelOralCancerJsonDataset
 from utils.func import build_retriever_index, save_retriever_index_gcs, load_retriever_index_gcs
 from utils.fhir.fhir_export import results_to_fhir_bundle
 
-from model.train import grounddino_train_val, dinov3_train_val
-from model.inference import grounddino_inference, dinov3_student_inference
+from model.train import grounddino_train_val, dinov3_train_val, dinov3_train_val_llm
+from model.inference import grounddino_inference, dinov3_inference, dinov3_inference_llm
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel
 
@@ -164,16 +164,8 @@ def main(args):
 
     train_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.train_annotations + "/annotations_fhir_images", json_dir=args.train_annotations + "/annotations_fhir_json")
     val_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.val_annotations + "/annotations_fhir_images", json_dir=args.val_annotations + "/annotations_fhir_json")
-    
-    train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.num_workers, collate_fn=collate_fn
-    )
-    val_loader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.num_workers, collate_fn=collate_fn
-    )
 
+    """
     # ----------------------------
     # Model Selection
     # ----------------------------
@@ -190,109 +182,164 @@ def main(args):
         elif args.phase == "inference":
             test_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
             grounddino_inference(model, test_loader, args.checkpoint_path, device)
+    """
 
     # ----------------------------
     # === DINOv3 Multimodal Model ===
     # ----------------------------
-    if args.model == "DINOv3":
-        cfg = DINOv3Cfg()
-        model = DINOv3(cfg).to(device)
 
-        # ---- Sentence-Transformer (Retriever Encoder) ---- 
-        enc_tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2") 
-        enc_model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2").to(device)
+    if args.llm_included == True:
 
-        # ===== Teacher LLM =====
-        teacher_tokenizer = AutoTokenizer.from_pretrained("sshleifer/tiny-gpt2")
-        teacher_llm = AutoModelForCausalLM.from_pretrained(
-            "sshleifer/tiny-gpt2",
-            torch_dtype=torch.float16,
-        ).to(device)
-        teacher_llm.eval()
-        for p in teacher_llm.parameters():
-            p.requires_grad = False
-        if teacher_tokenizer.pad_token is None:
-            teacher_tokenizer.pad_token = teacher_tokenizer.eos_token
-
-        # ===== Student LLM =====
-        student_llm = AutoModelForCausalLM.from_pretrained(
-            "sshleifer/tiny-gpt2",
-            torch_dtype=torch.float16,
-        ).to(device)
-
-        # ===== Adapter & Proj =====
-        CTX_DIM = 512
-        adapter = DINOv3ToLLMAdapter(llm_hidden_dim=CTX_DIM).to(device)
-        teacher_ctx_proj = torch.nn.Linear(CTX_DIM, teacher_llm.config.hidden_size).to(device)
-        student_ctx_proj = torch.nn.Linear(CTX_DIM, student_llm.config.hidden_size).to(device)
-
-        # ===== Retriever =====
-        retriever_gcs_path = args.retriever_index_path
-        try:
-            teacher_index, teacher_meta = load_retriever_index_gcs(retriever_gcs_path, device)
-        except:
-            ref_dataset = ReferenceDataset(train_data_list, cfg.text_model_name, cfg.img_size)
-            teacher_index, teacher_meta = build_retriever_index(enc_model, enc_tokenizer, ref_dataset, device)
-            save_retriever_index_gcs(teacher_index, teacher_meta, retriever_gcs_path)
-
-        # ===== Optimizer =====
-        optimizer = torch.optim.AdamW(
-            list(model.parameters()) +
-            list(adapter.parameters()) +
-            list(student_ctx_proj.parameters()) +
-            list(student_llm.parameters()),
-            lr=args.lr,
-            weight_decay=args.weight_decay
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True,
+            num_workers=args.num_workers, collate_fn=collate_fn_llm
+        )
+        val_loader = DataLoader(
+            val_dataset, batch_size=args.batch_size, shuffle=False,
+            num_workers=args.num_workers, collate_fn=collate_fn_llm
         )
 
-        if args.phase == "train":
-            dinov3_train_val(
-                model,
-                teacher_llm,
-                student_llm,
-                teacher_tokenizer,
-                adapter,
-                teacher_ctx_proj,
-                student_ctx_proj,
-                train_loader,
-                val_loader,
-                optimizer,
-                args.num_epochs,
-                device,
-                teacher_index,
-                teacher_meta
-            )
-        
-        if args.phase == "inference":
-            test_loader = DataLoader(
-                val_dataset,
-                batch_size=1,
-                shuffle=False,
-                collate_fn=collate_fn
+        if args.model == "DINOv3":
+            cfg = DINOv3Cfg()
+            model = DINOv3(cfg).to(device)
+
+            # ===== Optimizer =====
+            optimizer = torch.optim.AdamW(
+                list(model.parameters()) +
+                list(adapter.parameters()) +
+                list(student_ctx_proj.parameters()) +
+                list(student_llm.parameters()),
+                lr=args.lr,
+                weight_decay=args.weight_decay
             )
 
-            results = dinov3_student_inference(
-                model=model,
-                student_llm=student_llm,
-                tokenizer=teacher_tokenizer,   # 同 training
-                adapter=adapter,
-                student_ctx_proj=student_ctx_proj,
-                data_loader=test_loader,
-                device=device,
-                retriever_index=teacher_index,   # 可選
-                retriever_meta=teacher_meta
+            # ---- Sentence-Transformer (Retriever Encoder) ---- 
+            enc_tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2") 
+            enc_model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2").to(device)
+
+            # ===== Teacher LLM =====
+            teacher_tokenizer = AutoTokenizer.from_pretrained("sshleifer/tiny-gpt2")
+            teacher_llm = AutoModelForCausalLM.from_pretrained(
+                "sshleifer/tiny-gpt2",
+                torch_dtype=torch.float16,
+            ).to(device)
+            teacher_llm.eval()
+            for p in teacher_llm.parameters():
+                p.requires_grad = False
+            if teacher_tokenizer.pad_token is None:
+                teacher_tokenizer.pad_token = teacher_tokenizer.eos_token
+
+            # ===== Student LLM =====
+            student_llm = AutoModelForCausalLM.from_pretrained(
+                "sshleifer/tiny-gpt2",
+                torch_dtype=torch.float16,
+            ).to(device)
+
+            # ===== Adapter & Proj =====
+            CTX_DIM = 512
+            adapter = DINOv3ToLLMAdapter(llm_hidden_dim=CTX_DIM).to(device)
+            teacher_ctx_proj = torch.nn.Linear(CTX_DIM, teacher_llm.config.hidden_size).to(device)
+            student_ctx_proj = torch.nn.Linear(CTX_DIM, student_llm.config.hidden_size).to(device)
+
+            # ===== Retriever =====
+            retriever_gcs_path = args.retriever_index_path
+            try:
+                teacher_index, teacher_meta = load_retriever_index_gcs(retriever_gcs_path, device)
+            except:
+                ref_dataset = ReferenceDataset(train_data_list, cfg.text_model_name, cfg.img_size)
+                teacher_index, teacher_meta = build_retriever_index(enc_model, enc_tokenizer, ref_dataset, device)
+                save_retriever_index_gcs(teacher_index, teacher_meta, retriever_gcs_path)
+            
+            if args.phase == "train":
+                dinov3_train_val_llm(
+                    model,
+                    train_loader,
+                    val_loader,
+                    optimizer,
+                    args.num_epochs,
+                    device,
+                    output_dir,
+                    teacher_llm,
+                    student_llm,
+                    teacher_tokenizer,
+                    adapter,
+                    teacher_ctx_proj,
+                    student_ctx_proj,
+                    teacher_index,
+                    teacher_meta
+                )
+            
+            if args.phase == "inference":
+                test_loader = DataLoader(
+                    val_dataset,
+                    batch_size=1,
+                    shuffle=False,
+                    collate_fn=collate_fn
+                )
+
+                results = dinov3_inference_llm(
+                    model=model,
+                    student_llm=student_llm,
+                    tokenizer=teacher_tokenizer,   # 同 training
+                    adapter=adapter,
+                    student_ctx_proj=student_ctx_proj,
+                    data_loader=test_loader,
+                    device=device,
+                    retriever_index=teacher_index,   # 可選
+                    retriever_meta=teacher_meta
+                )
+
+                fhir_bundle = results_to_fhir_bundle(results)
+
+                with open("oral_ai_fhir_bundle.json", "w", encoding="utf-8") as f:
+                    json.dump(fhir_bundle, f, indent=2, ensure_ascii=False)
+    
+    else:
+
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True,
+            num_workers=args.num_workers, collate_fn=collate_fn
+        )
+        val_loader = DataLoader(
+            val_dataset, batch_size=args.batch_size, shuffle=False,
+            num_workers=args.num_workers, collate_fn=collate_fn
+        )
+
+        if args.model == "DINOv3":
+            cfg = DINOv3Cfg()
+            model = DINOv3_Bbox(cfg).to(device)
+
+            # ===== Optimizer =====
+            optimizer = torch.optim.AdamW(
+                list(model.parameters()),
+                lr=args.lr,
+                weight_decay=args.weight_decay
             )
 
-            '''
-            with open("inference_results.jsonl", "w", encoding="utf-8") as f:
-                for r in results:
-                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
-            '''
+            if args.phase == "train":
+                dinov3_train_val(
+                    model,
+                    train_loader,
+                    val_loader,
+                    optimizer,
+                    args.num_epochs,
+                    device,
+                    output_dir="checkpoints"
+                )
+            
+            if args.phase == "inference":
+                test_loader = DataLoader(
+                    val_dataset,
+                    batch_size=1,
+                    shuffle=False,
+                    collate_fn=collate_fn
+                )
 
-            fhir_bundle = results_to_fhir_bundle(results)
-
-            with open("oral_ai_fhir_bundle.json", "w", encoding="utf-8") as f:
-                json.dump(fhir_bundle, f, indent=2, ensure_ascii=False)
+                dinov3_inference(
+                    model,
+                    test_loader,
+                    device
+                )
 
 # ==================
 # Argument Parser
@@ -330,6 +377,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--checkpoint_path", type=str, default="gs://oral-dinov3-data/checkpoints")
     parser.add_argument("--excel_path", type=str, default="gs://oral-dinov3-data/oralCa_FHIR.xlsx")
+    parser.add_argument("--llm_included", type=bool, default=False)
 
     args = parser.parse_args()
     main(args)

@@ -10,6 +10,13 @@ import pandas as pd
 
 def collate_fn(batch):
     images = torch.stack([b["image"] for b in batch])
+    boxes = [b["boxes"] for b in batch]
+    labels = [b["labels"] for b in batch]
+    # neg_mask = torch.stack([b["neg_mask"] for b in batch])
+    return {"image": images, "boxes": boxes, "labels": labels}
+
+def collate_fn_llm(batch):
+    images = torch.stack([b["image"] for b in batch])
     input_ids = torch.stack([b["input_ids"] for b in batch])
     attn_mask = torch.stack([b["attn_mask"] for b in batch])
     neg_mask = torch.stack([b["neg_mask"] for b in batch])
@@ -38,7 +45,19 @@ class CaseLevelOralCancerDataset(Dataset):
     ):
         self.df = pd.read_excel(excel_path)
         self.image_root = image_root
-        self.transform = transform
+
+        if transform == None:
+            self.transform = T.Compose([
+                T.Resize((224, 224)),   # 視模型需求
+                T.ToTensor(),            # 🔑 關鍵
+                T.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225]
+                )
+            ])
+        else:
+            self.transform = transform
+        
         self.image_ext = image_ext
 
         # --- Group rows by case_id ---
@@ -178,7 +197,18 @@ class CaseLevelOralCancerJsonDataset(Dataset):
     ):
         self.image_dir = image_dir
         self.json_dir = json_dir
-        self.transform = transform
+        
+        if transform == None:
+            self.transform = T.Compose([
+                T.Resize((384, 384)),   # 視模型需求
+                T.ToTensor(),            # 🔑 關鍵
+                T.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225]
+                )
+            ])
+        else:
+            self.transform = transform
 
         self.json_files = sorted([
             f for f in os.listdir(json_dir)

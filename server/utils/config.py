@@ -17,6 +17,7 @@ class DINOv3Cfg:
     text_model_name: str = "HuggingFaceTB/SmolLM-135M-Instruct"
     img_size: int = 384
     num_classes: int = 4  # 包含背景
+    update_teacher: int = 10
 
     # projection head
     in_dim: int = 768       # ✅ 修這裡

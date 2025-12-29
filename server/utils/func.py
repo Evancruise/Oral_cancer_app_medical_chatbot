@@ -7,6 +7,7 @@ from tqdm import tqdm
 import numpy as np
 import faiss
 from google.cloud import storage
+from scipy.optimize import linear_sum_assignment
 import json
 import os
 import pandas as pd
@@ -318,6 +319,25 @@ def groundingdino_compute_loss(out, gt_boxes, gt_labels, pos_mask=None, neg_mask
     all_loss["total"] = total_loss / B
     return all_loss
 
+def hungarian_matcher(pred_boxes, gt_boxes):
+    """
+    pred_boxes: [Q, 4]
+    gt_boxes:   [N, 4]
+    return: matched indices
+    """
+    Q = pred_boxes.size(0)
+    N = gt_boxes.size(0)
+
+    if N == 0:
+        return [], []
+
+    # cost = L1 distance
+    cost = torch.cdist(pred_boxes, gt_boxes, p=1)  # [Q, N]
+    cost = cost.detach().cpu().numpy()
+
+    row_ind, col_ind = linear_sum_assignment(cost)
+    return row_ind, col_ind
+
 def compute_rag_loss(images, s_txt_outs, retriever_index=None, retriever_meta=None, k=3):
     # Placeholder for RAG loss computation
     # In a real implementation, this would involve retrieving top-k relevant samples
@@ -350,22 +370,62 @@ def compute_rag_loss(images, s_txt_outs, retriever_index=None, retriever_meta=No
 
     return rag_loss
 
-def dinov3_compute_loss(outputs, gt_boxes, gt_labels, pos_mask=None, neg_mask=None, device='cpu', cfg=DINOv3Cfg()):
-    s_img_outs, s_txt_outs, _, _, _, det_outs = outputs
-    B = s_img_outs.shape[0]
+def dinov3_compute_loss(
+    det_outs,
+    gt_boxes,
+    gt_labels,
+    device="cpu",
+    cfg=DINOv3Cfg()
+):
+    pred_boxes = det_outs["pred_boxes"]     # [B, Q, 4]
+    pred_logits = det_outs["pred_logits"]   # [B, Q, C]
+
+    loss_box = torch.tensor(0.0, device=device)
+    loss_iou = torch.tensor(0.0, device=device)
+    loss_cls = torch.tensor(0.0, device=device)
+
+    B = pred_boxes.size(0)
+
+    for b in range(B):
+        pb = pred_boxes[b]
+        gb = gt_boxes[b]
+        gl = gt_labels[b]
+
+        if gb.numel() == 0:
+            continue
+
+        idx_p, idx_g = hungarian_matcher(pb, gb)
+
+        matched_pb = pb[idx_p]
+        matched_gb = gb[idx_g]
+        matched_gl = gl[idx_g]
+
+        # L1 bbox loss
+        loss_box += F.l1_loss(matched_pb, matched_gb, reduction="mean")
+
+        # IoU loss (cxcywh assumed)
+        iou = box_iou(matched_pb, matched_gb)
+        loss_iou += 1 - iou.diag().mean()
+
+        # classification loss
+        loss_cls += F.cross_entropy(
+            pred_logits[b, idx_p],
+            matched_gl,
+            reduction="mean"
+        )
+
+    num = max(B, 1)
+    return loss_box / num, loss_iou / num, loss_cls / num
+
+def dinov3_compute_loss_llm(det_outs, gt_boxes, gt_labels, llm_type=False, s_txt_outs=None, pos_mask=None, neg_mask=None, region_feat=None, device='cpu', cfg=DINOv3Cfg()):
 
     loss_box = torch.tensor(0.0, device=device)
     loss_iou = torch.tensor(0.0, device=device)
     if gt_boxes is not None and gt_boxes.numel() > 0:
-        # 此處假設你有 model 預測 box (若無則略過)
-        # dummy prediction placeholder: [B, N_gt, 4]
-        # 可替換成 model.outputs["boxes"]
-        pred_boxes = torch.zeros_like(gt_boxes, device=device)
-
+        pred_boxes = det_outs["pred_boxes"]
         # L1 loss
         loss_box = F.l1_loss(pred_boxes, gt_boxes, reduction="mean")
-
-        # IoU loss (GIoU / DIoU 可自行加)
+        # IoU loss
         inter = torch.min(pred_boxes[..., 2:], gt_boxes[..., 2:]) - torch.max(pred_boxes[..., :2], gt_boxes[..., :2])
         inter = inter.clamp(min=0)
         inter_area = inter[..., 0] * inter[..., 1]
@@ -377,25 +437,20 @@ def dinov3_compute_loss(outputs, gt_boxes, gt_labels, pos_mask=None, neg_mask=No
 
     loss_cls = torch.tensor(0.0, device=device)
     if gt_labels is not None and gt_labels.numel() > 0:
-        # dummy logits (假設 model 有 cls_logits)
-        # 你可以替換成 model.outputs["cls_logits"]
-        cls_logits = torch.zeros(B, gt_labels.shape[1], cfg.num_classes, device=device)
-        # 取有效樣本
+        cls_logits = det_outs["pred_logits"]
         valid_mask = (gt_labels >= 0) & (gt_labels < cfg.num_classes)
         if valid_mask.any():
             target = gt_labels[valid_mask]
             pred = cls_logits[valid_mask]
             loss_cls = F.cross_entropy(pred, target, reduction="mean")
     
-    loss_region = det_outs["loss_region"]
-    '''
     loss_region = torch.tensor(0.0, device=device)
 
-    if gt_labels is not None and gt_labels.numel() > 0:
-        # === region-text alignment ===
-        sim_region = F.cosine_similarity(region_feat, s_txt_outs, dim=-1).mean()
-        loss_region = 1 - sim_region  # maximize alignment
-    '''
+    if llm_type == True:
+        if gt_labels is not None and gt_labels.numel() > 0:
+            # === region-text alignment ===
+            sim_region = F.cosine_similarity(region_feat, s_txt_outs, dim=-1).mean()
+            loss_region = 1 - sim_region  # maximize alignment
 
     return loss_box, loss_iou, loss_cls, loss_region
 
