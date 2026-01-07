@@ -3,18 +3,18 @@ import json
 import torch
 import argparse
 from torch.utils.data import DataLoader
-# from google.cloud import storage
+from google.cloud import storage
 from pathlib import Path
 
 # ===== project imports =====
-from model.architecture import GroundingDINO as DINOv3, OralDINOv3 as DINOv3ToLLMAdapter, OralDINOv3BBox as DINOv3_Bbox
+from model.architecture import GroundingDINO as DINOv3, OralDINOv3 as DINOv3ToLLMAdapter, OralDINOv3BBox as DINOv3_Bbox, OralDINOv3Seg as DINOv3_Seg
 from utils.config import GroundDINOConfig, DINOv3Cfg
-from utils.dataset import OralDataset, collate_fn, ReferenceDataset, CaseLevelOralCancerJsonDataset
-from utils.func import build_retriever_index, save_retriever_index_gcs, load_retriever_index_gcs
+from utils.dataset import OralDataset, ReferenceDataset, CaseLevelOralCancerJsonDataset
+from utils.func import collate_fn, collate_fn_llm, build_retriever_index, save_retriever_index_gcs, load_retriever_index_gcs
 from utils.fhir.fhir_export import results_to_fhir_bundle
 
-from model.train import grounddino_train_val, dinov3_train_val, dinov3_train_val_llm
-from model.inference import grounddino_inference, dinov3_inference, dinov3_inference_llm
+from model.train import grounddino_train_val, dinov3_train_val_seg, dinov3_train_val_bbox, dinov3_train_val_llm
+from model.inference import grounddino_inference, dinov3_inference_seg, dinov3_inference_bbox, dinov3_inference_llm
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel
 
@@ -144,7 +144,7 @@ def main(args):
     print(f"Using device: {device}")
 
     # Path for saving checkpoints (Vertex AI mounts AIP_MODEL_DIR)
-    MODEL_DIR = args.checkpoint_path # os.environ.get("AIP_MODEL_DIR", "/app/checkpoints")
+    output_dir = args.output_dir # os.environ.get("AIP_MODEL_DIR", "/app/checkpoints")
     # os.makedirs(MODEL_DIR, exist_ok=True)
     # print(f"Model output dir = {MODEL_DIR}")
 
@@ -161,9 +161,6 @@ def main(args):
     # ----------------------------
     # train_dataset = OralDataset(train_data_list, augmentation=True)
     # val_dataset = OralDataset(val_data_list, augmentation=False)
-
-    train_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.train_annotations + "/annotations_fhir_images", json_dir=args.train_annotations + "/annotations_fhir_json")
-    val_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.val_annotations + "/annotations_fhir_images", json_dir=args.val_annotations + "/annotations_fhir_json")
 
     """
     # ----------------------------
@@ -189,15 +186,6 @@ def main(args):
     # ----------------------------
 
     if args.llm_included == True:
-
-        train_loader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=True,
-            num_workers=args.num_workers, collate_fn=collate_fn_llm
-        )
-        val_loader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False,
-            num_workers=args.num_workers, collate_fn=collate_fn_llm
-        )
 
         if args.model == "DINOv3":
             cfg = DINOv3Cfg()
@@ -251,12 +239,42 @@ def main(args):
                 save_retriever_index_gcs(teacher_index, teacher_meta, retriever_gcs_path)
             
             if args.phase == "train":
+                
+                if args.begin_epoch > 1:
+                    state = torch.load(f"dinov3_llm_best_epoch{args.begin_epoch}.pth", map_location=device)
+                    end_epoch = args.begin_epoch + args.num_epochs
+                    model.load_state_dict(state)
+                else:
+                    end_epoch = args.num_epoch + 1
+
+                # ----------------------------
+                # Load annotation JSON (local or GCS)
+                # ----------------------------
+                train_data_list = load_json_from_path(args.train_annotations)
+                val_data_list = load_json_from_path(args.val_annotations)
+
+                # ----------------------------
+                # Dataset & DataLoader
+                # ----------------------------
+                train_dataset = OralDataset(train_data_list, augmentation=True)
+                val_dataset = OralDataset(val_data_list, augmentation=False)
+
+                train_loader = DataLoader(
+                    train_dataset, batch_size=args.batch_size, shuffle=True,
+                    num_workers=args.num_workers, collate_fn=collate_fn_llm
+                )
+
+                val_loader = DataLoader(
+                    val_dataset, batch_size=args.batch_size, shuffle=False,
+                    num_workers=args.num_workers, collate_fn=collate_fn_llm
+                )
+
                 dinov3_train_val_llm(
                     model,
                     train_loader,
                     val_loader,
                     optimizer,
-                    args.num_epochs,
+                    end_epoch,
                     device,
                     output_dir,
                     teacher_llm,
@@ -270,8 +288,18 @@ def main(args):
                 )
             
             if args.phase == "inference":
+                # ----------------------------
+                # Load annotation JSON (local or GCS)
+                # ----------------------------
+                test_data_list = load_json_from_path(args.test_annotations)
+
+                # ----------------------------
+                # Dataset & DataLoader
+                # ----------------------------
+                test_dataset = OralDataset(test_data_list, augmentation=False)
+
                 test_loader = DataLoader(
-                    val_dataset,
+                    test_dataset,
                     batch_size=1,
                     shuffle=False,
                     collate_fn=collate_fn
@@ -296,16 +324,8 @@ def main(args):
     
     else:
 
-        train_loader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=True,
-            num_workers=args.num_workers, collate_fn=collate_fn
-        )
-        val_loader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False,
-            num_workers=args.num_workers, collate_fn=collate_fn
-        )
+        if args.model == "DINOv3_bbox":
 
-        if args.model == "DINOv3":
             cfg = DINOv3Cfg()
             model = DINOv3_Bbox(cfg).to(device)
 
@@ -317,28 +337,112 @@ def main(args):
             )
 
             if args.phase == "train":
-                dinov3_train_val(
+                
+                if args.begin_epoch > 1:
+                    state = torch.load(f"dinov3_bbox_best_epoch{args.begin_epoch}.pth", map_location=device)
+                    end_epoch = args.begin_epoch + args.num_epochs
+                    model.load_state_dict(state)
+                else:
+                    end_epoch = args.num_epochs + 1
+                
+                train_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.train_annotations + "/annotations_fhir_images", json_dir=args.train_annotations + "/annotations_fhir_json", type=args.type)
+                val_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.val_annotations + "/annotations_fhir_images", json_dir=args.val_annotations + "/annotations_fhir_json", type=args.type)
+
+                train_loader = DataLoader(
+                    train_dataset, batch_size=args.batch_size, shuffle=True,
+                    num_workers=args.num_workers, collate_fn=collate_fn
+                )
+                val_loader = DataLoader(
+                    val_dataset, batch_size=args.batch_size, shuffle=False,
+                    num_workers=args.num_workers, collate_fn=collate_fn
+                )
+
+                dinov3_train_val_bbox(
                     model,
                     train_loader,
                     val_loader,
                     optimizer,
-                    args.num_epochs,
+                    end_epoch,
                     device,
                     output_dir="checkpoints"
                 )
             
             if args.phase == "inference":
+                
+                if args.inference_epoch > 1:
+                    state = torch.load(f"checkpoints/dinov3_bbox_best_epoch{args.inference_epoch}.pth", map_location=device)
+                    model.load_state_dict(state)
+
+                test_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.test_annotations + "/annotations_fhir_images", json_dir=args.test_annotations + "/annotations_fhir_json", type=args.type)
+
                 test_loader = DataLoader(
-                    val_dataset,
-                    batch_size=1,
-                    shuffle=False,
-                    collate_fn=collate_fn
+                    test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn
                 )
 
-                dinov3_inference(
+                dinov3_inference_bbox(
                     model,
                     test_loader,
-                    device
+                    device,
+                    color_label_map=cfg.color_label_map
+                )
+        
+        elif args.model == "DINOv3_Seg":
+
+            cfg = DINOv3Cfg()
+            model = DINOv3_Seg(cfg).to(device)
+
+            # ===== Optimizer =====
+            optimizer = torch.optim.AdamW(
+                list(model.parameters()),
+                lr=args.lr,
+                weight_decay=args.weight_decay
+            )
+
+            if args.phase == "train":
+
+                if args.begin_epoch > 1:
+                    state = torch.load(f"dinov3_seg_best_epoch{args.begin_epoch}.pth", map_location=device)
+                    end_epoch = args.begin_epoch + args.num_epochs
+                    model.load_state_dict(state)
+                else:
+                    end_epoch = args.num_epochs + 1
+
+                train_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.train_annotations + "/annotations_fhir_images", json_dir=args.train_annotations + "/annotations_fhir_json", type=args.type)
+                val_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.val_annotations + "/annotations_fhir_images", json_dir=args.val_annotations + "/annotations_fhir_json", type=args.type)
+
+                train_loader = DataLoader(
+                    train_dataset, batch_size=args.batch_size, shuffle=True,
+                    num_workers=args.num_workers, collate_fn=collate_fn
+                )
+                val_loader = DataLoader(
+                    val_dataset, batch_size=args.batch_size, shuffle=False,
+                    num_workers=args.num_workers, collate_fn=collate_fn
+                )
+
+                dinov3_train_val_seg(
+                    model,
+                    train_loader,
+                    val_loader,
+                    optimizer,
+                    end_epoch,
+                    device,
+                    output_dir="checkpoints"
+                )
+            
+            elif args.phase == "inference":
+
+                test_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.test_annotations + "/annotations_fhir_images", json_dir=args.test_annotations + "/annotations_fhir_json", type=args.type)
+
+                test_loader = DataLoader(
+                    test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn
+                )
+
+                dinov3_inference_seg(
+                    model,
+                    test_loader,
+                    device,
+                    checkpoint_path="checkpoints",
+                    color_label_map=cfg.color_label_map
                 )
 
 # ==================
@@ -354,7 +458,8 @@ if __name__ == "__main__":
 
     # === Generic settings ===
     parser.add_argument("--phase", type=str, default="train", help="train or inference")
-    parser.add_argument("--model", type=str, default="DINOv3", help="Model type")
+    parser.add_argument("--inference_epoch", type=int, default=5)
+    parser.add_argument("--model", type=str, default="DINOv3_bbox", help="Model type")
 
     # === Dataset paths (support GCS) ===
     parser.add_argument("--train_annotations", type=str,
@@ -369,15 +474,19 @@ if __name__ == "__main__":
                         default="gs://oral-dinov3-data/retriever")
 
     # === Training settings ===
+    parser.add_argument("--begin_epoch", type=int, default=1)
     parser.add_argument("--num_epochs", type=int, default=5)
-    parser.add_argument("--batch_size", type=int, default=2)
+    parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-4)
 
     parser.add_argument("--checkpoint_path", type=str, default="gs://oral-dinov3-data/checkpoints")
+    parser.add_argument("--output_dir", type=str, default="gs://oral-dinov3-data/results")
     parser.add_argument("--excel_path", type=str, default="gs://oral-dinov3-data/oralCa_FHIR.xlsx")
     parser.add_argument("--llm_included", type=bool, default=False)
+
+    parser.add_argument("--type", type=str, default="bbox", help="bbox or seg")
 
     args = parser.parse_args()
     main(args)

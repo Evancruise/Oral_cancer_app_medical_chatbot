@@ -1,20 +1,22 @@
-FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
+FROM python:3.10-slim
 
-WORKDIR /app
-
-# 系統套件
+# ===== system deps =====
 RUN apt-get update && apt-get install -y \
-    git \
     libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Python dependencies
+# ===== workdir =====
+WORKDIR /app
+
+# ===== copy deps =====
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 專案 code
+# ===== copy source =====
 COPY . .
 
-ENV PYTHONUNBUFFERED=1
+# ===== expose =====
+ENV PORT=8080
 
-ENTRYPOINT ["python", "main.py"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]

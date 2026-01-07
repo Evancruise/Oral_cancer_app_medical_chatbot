@@ -8,3 +8,5 @@ export const redis_subscriber = new Redis(redis_url);
 
 redis_publisher.on("connect", () => logger.info("Redis publisher connected"));
 redis_subscriber.on("connect", () => logger.info("Redis subscriber connected"));
+
+export default {Redis, redis_publisher}

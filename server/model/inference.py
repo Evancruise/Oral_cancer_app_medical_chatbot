@@ -10,6 +10,7 @@ from transformers import AutoTokenizer
 from torchvision import transforms
 from tqdm import tqdm
 from torch.nn import functional as F
+from utils.func import compute_precision_recall, decode_boxes, match_predictions, postprocess_boxes, update_confusion_matrix, visualize_result
 
 def grounding_inference_single(model, image_path, prompt, checkpoint_path, device="cuda",
                                box_thresh=0.3, text_thresh=0.25, save_path="results"):
@@ -191,102 +192,6 @@ def grounddino_inference(model, dataloader, checkpoint_path, device="cpu", score
                 if not save_vis:
                     plt.imshow(img[..., ::-1])
                     plt.title(f"Inference {i}")
-                    plt.axis("off")
-                    plt.show()
-
-def dinov3_inference(model, dataloader, checkpoint_path, device="cpu", save_vis=True, score_thresh=0.4):
-    """
-    Inference phase for DINOv3 model.
-    """
-    # 載入訓練好的模型權重
-    print(f"Loading checkpoint: {checkpoint_path}")
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    model.to(device)
-    model.eval()
-
-    os.makedirs("results", exist_ok=True)
-    # tokenizer = AutoTokenizer.from_pretrained(model.cfg.text_model_name)
-
-    with torch.no_grad():
-        for i, batch in enumerate(tqdm(dataloader, desc="Inference")):
-            images = batch["image"].to(device)
-            input_ids = batch["input_ids"].to(device)
-            attn_mask = batch["attn_mask"].to(device)
-            prompts = batch.get("prompt", [""] * images.size(0))
-
-            B = images.size(0)
-            img_feats = model.img_enc(images)
-            txt_feats = model.txt_enc(input_ids, attn_mask)
-
-            # 如果模型包含 detection head
-            if hasattr(model, "det_head"):
-                det_out = model.det_head(
-                    img_feats.unsqueeze(1), txt_feats.unsqueeze(1)
-                )  # 模擬多 query
-                boxes = det_out["boxes"]                   # [B, Q, 4]
-                grounding = det_out["grounding"].sigmoid() # [B, Q]
-                cls_logits = det_out["cls_logits"].softmax(-1)
-                cls_scores, cls_labels = cls_logits.max(-1)
-            else:
-                boxes, grounding, cls_scores, cls_labels = None, None, None, None
-
-            img_proj = model.img_head(img_feats)
-            txt_proj = model.txt_head(txt_feats)
-
-            img_proj = F.normalize(img_proj, dim=-1)
-            txt_proj = F.normalize(txt_proj, dim=-1)
-
-            sim_scores = (img_proj * txt_proj).sum(-1)  # [B]
-            sim_scores = sim_scores.cpu().numpy()
-
-            for b in range(B):
-                img = images[b].permute(1, 2, 0).cpu().numpy()
-                img = (img - img.min()) / (img.max() - img.min() + 1e-8)
-                img = (img * 255).astype("uint8")[..., ::-1]  # to BGR for OpenCV
-                prompt_text = prompts[b]
-                score = float(sim_scores[b])
-
-                print(f"[{i}-{b}] Prompt: {prompt_text}, Sim: {score:.3f}")
-
-                # ===== Draw global match status =====
-                color = (0, 255, 0) if score >= score_thresh else (0, 0, 255)
-                cv2.putText(
-                    img, f"Match: {score:.2f}", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2
-                )
-
-                # ===== Draw detection boxes =====
-                if boxes is not None:
-                    img_h, img_w = img.shape[:2]
-                    boxes_xywh = boxes[b].cpu()
-                    boxes_xywh[:, 0] *= img_w
-                    boxes_xywh[:, 1] *= img_h
-                    boxes_xywh[:, 2] *= img_w
-                    boxes_xywh[:, 3] *= img_h
-                    boxes_xyxy = box_convert(boxes_xywh, "cxcywh", "xyxy")
-
-                    conf = (grounding[b].cpu() * cls_scores[b].cpu()).numpy()
-                    labels = cls_labels[b].cpu().numpy()
-
-                    for j, box in enumerate(boxes_xyxy):
-                        if conf[j] < score_thresh:
-                            continue
-                        x1, y1, x2, y2 = map(int, box.tolist())
-                        cls_id = int(labels[j])
-                        cv2.rectangle(img, (x1, y1), (x2, y2), (0,255,0), 2)
-                        cv2.putText(
-                            img, f"Cls {cls_id} ({conf[j]:.2f})",
-                            (x1, max(10, y1 - 5)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1
-                        )
-
-                out_path = f"results/infer_{i}_{b}.jpg"
-                cv2.imwrite(out_path, img)
-                print(f"→ Saved {out_path}")
-
-                if not save_vis:
-                    plt.imshow(img[..., ::-1])
-                    plt.title(f"{prompt_text} ({score:.2f})")
                     plt.axis("off")
                     plt.show()
 
@@ -544,12 +449,111 @@ def dinov3_inference_llm(
     return results
 
 @torch.no_grad()
-def dinov3_inference(
+def dinov3_inference_seg(
     model,
     data_loader,
     device,
+    checkpoint_path=None,
+    color_label_map=None,
+    output_path="results",
     score_thresh: float = 0.3,
-    verbose: bool = True
+    verbose: bool = True,
+    num_classes: int = 3,
+    save_vis: bool = True
+):
+    
+    # ======================
+    # Load trained weights
+    # ======================
+    ckpt = os.path.join(checkpoint_path, "dinov3_seg_best.pth")
+    print(f"Loading checkpoint: {ckpt}")
+    model.to(device)
+    model.eval()
+
+    os.makedirs(output_path, exist_ok=True)
+
+    results = []
+
+    if checkpoint_path is not None:
+        state = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(state)
+        if verbose:
+            print(f"[INFO] Loaded checkpoint: {checkpoint_path}")
+
+    for batch in tqdm(data_loader, desc="[Inference][Seg]"):
+        images = batch["image"].to(device)           # [B, 3, H, W]
+        image_names = batch.get("image_name", [None] * images.size(0))
+
+        # ===== Forward =====
+        outputs = model.forward_inference(images)
+        mask_logits = outputs["mask_outs"]            # [B, Q, 1, Hm, Wm] or [B, 1, Hm, Wm]
+
+        # ===== Sigmoid =====
+        probs = torch.sigmoid(mask_logits)
+
+        B = probs.size(0)
+
+        for i in range(B):
+            pm = probs[i]  # [Q, 1, Hm, Wm] or [1, Hm, Wm]
+
+            # ---- handle query dimension ----
+            if pm.dim() == 4:  # [Q, 1, Hm, Wm]
+                pm = pm.squeeze(1)                   # [Q, Hm, Wm]
+                pm, _ = pm.max(dim=0)                # merge queries → [Hm, Wm]
+
+            elif pm.dim() == 3:                       # [1, Hm, Wm]
+                pm = pm.squeeze(0)
+
+            # ---- threshold ----
+            binary_mask = (pm > score_thresh).float().cpu().numpy()
+
+            # ---- resize to image size ----
+            H, W = images.shape[-2:]
+            binary_mask = cv2.resize(
+                binary_mask,
+                (W, H),
+                interpolation=cv2.INTER_NEAREST
+            )
+
+            result = {
+                "image_id": image_names[i],
+                "mask": binary_mask
+            }
+            results.append(result)
+
+            # ===== Visualization =====
+            if save_vis and image_names[i] is not None:
+                img = images[i].permute(1, 2, 0).cpu().numpy()
+                img = (img - img.min()) / (img.max() - img.min() + 1e-6)
+                img = (img * 255).astype(np.uint8)
+
+                overlay = img.copy()
+                overlay[binary_mask > 0] = (
+                    overlay[binary_mask > 0] * 0.5 + np.array([255, 0, 0]) * 0.5
+                )
+
+                out_path = os.path.join(
+                    output_path,
+                    f"{os.path.splitext(image_names[i])[0]}_mask.png"
+                )
+                cv2.imwrite(out_path, overlay)
+
+                if verbose:
+                    print(f"[Saved] {out_path}")
+
+    return results
+
+@torch.no_grad()
+def dinov3_inference_bbox(
+    model,
+    data_loader,
+    device,
+    color_label_map=None,
+    output_path="results",
+    score_thresh: float = 0.3,
+    verbose: bool = True,
+    num_classes: int = 3,
+    save_vis: bool = True
 ):
     """
     Bounding-box-only inference pipeline.
@@ -565,51 +569,91 @@ def dinov3_inference(
         results: List[dict]
     """
 
-    model.eval()
-    results = []
+    all_results = []
 
     for batch in tqdm(data_loader, desc="[Inference] BBox-only"):
 
         images = batch["image"].to(device)
+        widths = batch["width"]
+        heights = batch["height"]
 
         # ===============================
         # Forward (student only)
         # ===============================
         outputs = model.forward_inference(images)
 
-        # 假設 outputs 是 dict（請依你實作微調）
-        # outputs = {
-        #   "pred_boxes": Tensor[B, N, 4]  (cxcywh, normalized)
-        #   "pred_logits": Tensor[B, N, C]
-        # }
-
         pred_boxes = outputs["pred_boxes"]
         pred_logits = outputs["pred_logits"]
 
-        probs = pred_logits.softmax(-1)
-        scores, labels = probs.max(-1)
+        scores = torch.softmax(pred_logits, dim=-1)
+        max_scores, pred_labels = scores.max(-1)
 
         B = images.size(0)
 
         for i in range(B):
-            keep = scores[i] > score_thresh
+            keep = max_scores[i] > score_thresh
 
             boxes_i = pred_boxes[i][keep]
-            scores_i = scores[i][keep]
-            labels_i = labels[i][keep]
+            scores_i = max_scores[i][keep]
+            labels_i = pred_labels[i][keep]
+
+            post_boxes, post_scores, post_labels = postprocess_boxes(
+                boxes_i,
+                scores_i,
+                labels_i
+            )
 
             result = {
                 "image_id": batch.get("image_name", [None])[i],
-                "boxes": boxes_i.cpu(),     # cxcywh (normalized)
-                "scores": scores_i.cpu(),
-                "labels": labels_i.cpu()
+                "boxes": post_boxes.cpu(),     # cxcywh (normalized)
+                "scores": post_scores.cpu(),
+                "labels": post_labels.cpu()
             }
 
-            results.append(result)
+            if save_vis:
+                pred = {
+                    "boxes": decode_boxes(boxes_i, widths[i], heights[i], fmt="cxcywh"),
+                    "scores": scores_i,
+                    "labels": labels_i
+                }
+                gt = {
+                    "boxes": decode_boxes(batch["boxes"][i], widths[i], heights[i], fmt="cxcywh"),
+                    "labels": batch["labels"][i]
+                }
+                visualize_result(images[i], widths[i], heights[i], pred, gt, f"{output_path}/{batch['image_name'][i]}", color_label_map)
+
+            all_results.append(result)
 
             if verbose:
                 print("----")
                 print(f"Image: {result['image_id']}")
-                print(f"Detections: {len(boxes_i)}")
+                print(f"Detections: {len(post_boxes)}")
 
-    return results
+    cm = np.zeros((num_classes+1, num_classes+1), dtype=int)
+    precisions, recalls = [], []
+
+    for batch, pred in zip(data_loader, all_results):
+        gt = {
+            "boxes": batch["boxes"],
+            "labels": batch["labels"]
+        }
+
+        tp, fp, fn = match_predictions(
+            pred["boxes"], pred["labels"], pred["scores"],
+            gt["boxes"], gt["labels"]
+        )
+
+        p, r = compute_precision_recall(tp, fp, fn)
+        precisions.append(p)
+        recalls.append(r)
+
+        update_confusion_matrix(
+            cm, tp, fp, fn,
+            pred["labels"], gt["labels"], num_classes
+        )
+
+    print("Precision:", sum(precisions)/len(precisions))
+    print("Recall:", sum(recalls)/len(recalls))
+    print("Confusion Matrix:\n", cm)
+
+    return all_results

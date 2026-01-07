@@ -47,7 +47,7 @@
     "docker:build:prod": "docker-compose -f docker-compose.prod.yml build",
     "docker:logs:dev": "docker-compose -f docker-compose.dev.yml logs -f",
     "docker:logs:prod": "docker-compose -f docker-compose.prod.yml logs -f",
-    "test": "set NODE_OPTIONS=--experimental-vm-modules && jest"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
     "@arcjet/inspect": "^1.0.0-beta.11",
@@ -71,6 +71,8 @@
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.2",
     "express-validator": "^7.2.1",
+    "firebase-admin": "^13.6.0",
+    "firebase-functions": "^7.0.2",
     "fs-extra": "^11.3.2",
     "helmet": "^8.1.0",
     "i18next": "^25.5.2",
@@ -93,6 +95,7 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
     "body-parser": "^2.2.0",
     "bootstrap": "^5.3.8",
     "drizzle-kit": "^0.18.1",

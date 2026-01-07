@@ -362,6 +362,77 @@ class ImageEncoder(nn.Module):
             feat = feat.mean(dim=[2, 3])
         return feat
 
+class SegmentationHeadDINOv3(nn.Module):
+    """
+    Simple segmentation head for DINOv3.
+    Input: img_feats [B, N, C] (flattened patch features)
+    Output: seg_logits [B, num_classes, H, W]
+    """
+
+    def __init__(self, dim=1024, num_classes=4, img_size=384, patch_size=4, num_queries=100):
+        super().__init__()
+
+        self.num_queries = num_queries
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.num_patches_per_side = img_size // patch_size
+
+        self.query_embed = nn.Parameter(torch.randn(num_queries, dim))
+
+        # classification (instance class)
+        self.cls_head = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.ReLU(),
+            nn.Linear(dim, num_classes)
+        )
+
+        # mask embedding
+        self.mask_embed = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.ReLU(),
+            nn.Linear(dim, dim)
+        )
+
+    def forward(self, img_feats):
+        """
+        img_feats: [B, C, H, W] or [B, N, C] or [B, C]
+        """
+        if img_feats.ndim == 4:
+            # [B, C, H, W] → [B, N, C]
+            B, C, H, W = img_feats.shape
+            img_feats = img_feats.view(B, C, H * W).transpose(1, 2)
+            print(f"[WARN] img_feats reshaped to {img_feats.shape}")
+        elif img_feats.ndim == 2:
+            # [B, C] → [B, 1, C]
+            img_feats = img_feats.unsqueeze(1)
+            print(f"[WARN] img_feats reshaped to {img_feats.shape}")
+
+        B, N, C = img_feats.shape
+
+        queries = self.query_embed.unsqueeze(0).expand(B, -1, -1)  # [B, Q, C]
+
+        # simple global pooling for conditioning
+        img_context = img_feats.mean(dim=1, keepdim=True)          # [B, 1, C]
+        fused = queries + img_context                              # [B, Q, C]
+
+        cls_logits = self.cls_head(fused)                          # [B, Q, num_classes]
+        mask_embeds = self.mask_embed(fused)                       # [B, Q, C]
+
+        # compute masks
+        masks = torch.einsum(
+            'bqc,bnc->bqn',
+            mask_embeds,
+            img_feats
+        )                                                           # [B, Q, N]
+
+        H = W = self.num_patches_per_side
+        mask_logits = masks.view(B, self.num_queries, H, W)              # [B, Q, H, W]
+
+        return {
+            "pred_logits": cls_logits,
+            "pred_masks": mask_logits
+        }
+
 class DetectionHeadDINOv3BBox(nn.Module):
     """
     Image-only DINOv3 detection head (DETR-style)
@@ -725,7 +796,99 @@ class DINOv3ToLLMAdapter(nn.Module):
     def forward(self, x):
         return self.proj(x)
 
-class OralDINOv3BBox(nn.Module):
+class OralDINOv3BBox(nn.Module): 
+    def __init__(self, cfg: DINOv3Cfg): 
+        super().__init__() 
+        self.cfg = cfg 
+        # ===== Image Backbone ===== 
+        self.img_enc = ImageEncoder(cfg.model_name) 
+        img_out_dim = self.img_enc.out_dim 
+        
+        # ===== Projection Head (DINO latent) ===== 
+        self.img_head = DINOv3ProjectionHead( 
+            DINOv3Cfg( 
+                in_dim=img_out_dim, 
+                hidden_dim=cfg.hidden_dim, 
+                out_dim=cfg.out_dim, 
+                nlayers=cfg.nlayers, 
+                norm_last=cfg.norm_last 
+            ) 
+        ) 
+        
+        # ===== Momentum Teacher ===== 
+        self.img_teacher = copy.deepcopy(self.img_enc) 
+        self.img_head_teacher = copy.deepcopy(self.img_head) 
+        
+        for m in [self.img_teacher, self.img_head_teacher]: 
+            for p in m.parameters(): 
+                p.requires_grad = False 
+        
+        # ===== Detection Head ===== 
+        self.det_head = DetectionHeadDINOv3BBox( 
+            dim=cfg.out_dim, 
+            num_classes=cfg.num_classes, 
+            num_queries=cfg.num_queries 
+        ) 
+        
+        # ===== Center buffer ===== 
+        self.register_buffer("center", torch.zeros(1, cfg.out_dim)) 
+
+    @torch.no_grad() 
+    def update_teacher(self, epoch: int, total_epochs: int = None): 
+        """ Public API for EMA teacher update. Kept for compatibility with training loop. """ 
+        if total_epochs is not None: 
+            # 讓 cfg 知道總 epoch（給 momentum schedule 用） 
+            self.cfg.total_epochs = total_epochs 
+            self._momentum_update(epoch) 
+    
+    @torch.no_grad() 
+    def _momentum_update(self, epoch: int): 
+        """ EMA momentum update of teacher network (image-only). """ 
+        # ===== cosine momentum schedule ===== 
+        base = self.cfg.momentum_base 
+        end = self.cfg.momentum_end 
+        total_epochs = getattr(self.cfg, "total_epochs", 100) 
+        progress = epoch / max(1, total_epochs) 
+        m = end - (end - base) * (1. + torch.cos(torch.tensor(progress * 3.1415926))) / 2. 
+        
+        # ===== EMA update: backbone ===== 
+        for ps, pt in zip(self.img_enc.parameters(), self.img_teacher.parameters()): 
+            pt.data.mul_(m).add_(ps.data, alpha=1. - m) 
+        
+        # ===== EMA update: projection head ===== 
+        for ps, pt in zip(self.img_head.parameters(), self.img_head_teacher.parameters()): 
+            pt.data.mul_(m).add_(ps.data, alpha=1. - m) 
+    
+    def forward_train(self, batch, epoch): 
+        images = batch["image"] 
+
+        # ===== Student =====
+        img_feat = self.img_enc(images) # [B, C] or [B, HW, C]
+        s_img_out = self.img_head(img_feat) # [B, D]
+
+        # ===== Teacher (EMA) =====
+        with torch.no_grad():
+            self._momentum_update(epoch)
+        t_img_feat = self.img_teacher(images)
+        t_img_out = self.img_head_teacher(t_img_feat)
+
+        # ===== Detection =====
+        det_outs = self.det_head(img_feat)
+
+        return {
+            "s_img_out": s_img_out,
+            "t_img_out": t_img_out,
+            "center": self.center,
+            "det_outs": det_outs
+        }
+
+    @torch.no_grad()
+    def forward_inference(self, images):
+        img_feat = self.img_enc(images)
+        outputs = self.det_head(img_feat)
+        return outputs
+
+class OralDINOv3Seg(nn.Module):
     def __init__(self, cfg: DINOv3Cfg):
         super().__init__()
         self.cfg = cfg
@@ -746,82 +909,96 @@ class OralDINOv3BBox(nn.Module):
         )
 
         # ===== Momentum Teacher =====
+        self.img_head = DINOv3ProjectionHead(
+            DINOv3Cfg(
+                in_dim=img_out_dim,
+                hidden_dim=cfg.hidden_dim,
+                out_dim=cfg.out_dim,
+                nlayers=cfg.nlayers,
+                norm_last=cfg.norm_last
+            )
+        )
         self.img_teacher = copy.deepcopy(self.img_enc)
         self.img_head_teacher = copy.deepcopy(self.img_head)
 
-        for m in [self.img_teacher, self.img_head_teacher]:
-            for p in m.parameters():
-                p.requires_grad = False
+        for m in [self.img_teacher, self.img_head_teacher]: 
+            for p in m.parameters(): 
+                p.requires_grad = False 
 
-        # ===== Detection Head =====
-        self.det_head = DetectionHeadDINOv3BBox(
-            dim=cfg.out_dim,
+        self.seg_head = SegmentationHeadDINOv3(
+            dim=img_out_dim,
             num_classes=cfg.num_classes,
             num_queries=cfg.num_queries
         )
 
-        # ===== Center buffer =====
         self.register_buffer("center", torch.zeros(1, cfg.out_dim))
+    
+    @torch.no_grad() 
+    def _momentum_update(self, epoch: int): 
+        """ EMA momentum update of teacher network (image-only). """ 
+        # ===== cosine momentum schedule ===== 
+        base = self.cfg.momentum_base 
+        end = self.cfg.momentum_end 
+        total_epochs = getattr(self.cfg, "total_epochs", 100) 
+        progress = epoch / max(1, total_epochs) 
+        m = end - (end - base) * (1. + torch.cos(torch.tensor(progress * 3.1415926))) / 2. 
         
+        # ===== EMA update: backbone ===== 
+        for ps, pt in zip(self.img_enc.parameters(), self.img_teacher.parameters()): 
+            pt.data.mul_(m).add_(ps.data, alpha=1. - m) 
+        
+        # ===== EMA update: projection head ===== 
+        for ps, pt in zip(self.img_head.parameters(), self.img_head_teacher.parameters()): 
+            pt.data.mul_(m).add_(ps.data, alpha=1. - m) 
+    
     @torch.no_grad()
-    def update_teacher(self, epoch: int, total_epochs: int = None):
+    def update_center(self, teacher_prob):
         """
-        Public API for EMA teacher update.
-        Kept for compatibility with training loop.
+        teacher_prob: tensor of shape [B, D]
+        表示 teacher softmax 後的輸出分布。
         """
-        if total_epochs is not None:
-            # 讓 cfg 知道總 epoch（給 momentum schedule 用）
-            self.cfg.total_epochs = total_epochs
-
-        self._momentum_update(epoch)
-
-    @torch.no_grad()
-    def _momentum_update(self, epoch: int):
-        """
-        EMA momentum update of teacher network (image-only).
-        """
-
-        # ===== cosine momentum schedule =====
-        base = self.cfg.momentum_base
-        end = self.cfg.momentum_end
-        total_epochs = getattr(self.cfg, "total_epochs", 100)
-
-        progress = epoch / max(1, total_epochs)
-        m = end - (end - base) * (1. + torch.cos(torch.tensor(progress * 3.1415926))) / 2.
-
-        # ===== EMA update: backbone =====
-        for ps, pt in zip(self.img_enc.parameters(), self.img_teacher.parameters()):
-            pt.data.mul_(m).add_(ps.data, alpha=1. - m)
-
-        # ===== EMA update: projection head =====
-        for ps, pt in zip(self.img_head.parameters(), self.img_head_teacher.parameters()):
-            pt.data.mul_(m).add_(ps.data, alpha=1. - m)
+        batch_center = teacher_prob.mean(dim=0, keepdim=True)  # [1, D]
+        self.center = self.center * self.center_momentum + batch_center * (1 - self.center_momentum)
 
     def forward_train(self, batch, epoch):
         images = batch["image"]
 
         # ===== Student =====
-        img_feat = self.img_enc(images)          # [B, C] or [B, HW, C]
-        s_img_out = self.img_head(img_feat)      # [B, D]
+        img_feat = self.img_enc(images) # [B, C] or [B, HW, C]
+        s_img_out = self.img_head(img_feat) # [B, D]
 
         # ===== Teacher (EMA) =====
+        # Teacher 是「穩定的學習目標（Target Network）」
+        #   * self-supervised 有效收斂
+        #   * 表徵才不會 collapse（全部變成常數）
+        # Student 去「追隨」它，而不是反過來。
         with torch.no_grad():
             self._momentum_update(epoch)
-            t_img_feat = self.img_teacher(images)
-            t_img_out = self.img_head_teacher(t_img_feat)
 
-        # ===== Detection =====
-        det_outs = self.det_head(img_feat)
+        t_img_feat = self.img_teacher(images)
+        t_img_out = self.img_head_teacher(t_img_feat)
+
+        # ===== Segmentation =====
+        seg_outs = self.seg_head(img_feat)
 
         return {
             "s_img_out": s_img_out,
             "t_img_out": t_img_out,
             "center": self.center,
-            "det_outs": det_outs
+            "seg_outs": seg_outs
         }
-    
+
     @torch.no_grad()
     def forward_inference(self, images):
+        """
+        Inference forward for segmentation
+        """
+        # backbone
         img_feat = self.img_enc(images)
-        outputs = self.det_head(img_feat)
-        return outputs
+
+        # mask head (你 training 時用的那個)
+        mask_outs = self.mask_head(img_feat)
+
+        return {
+            "mask_outs": mask_outs
+        }

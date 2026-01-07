@@ -45,4 +45,4 @@ if (process.env.NODE_ENV !== 'production') {
 console.log(">>> LOADING logger.js from acquisitions-api");
 */
 
-export { logToFile };
+export default { logToFile };

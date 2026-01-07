@@ -1,32 +1,12 @@
 import json, os, random
 from typing import List, Dict
 from PIL import Image
-from utils.func import _gcs_download_to_cache
+from utils.func import _gcs_download_to_cache, polygons_to_gt_masks
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as T
 from transformers import AutoTokenizer
 import pandas as pd
-
-def collate_fn(batch):
-    images = torch.stack([b["image"] for b in batch])
-    boxes = [b["boxes"] for b in batch]
-    labels = [b["labels"] for b in batch]
-    # neg_mask = torch.stack([b["neg_mask"] for b in batch])
-    return {"image": images, "boxes": boxes, "labels": labels}
-
-def collate_fn_llm(batch):
-    images = torch.stack([b["image"] for b in batch])
-    input_ids = torch.stack([b["input_ids"] for b in batch])
-    attn_mask = torch.stack([b["attn_mask"] for b in batch])
-    neg_mask = torch.stack([b["neg_mask"] for b in batch])
-    boxes = [b["boxes"] for b in batch]
-    labels = [b["labels"] for b in batch]
-    report = [b["output_text"] for b in batch]
-    patient_statement = [b["patient_statement"] for b in batch]
-    doctor_note = [b["doctor_note"] for b in batch]
-    return {"image": images, "input_ids": input_ids, "attn_mask": attn_mask,
-            "neg_mask": neg_mask, "boxes": boxes, "labels": labels, "output_text": report, "doctor_note": doctor_note, "patient_statement": patient_statement}
 
 class CaseLevelOralCancerDataset(Dataset):
     """
@@ -142,6 +122,7 @@ class CaseLevelOralCancerDataset(Dataset):
         img_name = f"{case_id}_00{self.image_ext}"
         img_path = os.path.join(self.image_root, img_name)
         image = Image.open(img_path).convert("RGB")
+        width, height = image.size
 
         if self.transform:
             image = self.transform(image)
@@ -175,6 +156,8 @@ class CaseLevelOralCancerDataset(Dataset):
         return {
             "case_id": case_id,
             "image": image,
+            "width": width,
+            "height": height,
             "raw_text": raw_text,
             "llm_prompt": llm_prompt,
             "llm_target": llm_target,
@@ -193,10 +176,12 @@ class CaseLevelOralCancerJsonDataset(Dataset):
         self,
         image_dir,
         json_dir,
-        transform=None
+        transform=None,
+        type="bbox"
     ):
         self.image_dir = image_dir
         self.json_dir = json_dir
+        self.type = type
         
         if transform == None:
             self.transform = T.Compose([
@@ -253,6 +238,8 @@ class CaseLevelOralCancerJsonDataset(Dataset):
         image_path = os.path.join(self.image_dir, image_file)
 
         image = Image.open(image_path).convert("RGB")
+        width, height = image.size
+
         if self.transform:
             image = self.transform(image)
 
@@ -262,7 +249,19 @@ class CaseLevelOralCancerJsonDataset(Dataset):
         llm_target = " ".join(ann.get("pathology_report", []))
 
         # ---- Boxes / Labels ----
-        boxes = torch.tensor(ann.get("boxes", []), dtype=torch.float32)
+        if self.type == "seg":
+            polygons = ann.get("masks", [])
+            gt_masks = polygons_to_gt_masks(polygons, height, width)
+            # polygons to tensor masks
+            boxes = None
+        elif self.type == "bbox":
+            gt_masks = None
+            boxes = torch.tensor(ann.get("boxes", []), dtype=torch.float32)
+        else:
+            polygons = ann.get("masks", [])
+            gt_masks = polygons_to_gt_masks(polygons, height, width)
+            boxes = torch.tensor(ann.get("boxes", []), dtype=torch.float32)
+
         labels = torch.tensor(ann.get("labels", []), dtype=torch.long)
 
         # ---- Empty GT safe-guard ----
@@ -272,10 +271,14 @@ class CaseLevelOralCancerJsonDataset(Dataset):
 
         return {
             "image": image,
+            "width": width,
+            "height": height,
+            "image_name": image_file,
             "raw_text": raw_text,
             "llm_prompt": llm_prompt,
             "llm_target": llm_target,
             "boxes": boxes,
+            "masks": gt_masks,
             "labels": labels
         }
     
@@ -412,6 +415,7 @@ class OralDataset(Dataset):
 
         return {
             "image": x,
+            "image_name": os.path.basename(img_path),
             "input_ids": input_ids,
             "attn_mask": attn_mask,
             "neg_mask": neg_mask,

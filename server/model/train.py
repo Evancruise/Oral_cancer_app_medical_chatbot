@@ -2,19 +2,21 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms as T
-from PIL import Image
-from transformers import AutoTokenizer
 from tqdm import tqdm
 from utils.func import groundingdino_compute_loss, dinov3_compute_loss, dinov3_compute_loss_llm, compute_rag_loss, distill_loss
 from model.architecture import DINOv3ToLLMAdapter
-from nltk.translate.bleu_score import sentence_bleu
-from rouge import Rouge
 
 tqdm_disable = bool(os.environ.get("VERTEX_TQDM_DISABLE", "1"))
 
-def grounddino_train_val(model, train_loader, val_loader, optimizer, num_epochs, device, output_dir="checkpoints"):
+def grounddino_train_val(
+    model, 
+    train_loader, 
+    val_loader, 
+    optimizer, 
+    num_epochs, 
+    device, 
+    output_dir="checkpoints"
+):
     model.train()
     best_val_loss = float("inf")
     
@@ -133,6 +135,189 @@ def build_embeds(llm, ctx_token, llm_inputs):
     embeds = torch.cat([0.5 * ctx_token.unsqueeze(1), embeds], dim=1)
     attn = F.pad(llm_inputs["attention_mask"], (1, 0), value=1)
     return embeds.to(llm.dtype), attn
+
+def dinov3_train_val_bbox(
+    model,
+    train_loader,
+    val_loader,
+    optimizer,
+    num_epochs,
+    device,
+    output_dir="checkpoints"
+):
+    best_val_loss = float("inf")
+
+    for epoch in range(num_epochs):
+        model.train()
+        total_train_loss = 0.0
+
+        for i, batch in enumerate(tqdm(train_loader, desc=f"[Train] Epoch {epoch+1}/{num_epochs}")):
+
+            images = batch["image"].to(device)
+            boxes = [b.to(device) for b in batch["boxes"]]
+            labels = [l.to(device) for l in batch["labels"]]
+
+            # ===== Fix empty GT =====
+            fixed_boxes, fixed_labels = [], []
+            for b, l in zip(boxes, labels):
+                fixed_boxes.append(
+                    b if b.numel() > 0 else torch.zeros((1, 4), device=device)
+                )
+                fixed_labels.append(
+                    l if l.numel() > 0 else torch.zeros((1,), dtype=torch.long, device=device)
+                )
+
+            gt_boxes = torch.nn.utils.rnn.pad_sequence(fixed_boxes, batch_first=True)
+            gt_labels = torch.nn.utils.rnn.pad_sequence(fixed_labels, batch_first=True)
+
+            # ===== Forward =====
+            outputs = model.forward_train(batch, epoch)
+
+            # ===== Detection losses =====
+            loss_box, loss_iou, loss_cls = dinov3_compute_loss(
+                outputs["det_outs"],
+                gt_boxes,
+                gt_labels
+            )
+
+            loss_total = (
+                loss_box +
+                loss_cls +
+                loss_iou
+            )
+
+            optimizer.zero_grad()
+            loss_total.backward()
+            optimizer.step()
+
+            model.update_teacher(epoch, num_epochs)
+            total_train_loss += loss_total.item()
+            print(f"[Train] Epoch {epoch+1} | Step {i+1} | box loss: {loss_box:.4f}, loss_cls: {loss_cls:.4f}, loss_iou: {loss_iou:.4f}")
+
+        print(f"[Train] Epoch {epoch+1} | Avg Loss: {total_train_loss/len(train_loader):.4f}")
+
+        # ================= Validation =================
+        if val_loader is None:
+            continue
+
+        model.eval()
+        total_val_loss = 0.0
+
+        with torch.no_grad():
+            for i, batch in enumerate(val_loader):
+                images = batch["image"].to(device)
+                boxes = batch["boxes"]
+                labels = batch["labels"]
+
+                outputs = model.forward_train(batch, epoch)
+
+                loss_box, loss_iou, loss_cls = dinov3_compute_loss(
+                    outputs["det_outs"],
+                    boxes,
+                    labels
+                )
+                
+                total_val_loss += (
+                    loss_box +
+                    loss_cls +
+                    loss_iou
+                )
+
+                print(f"[Val] Epoch {epoch+1} | Step {i+1} | box loss: {loss_box:.4f}, loss_cls: {loss_cls:.4f}, loss_iou: {loss_iou:.4f}")
+
+        avg_val_loss = total_val_loss / len(val_loader)
+        print(f"[Val] Epoch {epoch+1} | Avg Loss: {avg_val_loss:.4f}")
+
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            torch.save(
+                model.state_dict(),
+                f"{output_dir}/dinov3_bbox_best_epoch{epoch}.pth"
+            )
+            print("✅ Best bbox-only model updated")
+
+def dinov3_train_val_seg(
+    model,
+    train_loader,
+    val_loader,
+    optimizer,
+    num_epochs,
+    device,
+    output_dir="checkpoints"
+):
+    best_val_loss = float("inf")
+
+    for epoch in range(num_epochs):
+        model.train()
+        total_train_loss = 0.0
+
+        for i, batch in enumerate(tqdm(train_loader, desc=f"[Train] Epoch {epoch+1}/{num_epochs}")):
+
+            images = batch["image"].to(device)
+            masks = [m.to(device) for m in batch["masks"]]
+
+            # ===== Fix empty GT =====
+            fixed_masks = []
+            for m in masks:
+                fixed_masks.append(
+                    m if m.numel() > 0 else torch.zeros((1, 1, 28, 28), device=device)
+                )
+
+            gt_masks = torch.nn.utils.rnn.pad_sequence(fixed_masks, batch_first=True)
+
+            # ===== Forward =====
+            outputs = model.forward_train(batch, epoch)
+
+            # ===== Mask loss =====
+            loss_mask = F.binary_cross_entropy_with_logits(
+                outputs["mask_outs"],
+                gt_masks
+            )
+
+            loss_total = loss_mask
+
+            optimizer.zero_grad()
+            loss_total.backward()
+            optimizer.step()
+
+            model.update_teacher(epoch, num_epochs)
+            total_train_loss += loss_total.item()
+            print(f"[Train] Epoch {epoch+1} | Step {i+1} | mask loss: {loss_mask:.4f}")
+
+        print(f"[Train] Epoch {epoch+1} | Avg Loss: {total_train_loss/len(train_loader):.4f}")
+
+        # ================= Validation =================
+        if val_loader is None:
+            continue
+
+        model.eval()
+        total_val_loss = 0.0
+
+        with torch.no_grad():
+            for i, batch in enumerate(val_loader):
+                images = batch["image"].to(device)
+                masks = batch["masks"]
+
+                outputs = model.forward_train(batch, epoch)
+
+                loss_mask = F.binary_cross_entropy_with_logits(
+                    outputs["mask_outs"],
+                    masks
+                )
+
+                total_val_loss += loss_mask.item()
+
+                print(f"[Val] Epoch {epoch+1} | Step {i+1} | mask loss: {loss_mask:.4f}")
+
+        avg_val_loss = total_val_loss / len(val_loader)
+        print(f"[Val] Epoch {epoch+1} | Avg Loss: {avg_val_loss:.4f}")
+
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            torch.save(
+                model.state_dict(),
+                f"{output_dir}/dinov3_seg_best_epoch{epoch}.pth"
+            )
 
 def dinov3_train_val(
     model,
@@ -308,7 +493,7 @@ def dinov3_train_val_llm(
 
             # ===== DINO forward =====
             outputs = model.forward_train(batch, epoch)
-            s_img_outs, s_txt_outs, t_img_outs, t_txt_outs, center, _ = outputs
+            s_img_outs, s_txt_outs, t_img_outs, t_txt_outs, center, det_outs = outputs
 
             # ===== Prompt & Text =====
             gt_texts = batch["output_text"]
@@ -319,8 +504,8 @@ def dinov3_train_val_llm(
                 for s, d in zip(batch["patient_statement"], batch["doctor_note"])
             ]
 
-            llm_inputs = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=512).to(device)
-            llm_targets = tokenizer(gt_texts, return_tensors="pt", padding=True, truncation=True, max_length=512).to(device)
+            llm_inputs = teacher_tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=512).to(device)
+            llm_targets = teacher_tokenizer(gt_texts, return_tensors="pt", padding=True, truncation=True, max_length=512).to(device)
 
             # ===== Vision + Text feature =====
             img_feat = model.img_enc(images)
@@ -427,7 +612,7 @@ def dinov3_train_val_llm(
                         "\n[Generate Pathology Report]:"
                         for s, d in zip(batch["patient_statement"], batch["doctor_note"])
                     ]
-                    llm_inputs = tokenizer(prompts, return_tensors="pt", padding=True).to(device)
+                    llm_inputs = teacher_tokenizer(prompts, return_tensors="pt", padding=True).to(device)
                     img_feat = model.img_enc(images)
                     txt_feat = model.text_enc(llm_inputs["input_ids"], llm_inputs["attention_mask"])
                     ctx = adapter(torch.cat([img_feat, txt_feat], dim=-1))
@@ -442,7 +627,7 @@ def dinov3_train_val_llm(
                         attention_mask=attn,
                         max_new_tokens=64
                     )
-                    print("Generated:", tokenizer.decode(gen_ids[0], skip_special_tokens=True))
+                    print("Generated:", teacher_tokenizer.decode(gen_ids[0], skip_special_tokens=True))
 
         avg_val_loss = total_val_loss / len(val_loader)
         print(f"[Val] Epoch {epoch+1} | Avg Loss: {avg_val_loss:.4f}")

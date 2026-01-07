@@ -1413,7 +1413,7 @@ export const analyze = [
         console.log(`  ${key}:`, value?.path || value?.name || value);
       }
 
-      // Flask API
+      // Flask API (日後要替亂掉) ---------------------------------------------------------------------------
       console.log("🔗 Flask URL →", `${process.env.GOOGLE_FLASK_APP_URL}/api/predict`);
       const response = await fetch(`${process.env.GOOGLE_FLASK_APP_URL}/api/predict`, {
         method: "POST",

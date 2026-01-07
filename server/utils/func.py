@@ -1,17 +1,56 @@
 import torch
-import torch.nn.functional as F
-from PIL import Image
 import torchvision.transforms as T
+import torch.nn.functional as F
+
+from PIL import Image
+from torchvision.ops import nms
 from utils.config import DINOv3Cfg
-from tqdm import tqdm
-import numpy as np
 import faiss
 from google.cloud import storage
 from scipy.optimize import linear_sum_assignment
+
 import json
 import os
+import numpy as np
 import pandas as pd
 import hashlib
+import cv2
+
+def collate_fn(batch):
+    images = torch.stack([b["image"] for b in batch])
+    image_names = [b["image_name"] for b in batch]
+    boxes = [b["boxes"] for b in batch]
+    labels = [b["labels"] for b in batch]
+    widths = [b["width"] for b in batch]
+    heights = [b["height"] for b in batch]
+    # neg_mask = torch.stack([b["neg_mask"] for b in batch])
+    return {"image": images, "boxes": boxes, "labels": labels, "image_name": image_names, "width": widths, "height": heights}
+
+def collate_fn_llm(batch):
+    images = torch.stack([b["image"] for b in batch])
+    input_ids = torch.stack([b["input_ids"] for b in batch])
+    attn_mask = torch.stack([b["attn_mask"] for b in batch])
+    neg_mask = torch.stack([b["neg_mask"] for b in batch])
+    boxes = [b["boxes"] for b in batch]
+    labels = [b["labels"] for b in batch]
+    report = [b["output_text"] for b in batch]
+    patient_statement = [b["patient_statement"] for b in batch]
+    doctor_note = [b["doctor_note"] for b in batch]
+    return {"image": images, "input_ids": input_ids, "attn_mask": attn_mask,
+            "neg_mask": neg_mask, "boxes": boxes, "labels": labels, "output_text": report, "doctor_note": doctor_note, "patient_statement": patient_statement}
+
+def download_from_gcs(bucket_name, blob_path, local_path):
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(blob_path)
+
+    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+    blob.download_to_filename(local_path)
+    print(f"[GCS] Downloaded {blob_path} → {local_path}")
+
+def postprocess_boxes(boxes, scores, labels, iou_thresh=0.5):
+    keep = nms(boxes, scores, iou_thresh)
+    return boxes[keep], scores[keep], labels[keep]
 
 def build_raw_text(row):
     parts = []
@@ -155,6 +194,36 @@ def load_retriever_index_gcs(gcs_path, device):
     print(f"Loaded retriever index from {gcs_path}")
     return index, meta
 
+def polygon_to_mask(polygon, height, width):
+    """
+    polygon: List[[x, y], ...]
+    return: (H, W) binary mask
+    """
+    mask = np.zeros((height, width), dtype=np.uint8)
+
+    if len(polygon) == 0:
+        return mask
+
+    pts = np.array(polygon, dtype=np.int32)
+    pts = pts.reshape((-1, 1, 2))   # OpenCV 格式
+
+    cv2.fillPoly(mask, [pts], color=1)
+
+    return mask
+
+def polygons_to_gt_masks(polygons, H, W):
+    """
+    polygons: List[List[[x,y]]]
+    return: Tensor [N, H, W]
+    """
+    masks = []
+    for poly in polygons:
+        m = polygon_to_mask(poly, H, W)
+        masks.append(m)
+
+    masks = np.stack(masks, axis=0)  # [N, H, W]
+    return masks
+
 def preprocess(img_path):
     img = Image.open(img_path).convert("RGB")
     tf = T.Compose([
@@ -163,12 +232,6 @@ def preprocess(img_path):
         T.Normalize([0.485,0.456,0.406],[0.228,0.224,0.225])
     ])
     return tf(img).unsqueeze(0), img.size
-
-'''
-def cxcywh_to_xyxy(b):
-    cx, cy, w, h = b
-    return [cx - w/2, cy - h/2, cx + w/2, cy + h/2]
-'''
 
 def cxcywh_to_xyxy(b):
     # b: [N, 4] or [*, 4]
@@ -179,45 +242,232 @@ def cxcywh_to_xyxy(b):
     y2 = y_c + 0.5 * h
     return torch.stack([x1, y1, x2, y2], dim=-1)
 
-'''
-def box_iou(box1, box2):
-    """Compute pairwise IoU between two sets of boxes (cxcywh)."""
-    print("box1:", box1)
-    print("box2:", box2)
-
-    box1_xyxy = cxcywh_to_xyxy(box1)
-    box2_xyxy = cxcywh_to_xyxy(box2)
-    area1 = (box1_xyxy[:,2]-box1_xyxy[:,0])*(box1_xyxy[:,3]-box1_xyxy[:,1])
-    area2 = (box2_xyxy[:,2]-box2_xyxy[:,0])*(box2_xyxy[:,3]-box2_xyxy[:,1])
-
-    inter_x1 = torch.max(box1_xyxy[:, None, 0], box2_xyxy[:, 0])
-    inter_y1 = torch.max(box1_xyxy[:, None, 1], box2_xyxy[:, 1])
-    inter_x2 = torch.min(box1_xyxy[:, None, 2], box2_xyxy[:, 2])
-    inter_y2 = torch.min(box1_xyxy[:, None, 3], box2_xyxy[:, 3])
-
-    inter = (inter_x2 - inter_x1).clamp(min=0) * (inter_y2 - inter_y1).clamp(min=0)
-    union = area1[:, None] + area2 - inter
-    return inter / union.clamp(min=1e-6)
-'''
-
-def box_iou(box1, box2):
+def match_predictions(
+    pred_boxes,
+    pred_labels,
+    pred_scores,
+    gt_boxes,
+    gt_labels,
+    iou_threshold=0.5,
+    score_threshold=0.5
+):
     """
-    box1: [N, 4] (cxcywh)
-    box2: [M, 4] (cxcywh)
-    return: [N, M] IoU matrix
+    Docstring for match_predictions
+    
+    :param pred_boxes: Description
+    :param pred_labels: Description
+    :param pred_scores: Description
+    :param gt_boxes: Description
+    :param gt_labels: Description
+    :param iou_threshold: Description
+    :param score_threshold: Description
     """
-    box1_xyxy = cxcywh_to_xyxy(box1)
-    box2_xyxy = cxcywh_to_xyxy(box2)
+    keep = pred_scores >= score_threshold
+    pred_boxes = pred_boxes[keep]
+    pred_labels = pred_labels[keep]
 
-    area1 = (box1_xyxy[:, 2] - box1_xyxy[:, 0]) * (box1_xyxy[:, 3] - box1_xyxy[:, 1])
-    area2 = (box2_xyxy[:, 2] - box2_xyxy[:, 0]) * (box2_xyxy[:, 3] - box2_xyxy[:, 1])
+    # boxes: [N,4] xyxy
 
-    lt = torch.max(box1_xyxy[:, None, :2], box2_xyxy[:, :2])  # [N,M,2]
-    rb = torch.min(box1_xyxy[:, None, 2:], box2_xyxy[:, 2:])  # [N,M,2]
+    if isinstance(gt_boxes, (list, tuple)):
+        gt_boxes = gt_boxes[0]
+    if isinstance(gt_labels, (list, tuple)):
+        gt_labels = gt_labels[0]
+
+    # ---- edge cases ----
+    if pred_boxes.numel() == 0 and gt_boxes.numel() == 0:
+        return [], [], []
+
+    if pred_boxes.numel() == 0:
+        return [], [], list(range(len(gt_boxes)))
+
+    if gt_boxes.numel() == 0:
+        return [], list(range(len(pred_boxes))), []
+    
+    pred_boxes = cxcywh_to_xyxy(pred_boxes)
+    gt_boxes   = cxcywh_to_xyxy(gt_boxes)
+
+    ious = box_iou(pred_boxes, gt_boxes)
+
+    matched_gt = set()
+    tp, fp = [], []
+
+    for i in range(len(pred_boxes)):
+        max_iou, j = ious[i].max(dim=0)
+
+        if max_iou >= iou_threshold and j.item() not in matched_gt:
+            tp.append((i, j))
+            matched_gt.add(j.item())
+        else:
+            fp.append(i)
+
+    fn = [j for j in range(len(gt_boxes)) if j not in matched_gt]
+    return tp, fp, fn
+
+def compute_precision_recall(tp, fp, fn):
+    """
+    Docstring for compute_precision_recall
+    
+    :param tp: Description
+    :param fp: Description
+    :param fn: Description
+    """
+    precision = len(tp) / max(len(tp) + len(fp), 1)
+    recall = len(tp) / max(len(tp) + len(fn), 1)
+    return precision, recall
+
+def update_confusion_matrix(
+    cm, tp, fp, fn,
+    pred_labels, gt_labels,
+    num_classes
+):
+    bg = num_classes
+
+    for pi, gi in tp:
+        cm[gt_labels[0][gi], pred_labels[pi]] += 1
+
+    for pi in fp:
+        cm[bg, pred_labels[pi]] += 1
+
+    for gi in fn:
+        cm[gt_labels[0][gi], bg] += 1
+
+    return cm
+
+def box_iou(boxes1, boxes2):
+    # boxes2 could be list[tensor] when batch_size=1
+    if isinstance(boxes2, (list, tuple)):
+        assert len(boxes2) == 1, f"Expected batch_size=1, got {len(boxes2)}"
+        boxes2 = boxes2[0]
+
+    area1 = (boxes1[:, 2]-boxes1[:, 0]) * (boxes1[:, 3]-boxes1[:, 1])
+    area2 = (boxes2[:, 2]-boxes2[:, 0]) * (boxes2[:, 3]-boxes2[:, 1])
+
+    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])
+    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])
     wh = (rb - lt).clamp(min=0)
+
     inter = wh[:, :, 0] * wh[:, :, 1]
     union = area1[:, None] + area2 - inter
-    return inter / union.clamp(min=1e-6)
+    return inter / union
+
+def decode_boxes(boxes, img_w, img_h, fmt="cxcywh"):
+    """
+    boxes: Tensor[N,4], normalized
+    return: Tensor[N,4], xyxy in image space
+    """
+    if fmt == "cxcywh":
+        cx, cy, w, h = boxes.unbind(-1)
+        x1 = cx - w / 2
+        y1 = cy - h / 2
+        x2 = cx + w / 2
+        y2 = cy + h / 2
+        boxes = torch.stack([x1, y1, x2, y2], dim=-1)
+
+    # normalized -> pixel
+    boxes[:, [0, 2]] *= img_w
+    boxes[:, [1, 3]] *= img_h
+
+    return boxes
+
+def draw_boxes(image, boxes, labels, scores=None, color_label_map=None):
+    """
+    image: np.ndarray [H,W,3]
+    boxes: Tensor[N,4] or np.ndarray, xyxy pixel space
+    """
+    if torch.is_tensor(boxes):
+        boxes = boxes.cpu().numpy()
+    if torch.is_tensor(labels):
+        labels = labels.cpu().numpy()
+    if scores is not None and torch.is_tensor(scores):
+        scores = scores.cpu().numpy()
+
+    box_idx = np.argsort(scores) if scores is not None else range(len(boxes))
+    boxes = boxes[box_idx]
+    labels = labels[box_idx]
+
+    for i, (x1, y1, x2, y2) in enumerate(boxes[:2].astype(int)):
+        
+        if color_label_map is not None:
+            color = color_label_map[labels[i]]
+        else:
+            color = (0, 255, 0)
+
+        cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+
+        text = str(labels[i])
+        if scores is not None:
+            text += f" {scores[i]:.2f}"
+
+            cv2.putText(
+                image, text,
+                (x1, max(y1 - 5, 10)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5, color, 1
+            )
+
+def tensor_to_cv2(image_tensor, width, height, mean=None, std=None):
+    """
+    image_tensor: torch.Tensor [3,H,W], normalized
+    return: np.ndarray [H,W,3] uint8 (BGR)
+    """
+    img = image_tensor.detach().cpu()
+
+    # ===== denormalize if needed =====
+    if mean is not None and std is not None:
+        mean = torch.tensor(mean).view(3,1,1)
+        std = torch.tensor(std).view(3,1,1)
+        img = img * std + mean
+
+    # ===== clamp to valid range =====
+    img = img.clamp(0, 1)
+
+    # ===== CHW -> HWC =====
+    img = img.permute(1, 2, 0).numpy()
+
+    # ===== float -> uint8 =====
+    img = (img * 255).astype(np.uint8)
+
+    # ===== RGB -> BGR (OpenCV) =====
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    img = cv2.resize(img, (width, height))
+
+    return img
+
+def visualize_result(
+    image_tensor, 
+    width, 
+    height, 
+    pred, 
+    gt, 
+    save_path, 
+    color_label_map
+):
+    img = tensor_to_cv2(
+        image_tensor,
+        width,
+        height,
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+
+    # GT = green
+    draw_boxes(
+        img,
+        gt["boxes"].cpu().numpy(),
+        gt["labels"].cpu().numpy(),
+        color_label_map=color_label_map
+    )
+
+    # Prediction = red
+    draw_boxes(
+        img,
+        pred["boxes"].cpu().numpy(),
+        pred["labels"].cpu().numpy(),
+        pred["scores"].cpu().numpy(),
+        color_label_map=color_label_map
+    )
+
+    cv2.imwrite(save_path, img)
 
 def groundingdino_compute_loss(out, gt_boxes, gt_labels, pos_mask=None, neg_mask=None,
                  iou_threshold=0.2, margin=0.3):
@@ -369,6 +619,58 @@ def compute_rag_loss(images, s_txt_outs, retriever_index=None, retriever_meta=No
             rag_loss /= retrieved_feats.shape[1]
 
     return rag_loss
+
+def compute_contrastive_loss(image_feats, text_feats, temperature=0.07):
+    """
+    image_feats: [B, D]
+    text_feats:  [B, D]
+    """
+    image_feats = F.normalize(image_feats, dim=-1)
+    text_feats = F.normalize(text_feats, dim=-1)
+
+    logits = torch.matmul(image_feats, text_feats.t()) / temperature  # [B, B]
+    labels = torch.arange(image_feats.size(0), device=image_feats.device)
+
+    loss_i2t = F.cross_entropy(logits, labels)
+    loss_t2i = F.cross_entropy(logits.t(), labels)
+
+    loss = (loss_i2t + loss_t2i) / 2
+    return loss
+
+def compute_dice_loss(pred_masks, gt_masks, eps=1e-6):
+    """
+    pred_masks: [Q, H, W] (sigmoid applied)
+    gt_masks:   [Q, H, W]
+    return: [Q, N] cost
+    """
+    Q = pred_masks.shape[0]
+    N = gt_masks.shape[0]
+    
+    pred = pred_masks.flatten(1)    # [Q, HW]
+    gt = gt_masks.flatten(1)        # [N, HW]
+
+    # intersection: [Q, N]
+    inter = torch.einsum("qh,nh->qn", pred, gt)
+    union = pred.sum(1)[:, None] + gt.sum(1)[None, :]
+
+    dice = (2 * inter + eps) / (union + eps)
+    return 1 - dice
+
+def mask_bce_cost(pred_masks, gt_masks):
+    """
+    pred_masks: [Q, H, W] (logits)
+    gt_masks: [N, H, W]
+    return: [Q, N]
+    """
+    Q = pred_masks.shape[0]
+    N = gt_masks.shape[0]
+
+    pred = pred[:, None, :]
+    gt = gt[None, :, :]
+
+    bce = F.binary_cross_entropy_with_logits(pred, gt, reduction="none").mean(-1)  # [Q, N]
+
+    return bce
 
 def dinov3_compute_loss(
     det_outs,

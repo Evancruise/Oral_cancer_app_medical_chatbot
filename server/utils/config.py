@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
 class GroundDINOConfig:
@@ -18,6 +18,14 @@ class DINOv3Cfg:
     img_size: int = 384
     num_classes: int = 4  # 包含背景
     update_teacher: int = 10
+    color_label_map: dict = field(
+        default_factory=lambda: {
+            0: (255, 0, 255), # None
+            1: (0, 255, 0),     # Green
+            2: (0, 255, 255),   # Yellow
+            3: (0, 0, 255),     # Red
+        }
+    )
 
     # projection head
     in_dim: int = 768       # ✅ 修這裡

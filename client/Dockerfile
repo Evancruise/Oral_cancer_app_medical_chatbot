@@ -14,4 +14,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # 確保 Express 會 listen 在 PORT
-CMD ["node", "src/index.js"]
+CMD ["node", "src/index.api.js"]

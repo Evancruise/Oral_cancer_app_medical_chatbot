@@ -19,8 +19,8 @@ def load_fhir_table(xlsx_path):
     :param xlsx_path: Description
     """
     df = pd.read_excel(xlsx_path)
-    df["media_id"] = df["media_id"].astype(str)
-    df = df.set_index("media_id")
+    df["record_id"] = df["record_id"].astype(str)
+    df = df.set_index("record_id")
     return df
 
 def save_single_dataset_from_fhir(
@@ -41,7 +41,7 @@ def save_single_dataset_from_fhir(
     image_id = os.path.splitext(os.path.basename(json_path))[0]
 
     if image_id not in fhir_df.index:
-        print(f"[WARN] media_id {image_id} not found in excel, skipped")
+        print(f"[WARN] record_id {image_id} not found in excel, skipped")
         return None
     
     row = fhir_df.loc[image_id]
