@@ -1,0 +1,196 @@
+/* =========================
+   全域設定
+========================= */
+body {
+    font-family: "Noto Sans TC", "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #f4f7fb, #eaf0f6);
+    margin: 0;
+    padding: 24px 12px;
+    color: #2c3e50;
+}
+
+/* =========================
+   標題區
+========================= */
+.modal-content {
+    background: transparent;
+    border: none;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a3c6d;
+    letter-spacing: 1px;
+}
+
+.modal-title i {
+    margin-right: 8px;
+    color: #3b82f6;
+}
+
+/* =========================
+   圖片顯示區
+========================= */
+.image-upload {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px;
+    max-width: 520px;
+    margin: 0 auto 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    text-align: center;
+}
+
+#status {
+    font-size: 0.95rem;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+#resultImg {
+    max-width: 100%;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+/* =========================
+   內容區
+========================= */
+.modal-body {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 20px;
+    max-width: 520px;
+    margin: 0 auto 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.modal-body label.form-label {
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 8px;
+}
+
+/* =========================
+   風險等級燈號
+========================= */
+.risk-level {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 6px;
+}
+
+.risk-light {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    opacity: 0.35;
+    box-shadow: inset 0 0 6px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.risk-light.green {
+    background: #22c55e;
+}
+
+.risk-light.yellow {
+    background: #facc15;
+}
+
+.risk-light.red {
+    background: #ef4444;
+}
+
+.risk-light.active {
+    opacity: 1;
+    transform: scale(1.25);
+    box-shadow: 0 0 10px rgba(0,0,0,0.25);
+}
+
+/* =========================
+   診斷內容
+========================= */
+textarea.form-control {
+    resize: none;
+    min-height: 120px;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.95rem;
+}
+
+textarea.form-control:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* =========================
+   提示文字
+========================= */
+.hint {
+    font-size: 0.85rem;
+    color: #64748b;
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.5;
+}
+
+/* =========================
+   Footer 按鈕
+========================= */
+.modal-footer-1 {
+    max-width: 520px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.modal-footer-1 .btn {
+    flex: 1;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.modal-footer-1 .btn i {
+    margin-right: 6px;
+}
+
+/* 返回首頁 */
+#btnGoBack {
+    background: #64748b;
+    border: none;
+}
+
+#btnGoBack:hover {
+    background: #475569;
+}
+
+/* 上傳 / 預約 */
+.modal-footer-1 .btn[type="submit"] {
+    background: #2563eb;
+    border: none;
+}
+
+.modal-footer-1 .btn[type="submit"]:hover {
+    background: #1d4ed8;
+}
+
+/* =========================
+   RWD
+========================= */
+@media (max-width: 480px) {
+    .modal-title {
+        font-size: 1.3rem;
+    }
+
+    .modal-footer-1 {
+        flex-direction: column;
+    }
+}

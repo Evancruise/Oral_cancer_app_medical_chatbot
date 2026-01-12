@@ -3,17 +3,11 @@
     "source": "functions"
   },
   "hosting": {
-    "public": "hosting_public",
+    "public": "hosting/public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
     ]
   }
 }

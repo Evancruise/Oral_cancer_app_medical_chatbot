@@ -21,33 +21,11 @@ export function buildFlexProcessing({ jobId, resultUrl }) {
                     },
                     {
                         type: "text",
-                        text: "已收到影像，系統正在進行辨識 (bbox + seg)。完成後將自動通知你。",
+                        text: "已收到影像，系統正在進行辨識。完成後將自動通知你。",
                         wrap: true,
                         size: "sm",
                         color: "#666666",
-                    },
-                    {
-                        type: "separator",
-                    },
-                    {
-                        type: "box",
-                        layout: "vertical",
-                        spacing: "sm",
-                        contents: [
-                            {
-                                type: "text",
-                                text: "Case ID",
-                                size: "sm",
-                                color: "#999999",
-                            },
-                            {
-                                type: "text",
-                                text: jobId,
-                                size: "sm",
-                                wrap: true,
-                            },
-                        ],
-                    },
+                    }
                 ],
             },
             footer: {
@@ -60,7 +38,7 @@ export function buildFlexProcessing({ jobId, resultUrl }) {
                         style: "primary",
                         action: {
                             type: "uri",
-                            label: "開啟結果頁 (稍後刷新)",
+                            label: "開啟結果頁",
                             uri: resultUrl,
                         },
                     },
