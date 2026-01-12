@@ -1,21 +1,20 @@
+import math
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import resnet50
 from transformers import AutoModel, AutoTokenizer
 # from utils.func import box_iou
 import timm
-import mlflow.pyfunc
-import torch
-import numpy as np
 from utils.config import GroundDINOConfig, DINOv3Cfg, cosine_schedule, ema_update
 from timm import create_model
 import copy
-# from transformers import AutoModelForCausalLM
+import mlflow.pyfunc
 
 # **** GroundingDINO architecture components ****
 
 # ==== Image Backbone
-class ImageBackbone(nn.Module):
+class ImageBackbone(mlflow.pyfunc.PythonModel):
     def __init__(self, out_dim=1024, pretrained=True):
         super().__init__()
         base = resnet50(pretrained=pretrained)
@@ -56,7 +55,7 @@ class ImageBackbone(nn.Module):
         return pos[:, :, :C]
     
 # ==== Text Embedding
-class TextBackbone(nn.Module):
+class TextBackbone(mlflow.pyfunc.PythonModel):
     def __init__(self, model_name="HuggingFaceTB/SmolLM-135M-Instruct", out_dim=768):
         super().__init__()
         self.encoder = AutoModel.from_pretrained(model_name)
@@ -71,7 +70,7 @@ class TextBackbone(nn.Module):
         return feats
 
 # ==== Feature Enhancer
-class CrossModalEnhancer(nn.Module):
+class CrossModalEnhancer(mlflow.pyfunc.PythonModel):
     """
     Bi-directional cross-attention Block
     - image_self_attn
@@ -103,7 +102,7 @@ class CrossModalEnhancer(nn.Module):
         return i, t # image/text tokens after feature enhancer
 
 # ==== 語言引導的查詢選擇
-class QuerySelector(nn.Module):
+class QuerySelector(mlflow.pyfunc.PythonModel):
     def __init__(self, dim=768, num_queries=100):
         super().__init__()
         self.num_queries = num_queries
@@ -131,7 +130,7 @@ class QuerySelector(nn.Module):
         return queries
 
 # ==== Multi-modal decoder
-class CrossModalDecoderLayer(nn.Module):
+class CrossModalDecoderLayer(mlflow.pyfunc.PythonModel):
     def __init__(self, dim=768, nhead=8, mlp_ratio=4.0):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(dim, nhead, batch_first=True)
@@ -161,7 +160,7 @@ class CrossModalDecoderLayer(nn.Module):
         q = self.ln4(q + self.mlp(q))
         return q
 
-class CrossModalDecoder(nn.Module):
+class CrossModalDecoder(mlflow.pyfunc.PythonModel):
     def __init__(self, dim=768, nhead=8, depth=6):
         super().__init__()
         self.layers = nn.ModuleList([CrossModalDecoderLayer(dim, nhead) for _ in range(depth)])
@@ -175,7 +174,7 @@ class CrossModalDecoder(nn.Module):
         return q # [B,Q,C] 最終查詢表示
     
 # ==== Detection head 
-class DetectionHead(nn.Module):
+class DetectionHead(mlflow.pyfunc.PythonModel):
     """
     Output:
     (1) grounding score: 用查詢與文字 token 的相似度作為 "與提示的一致性"
@@ -203,7 +202,7 @@ class DetectionHead(nn.Module):
         cls_logits = self.cls_head(q)  # [B, Q, C]
         return grounding_score, boxes_cxcywh, cls_logits
 
-class GroundingDINO(nn.Module):
+class GroundingDINO(mlflow.pyfunc.PythonModel):
     def __init__(self, 
                  cfg: GroundDINOConfig):
         super().__init__()
@@ -248,7 +247,7 @@ class GroundingDINO(nn.Module):
             "boxes": boxes_cxcywh       # [B,Q,4]
         }
 
-class SwinBackbone(nn.Module):
+class SwinBackbone(mlflow.pyfunc.PythonModel):
     def __init__(self, model_name, img_size, pretrained):
         super().__init__()
         
@@ -287,20 +286,6 @@ class DINOv3ProjectionHead(nn.Module):
 
     def forward(self, x):
         return self.mlp(x)
-
-'''
-class TextEncoder(nn.Module):
-    """DistilBERT backbone for text embedding"""
-    def __init__(self, model_name="distilbert-base-uncased"):
-        super().__init__()
-        self.encoder = AutoModel.from_pretrained(model_name)
-        self.out_dim = self.encoder.config.hidden_size
-
-    def forward(self, input_ids, attention_mask):
-        out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
-        pooled = out.last_hidden_state.mean(dim=1)  # [B, hidden_size]
-        return pooled
-'''
 
 class TextEncoder(nn.Module):
     """
@@ -363,7 +348,7 @@ class ImageEncoder(nn.Module):
             feat = feat.mean(dim=[2, 3])
         return feat
 
-class SegmentationHeadDINOv3(nn.Module):
+class SegmentationHeadDINOv3(mlflow.pyfunc.PythonModel):
     """
     Simple segmentation head for DINOv3.
     Input: img_feats [B, N, C] (flattened patch features)
@@ -434,7 +419,7 @@ class SegmentationHeadDINOv3(nn.Module):
             "pred_masks": mask_logits
         }
 
-class DetectionHeadDINOv3BBox(nn.Module):
+class DetectionHeadDINOv3BBox(mlflow.pyfunc.PythonModel):
     """
     Image-only DINOv3 detection head (DETR-style)
     """
@@ -483,7 +468,7 @@ class DetectionHeadDINOv3BBox(nn.Module):
             "pred_logits": cls_logits
         }
         
-class DetectionHeadDINOv3(nn.Module):
+class DetectionHeadDINOv3(mlflow.pyfunc.PythonModel):
     """
     Vision-Language detection head for DINOv3.
     Input: 
@@ -602,7 +587,7 @@ class DetectionHeadDINOv3(nn.Module):
             "loss_region": loss_region
         }
 
-class OralDINOv3(nn.Module):
+class OralDINOv3(mlflow.pyfunc.PythonModel):
     def __init__(self, cfg: DINOv3Cfg):
         super().__init__()
         self.cfg = cfg
@@ -785,7 +770,7 @@ class OralDINOv3(nn.Module):
         progress = epoch / max(1, getattr(self.cfg, "total_epochs", 100))
         return end - (end - base) * (1. + torch.cos(torch.tensor(progress * 3.14159))) / 2
 
-class DINOv3ToLLMAdapter(nn.Module):
+class DINOv3ToLLMAdapter(mlflow.pyfunc.PythonModel):
     def __init__(self, llm_hidden_dim):
         super().__init__()
         self.proj = nn.Sequential(
@@ -797,7 +782,7 @@ class DINOv3ToLLMAdapter(nn.Module):
     def forward(self, x):
         return self.proj(x)
 
-class OralDINOv3BBox(nn.Module): 
+class OralDINOv3BBox(mlflow.pyfunc.PythonModel): 
     def __init__(self, cfg: DINOv3Cfg): 
         super().__init__() 
         self.cfg = cfg 
@@ -891,7 +876,7 @@ class OralDINOv3BBox(nn.Module):
         outputs = self.det_head(img_feat)
         return outputs
 
-class OralDINOv3Seg(nn.Module):
+class OralDINOv3Seg(mlflow.pyfunc.PythonModel):
     def __init__(self, cfg: DINOv3Cfg):
         super().__init__()
         self.cfg = cfg
@@ -911,7 +896,16 @@ class OralDINOv3Seg(nn.Module):
             )
         )
 
-        # ===== Teacher model =====
+        # ===== Momentum Teacher =====
+        self.img_head = DINOv3ProjectionHead(
+            DINOv3Cfg(
+                in_dim=img_out_dim,
+                hidden_dim=cfg.hidden_dim,
+                out_dim=cfg.out_dim,
+                nlayers=cfg.nlayers,
+                norm_last=cfg.norm_last
+            )
+        )
         self.img_teacher = copy.deepcopy(self.img_enc)
         self.img_head_teacher = copy.deepcopy(self.img_head)
 
@@ -997,24 +991,3 @@ class OralDINOv3Seg(nn.Module):
         return {
             "mask_outs": mask_outs
         }
-    
-# ------ MLflow version ------
-class OralDINOv3BBoxPyFunc(mlflow.pyfunc.PythonModel):
-
-    def __init__(self, model, device, score_thresh=0.3):
-        self.model = model
-        self.device = device
-        self.score_thresh = score_thresh
-
-    def load_context(self, context):
-        self.model.to(self.device)
-        self.model.eval()
-
-    @torch.no_grad()
-    def predict(self, inputs):
-        images = torch.from_numpy(inputs).to(self.device)
-        outputs = self.model.forward_inference(images)
-
-        pred_boxes = outputs["pred_boxes"]
-        pred_logits = outputs["pred_logits"]
-        return {"pred_boxes": pred_boxes, "pred_logits": pred_logits}

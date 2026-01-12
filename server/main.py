@@ -2,15 +2,24 @@ import os
 import json
 import torch
 import argparse
+import numpy as np
 from torch.utils.data import DataLoader
 from google.cloud import storage
 from pathlib import Path
+import mlflow
+import mlflow.types as mtypes
+from mlflow.models.signature import ModelSignature
+from mlflow.types import Schema, DataType
+from mlflow.tracking import MlflowClient
 
 # ===== project imports =====
-from model.architecture import GroundingDINO as DINOv3, OralDINOv3 as DINOv3ToLLMAdapter, OralDINOv3BBox as DINOv3_Bbox, OralDINOv3Seg as DINOv3_Seg
+from model.architecture import GroundingDINO as DINOv3, OralDINOv3 as DINOv3ToLLMAdapter, \
+    OralDINOv3BBox as DINOv3_Bbox, OralDINOv3BBoxPyFunc as DINOv3_BboxPyFunc, \
+    OralDINOv3Seg as DINOv3_Seg
+
 from utils.config import GroundDINOConfig, DINOv3Cfg
 from utils.dataset import OralDataset, ReferenceDataset, CaseLevelOralCancerJsonDataset
-from utils.func import collate_fn, collate_fn_llm, build_retriever_index, save_retriever_index_gcs, load_retriever_index_gcs
+from utils.func import collate_fn, collate_fn_llm, build_retriever_index, save_retriever_index_gcs, load_retriever_index_gcs, HungarianMatcher
 from utils.fhir.fhir_export import results_to_fhir_bundle
 
 from model.train import grounddino_train_val, dinov3_train_val_seg, dinov3_train_val_bbox, dinov3_train_val_llm
@@ -19,6 +28,7 @@ from model.inference import grounddino_inference, dinov3_inference_seg, dinov3_i
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel
 
 IMAGE_EXTS = [".png", ".jpg", ".jpeg"]
+valid_aliases = ["develop", "production"]
 
 # ================================
 # === Utility: GCS file loader ===
@@ -141,31 +151,23 @@ def load_dataset_from_dir(root):
 def main(args):
     # Detect device
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    env_node = args.node_env
+    version = args.version
+
     print(f"Using device: {device}")
+    print(f"env_node: {env_node}")
+    print(f"version: {version}")
 
     # Path for saving checkpoints (Vertex AI mounts AIP_MODEL_DIR)
     output_dir = args.output_dir # os.environ.get("AIP_MODEL_DIR", "/app/checkpoints")
     # os.makedirs(MODEL_DIR, exist_ok=True)
     # print(f"Model output dir = {MODEL_DIR}")
 
-    # ----------------------------
-    # Load annotation JSON (local or GCS)
-    # ----------------------------
-    # train_data_list = load_json_from_path(args.train_annotations)
-    # val_data_list = load_json_from_path(args.val_annotations)
-    #train_data_list = load_dataset_from_dir(args.train_annotations)
-    #val_data_list = load_dataset_from_dir(args.val_annotations)
-
-    # ----------------------------
-    # Dataset & DataLoader
-    # ----------------------------
-    # train_dataset = OralDataset(train_data_list, augmentation=True)
-    # val_dataset = OralDataset(val_data_list, augmentation=False)
-
     """
     # ----------------------------
     # Model Selection
     # ----------------------------
+
     if args.model == "GroundingDINO":
         cfg = GroundDINOConfig()
         model = GroundingDINO(cfg).to(device)
@@ -173,11 +175,41 @@ def main(args):
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
         if args.phase == "train":
+        
+            if args.begin_epoch > 1:
+                state = torch.load(f"dinov3_llm_best_epoch{args.begin_epoch}.pth", map_location=device)
+                end_epoch = args.begin_epoch + args.num_epochs
+                model.load_state_dict(state)
+            else:
+                end_epoch = args.num_epoch + 1
+
+            # ----------------------------
+            # Load annotation JSON (local or GCS)
+            # ----------------------------
+            # train_data_list = load_dataset_from_dir(args.train_annotations)
+            # val_data_list = load_dataset_from_dir(args.val_annotations)
+
+            # ----------------------------
+            # Dataset & DataLoader
+            # ----------------------------
+            # train_dataset = OralDataset(train_data_list, augmentation=True)
+            # val_dataset = OralDataset(val_data_list, augmentation=False)
+
             grounddino_train_val(model, train_loader, val_loader, optimizer,
-                                 args.num_epochs, device, MODEL_DIR)
+                                 end_epoch, device, MODEL_DIR)
 
         elif args.phase == "inference":
-            test_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+        
+            # ----------------------------
+            # Load annotation JSON (local or GCS)
+            # ----------------------------
+            test_data_list = load_dataset_from_dir(args.test_annotations)
+
+            # ----------------------------
+            # Dataset & DataLoader
+            # ----------------------------
+            test_dataset = OralDataset(test_data_list, augmentation=False)
+
             grounddino_inference(model, test_loader, args.checkpoint_path, device)
     """
 
@@ -186,9 +218,20 @@ def main(args):
     # ----------------------------
 
     if args.llm_included == True:
-
+        
+        if mlflow.active_run():
+            mlflow.end_run()
+    
         if args.model == "DINOv3":
             cfg = DINOv3Cfg()
+
+            with mlflow.start_run():
+                mlflow.log_param("model_name", cfg.model_name)
+                mlflow.log_param("img_size", cfg.img_size)
+                mlflow.log_param("weight_decay", cfg.weight_decay)
+                mlflow.log_param("img_size", cfg.img_size)
+                mlflow.log_param("epochs", args.num_epochs)
+
             model = DINOv3(cfg).to(device)
 
             # ===== Optimizer =====
@@ -197,8 +240,8 @@ def main(args):
                 list(adapter.parameters()) +
                 list(student_ctx_proj.parameters()) +
                 list(student_llm.parameters()),
-                lr=args.lr,
-                weight_decay=args.weight_decay
+                lr=cfg.lr,
+                weight_decay=cfg.weight_decay
             )
 
             # ---- Sentence-Transformer (Retriever Encoder) ---- 
@@ -245,7 +288,7 @@ def main(args):
                     end_epoch = args.begin_epoch + args.num_epochs
                     model.load_state_dict(state)
                 else:
-                    end_epoch = args.num_epoch + 1
+                    end_epoch = args.num_epochs + 1
 
                 # ----------------------------
                 # Load annotation JSON (local or GCS)
@@ -323,127 +366,267 @@ def main(args):
                     json.dump(fhir_bundle, f, indent=2, ensure_ascii=False)
     
     else:
-
+        if mlflow.active_run():
+            mlflow.end_run()
+    
         if args.model == "DINOv3_bbox":
+
+            input_schema = Schema([
+                mtypes.TensorSpec(
+                    np.dtype("float32"),     # dtype 先
+                    (-1, 3, 384, 384)        # shape 後
+                )
+            ])
+
+            output_schema = Schema([
+                mtypes.TensorSpec(np.dtype("float32"), (-1, 4), name="boxes"),
+                mtypes.TensorSpec(np.dtype("float32"), (-1,),  name="scores"),
+                mtypes.TensorSpec(np.dtype("int64"),   (-1,),  name="labels"),
+            ])
+
+            signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
             cfg = DINOv3Cfg()
             model = DINOv3_Bbox(cfg).to(device)
+            matcher = HungarianMatcher(const_class=1.0, const_bbox=5.0, const_iou=2.0).to(device)
 
-            # ===== Optimizer =====
-            optimizer = torch.optim.AdamW(
-                list(model.parameters()),
-                lr=args.lr,
-                weight_decay=args.weight_decay
-            )
+            with mlflow.start_run():
+                mlflow.log_param("model_name", cfg.model_name)
+                mlflow.log_param("img_size", cfg.img_size)
+                mlflow.log_param("weight_decay", cfg.weight_decay)
+                mlflow.log_param("img_size", cfg.img_size)
+                mlflow.log_param("epochs", args.num_epochs)
+                mlflow.log_param("iou_threshold", args.iou_threshold)
+                mlflow.log_param("score_threshold", args.score_threshold)
 
-            if args.phase == "train":
+                # ===== Optimizer =====
+                optimizer = torch.optim.AdamW(
+                    list(model.parameters()),
+                    lr=args.lr,
+                    weight_decay=args.weight_decay
+                )
+
+                if args.phase == "train":
+                    
+                    pyfunc_model = None
+
+                    if args.begin_epoch > 1:
+
+                        if env_node in ["develop", "staging", "production"]:
+                            MODEL_URL = f"models:/oral_dinov3_bbox@{env_node}"
+                            loaded_pyfunc = mlflow.pyfunc.load_model(MODEL_URL)
+                            model.load_state_dict(loaded_pyfunc.model.state_dict())
+                            pyfunc_model = DINOv3_BboxPyFunc(
+                                model=model,
+                                device=device,
+                                score_thresh=args.score_threshold
+                            )
+                        else:
+                            state = torch.load(
+                                f"dinov3_bbox_best_epoch{args.begin_epoch}.pth",
+                                map_location=device
+                            )
+                            model.load_state_dict(state)
+
+                        start_epoch = args.begin_epoch
+                        end_epoch = args.begin_epoch + args.num_epochs
+                    else:
+                        if env_node in valid_aliases:
+
+                            client = MlflowClient()
+                            client.set_registered_model_alias(
+                                name="oral_dinov3_bbox",
+                                alias=env_node,
+                                version=version
+                            )
+
+                            pyfunc_model = DINOv3_BboxPyFunc(
+                                model=model,
+                                device=device,
+                                score_thresh=args.score_threshold
+                            )
+                        
+                        start_epoch = 1
+                        end_epoch = args.num_epochs
+                    
+                    train_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.train_annotations + "/annotations_fhir_images", json_dir=args.train_annotations + "/annotations_fhir_json", type=args.type)
+                    val_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.val_annotations + "/annotations_fhir_images", json_dir=args.val_annotations + "/annotations_fhir_json", type=args.type)
+
+                    train_loader = DataLoader(
+                        train_dataset, batch_size=args.batch_size, shuffle=True,
+                        num_workers=args.num_workers, collate_fn=collate_fn
+                    )
+                    val_loader = DataLoader(
+                        val_dataset, batch_size=args.batch_size, shuffle=False,
+                        num_workers=args.num_workers, collate_fn=collate_fn
+                    )
+
+                    dinov3_train_val_bbox(
+                        model,
+                        pyfunc_model,
+                        train_loader,
+                        val_loader,
+                        optimizer,
+                        end_epoch,
+                        device,
+                        output_dir="checkpoints",
+                        iou_threshold=args.iou_threshold,
+                        score_threshold=args.score_threshold,
+                        matcher=matcher,
+                        env_node=env_node,
+                        signature=signature
+                    )
                 
-                if args.begin_epoch > 1:
-                    state = torch.load(f"dinov3_bbox_best_epoch{args.begin_epoch}.pth", map_location=device)
-                    end_epoch = args.begin_epoch + args.num_epochs
-                    model.load_state_dict(state)
-                else:
-                    end_epoch = args.num_epochs + 1
-                
-                train_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.train_annotations + "/annotations_fhir_images", json_dir=args.train_annotations + "/annotations_fhir_json", type=args.type)
-                val_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.val_annotations + "/annotations_fhir_images", json_dir=args.val_annotations + "/annotations_fhir_json", type=args.type)
+                elif args.phase == "inference":
+                    
+                    pyfunc_model = None
 
-                train_loader = DataLoader(
-                    train_dataset, batch_size=args.batch_size, shuffle=True,
-                    num_workers=args.num_workers, collate_fn=collate_fn
-                )
-                val_loader = DataLoader(
-                    val_dataset, batch_size=args.batch_size, shuffle=False,
-                    num_workers=args.num_workers, collate_fn=collate_fn
-                )
+                    if env_node in valid_aliases:
+                        MODEL_URI = f"models:/oral_dinov3_bbox@{env_node}"
+                        # model = mlflow.pyfunc.load_model(MODEL_URL).model
+                        pyfunc_model = mlflow.pyfunc.load_model(MODEL_URI)
+                    else:
+                        state = torch.load(f"dinov3_bbox_best_epoch{args.begin_epoch}.pth", map_location=device)
+                        end_epoch = args.begin_epoch + args.num_epochs
+                        model.load_state_dict(state)
 
-                dinov3_train_val_bbox(
-                    model,
-                    train_loader,
-                    val_loader,
-                    optimizer,
-                    end_epoch,
-                    device,
-                    output_dir="checkpoints"
-                )
-            
-            if args.phase == "inference":
-                
-                if args.inference_epoch > 1:
-                    state = torch.load(f"checkpoints/dinov3_bbox_best_epoch{args.inference_epoch}.pth", map_location=device)
-                    model.load_state_dict(state)
+                    test_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.test_annotations + "/annotations_fhir_images", json_dir=args.test_annotations + "/annotations_fhir_json", type=args.type)
 
-                test_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.test_annotations + "/annotations_fhir_images", json_dir=args.test_annotations + "/annotations_fhir_json", type=args.type)
+                    test_loader = DataLoader(
+                        test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn
+                    )
 
-                test_loader = DataLoader(
-                    test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn
-                )
-
-                dinov3_inference_bbox(
-                    model,
-                    test_loader,
-                    device,
-                    color_label_map=cfg.color_label_map
-                )
+                    dinov3_inference_bbox(
+                        model,
+                        pyfunc_model,
+                        test_loader,
+                        matcher,
+                        device,
+                        color_label_map=cfg.color_label_map,
+                        num_classes=cfg.num_classes,
+                        env_node=env_node
+                    )
         
         elif args.model == "DINOv3_Seg":
+
+            input_schema = Schema([
+                mtypes.TensorSpec(
+                    np.dtype("float32"),     # dtype 先
+                    (-1, 3, 384, 384)        # shape 後
+                )
+            ])
+
+            output_schema = Schema([
+                mtypes.TensorSpec(np.dtype("float32"), (-1, 4), name="boxes"), # 這部分要改
+                mtypes.TensorSpec(np.dtype("float32"), (-1,),  name="scores"),
+                mtypes.TensorSpec(np.dtype("int64"),   (-1,),  name="labels"),
+            ])
+
+            signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
             cfg = DINOv3Cfg()
             model = DINOv3_Seg(cfg).to(device)
 
-            # ===== Optimizer =====
-            optimizer = torch.optim.AdamW(
-                list(model.parameters()),
-                lr=args.lr,
-                weight_decay=args.weight_decay
-            )
+            with mlflow.start_run():
+                mlflow.log_param("model_name", cfg.model_name)
+                mlflow.log_param("img_size", cfg.img_size)
+                mlflow.log_param("weight_decay", cfg.weight_decay)
+                mlflow.log_param("img_size", cfg.img_size)
+                mlflow.log_param("epochs", args.num_epochs)
+                mlflow.log_param("iou_threshold", args.iou_threshold)
+                mlflow.log_param("score_threshold", args.score_threshold)
 
-            if args.phase == "train":
-
-                if args.begin_epoch > 1:
-                    state = torch.load(f"dinov3_seg_best_epoch{args.begin_epoch}.pth", map_location=device)
-                    end_epoch = args.begin_epoch + args.num_epochs
-                    model.load_state_dict(state)
-                else:
-                    end_epoch = args.num_epochs + 1
-
-                train_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.train_annotations + "/annotations_fhir_images", json_dir=args.train_annotations + "/annotations_fhir_json", type=args.type)
-                val_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.val_annotations + "/annotations_fhir_images", json_dir=args.val_annotations + "/annotations_fhir_json", type=args.type)
-
-                train_loader = DataLoader(
-                    train_dataset, batch_size=args.batch_size, shuffle=True,
-                    num_workers=args.num_workers, collate_fn=collate_fn
-                )
-                val_loader = DataLoader(
-                    val_dataset, batch_size=args.batch_size, shuffle=False,
-                    num_workers=args.num_workers, collate_fn=collate_fn
+                # ===== Optimizer =====
+                optimizer = torch.optim.AdamW(
+                    list(model.parameters()),
+                    lr=args.lr,
+                    weight_decay=args.weight_decay
                 )
 
-                dinov3_train_val_seg(
-                    model,
-                    train_loader,
-                    val_loader,
-                    optimizer,
-                    end_epoch,
-                    device,
-                    output_dir="checkpoints"
-                )
-            
-            elif args.phase == "inference":
+                if args.phase == "train":
 
-                test_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.test_annotations + "/annotations_fhir_images", json_dir=args.test_annotations + "/annotations_fhir_json", type=args.type)
+                    pyfunc_model = None
 
-                test_loader = DataLoader(
-                    test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn
-                )
+                    if args.begin_epoch > 1:
 
-                dinov3_inference_seg(
-                    model,
-                    test_loader,
-                    device,
-                    checkpoint_path="checkpoints",
-                    color_label_map=cfg.color_label_map
-                )
+                        if env_node in valid_aliases:
+                            MODEL_URL = f"models:/oral_dinov3_seg@{env_node}"
+                            loaded_pyfunc = mlflow.pyfunc.load_model(MODEL_URL)
+                            model.load_state_dict(loaded_pyfunc.model.state_dict())
+                        else:
+                            state = torch.load(
+                                f"dinov3_seg_best_epoch{args.begin_epoch}.pth",
+                                map_location=device
+                            )
+                            model.load_state_dict(state)
+
+                        start_epoch = args.begin_epoch
+                        end_epoch = args.begin_epoch + args.num_epochs
+                    else:
+                        if env_node in valid_aliases:
+                        
+                            client = MlflowClient()
+                            client.set_registered_model_alias(
+                                name="oral_dinov3_seg",
+                                alias=env_node,
+                                version=version
+                            )
+
+                            '''
+                            TODO: pyfunc for oral_dinov3_seg
+                            '''
+                        
+                        start_epoch = 1
+                        end_epoch = args.num_epochs
+
+                    train_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.train_annotations + "/annotations_fhir_images", json_dir=args.train_annotations + "/annotations_fhir_json", type=args.type)
+                    val_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.val_annotations + "/annotations_fhir_images", json_dir=args.val_annotations + "/annotations_fhir_json", type=args.type)
+
+                    train_loader = DataLoader(
+                        train_dataset, batch_size=args.batch_size, shuffle=True,
+                        num_workers=args.num_workers, collate_fn=collate_fn
+                    )
+                    val_loader = DataLoader(
+                        val_dataset, batch_size=args.batch_size, shuffle=False,
+                        num_workers=args.num_workers, collate_fn=collate_fn
+                    )
+
+                    dinov3_train_val_seg(
+                        model,
+                        train_loader,
+                        val_loader,
+                        optimizer,
+                        end_epoch,
+                        device,
+                        output_dir="checkpoints"
+                    )
+                
+                elif args.phase == "inference":
+                    
+                    pyfunc_model = None
+
+                    if env_node in valid_aliases:
+                        MODEL_URI = f"models:/oral_dinov3_seg@{env_node}"
+                        # model = mlflow.pytorch.load_model(MODEL_URI)
+                        pyfunc_model = mlflow.pytorch.load_model(MODEL_URI)
+                    else:
+                        state = torch.load(f"dinov3_seg_best_epoch{args.begin_epoch}.pth", map_location=device)
+                        end_epoch = args.begin_epoch + args.num_epochs
+                        model.load_state_dict(state)
+
+                    test_dataset = CaseLevelOralCancerJsonDataset(image_dir=args.test_annotations + "/annotations_fhir_images", json_dir=args.test_annotations + "/annotations_fhir_json", type=args.type)
+
+                    test_loader = DataLoader(
+                        test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn
+                    )
+
+                    dinov3_inference_seg(
+                        model,
+                        test_loader,
+                        device,
+                        checkpoint_path="checkpoints",
+                        color_label_map=cfg.color_label_map
+                    )
 
 # ==================
 # Argument Parser
@@ -486,7 +669,13 @@ if __name__ == "__main__":
     parser.add_argument("--excel_path", type=str, default="gs://oral-dinov3-data/oralCa_FHIR.xlsx")
     parser.add_argument("--llm_included", type=bool, default=False)
 
+    # === Metric settings ===
+    parser.add_argument("--node_env", type=str, default="local")
+    parser.add_argument("--score_threshold", type=float, default=0.5)
+    parser.add_argument("--iou_threshold", type=float, default=0.3)
+
     parser.add_argument("--type", type=str, default="bbox", help="bbox or seg")
+    parser.add_argument("--version", type=str, default="v1", help="Model version")
 
     args = parser.parse_args()
     main(args)

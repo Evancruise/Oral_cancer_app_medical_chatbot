@@ -1,7 +1,7 @@
 import json, os, random
 from typing import List, Dict
 from PIL import Image
-from utils.func import _gcs_download_to_cache, polygons_to_gt_masks
+from utils.func import gcs_download_to_cache, polygons_to_gt_masks
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as T
@@ -382,7 +382,7 @@ class OralDataset(Dataset):
 
         img_path = item["image_name"]
         if isinstance(img_path, str) and img_path.startswith("gs://"):
-            img_path = _gcs_download_to_cache(img_path)
+            img_path = gcs_download_to_cache(img_path)
 
         img = Image.open(img_path).convert("RGB")
         x = self.tfm(img)

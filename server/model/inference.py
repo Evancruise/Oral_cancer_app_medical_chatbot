@@ -10,7 +10,8 @@ from transformers import AutoTokenizer
 from torchvision import transforms
 from tqdm import tqdm
 from torch.nn import functional as F
-from utils.func import compute_precision_recall, decode_boxes, match_predictions, postprocess_boxes, update_confusion_matrix, visualize_result
+from utils.func import cxcywh_to_xyxy, box_iou, plot_roc_pr_multi_class
+from sklearn.metrics import multilabel_confusion_matrix, roc_auc_score
 
 def grounding_inference_single(model, image_path, prompt, checkpoint_path, device="cuda",
                                box_thresh=0.3, text_thresh=0.25, save_path="results"):
@@ -456,10 +457,10 @@ def dinov3_inference_seg(
     checkpoint_path=None,
     color_label_map=None,
     output_path="results",
-    score_thresh: float = 0.3,
-    verbose: bool = True,
-    num_classes: int = 3,
-    save_vis: bool = True
+    score_thresh=0.3,
+    verbose=True,
+    num_classes=4,
+    save_vis=True
 ):
     
     # ======================
@@ -546,14 +547,15 @@ def dinov3_inference_seg(
 @torch.no_grad()
 def dinov3_inference_bbox(
     model,
+    pyfunc_model,
     data_loader,
+    matcher,
     device,
     color_label_map=None,
-    output_path="results",
-    score_thresh: float = 0.3,
-    verbose: bool = True,
-    num_classes: int = 3,
-    save_vis: bool = True
+    iou_threshold=0.5,
+    score_threshold=0.3,
+    num_classes=4,
+    env_node="local"
 ):
     """
     Bounding-box-only inference pipeline.
@@ -564,96 +566,107 @@ def dinov3_inference_bbox(
         device: cuda / cpu
         score_thresh: confidence threshold
         verbose: print predictions
+    
+    Procedure:
+
+    ├── Forward
+    ├── Postprocess (score / NMS / decode)
+    ├── Image-level multi-label (Hungarian + IoU) 
+    │   ├── all_y_true / all_y_pred / all_y_score
+    │   └── multi-label metrics / ROC
+    └── (Optional) bbox-level metrics
+        ├── TP / FP / FN per box
+        └── mAP
 
     Returns:
         results: List[dict]
     """
 
-    all_results = []
+    all_y_true, all_y_pred, all_y_score = [], [], []
 
-    for batch in tqdm(data_loader, desc="[Inference] BBox-only"):
+    for batch in tqdm(data_loader, desc="[Inference][Box]"):
 
-        images = batch["image"].to(device)
-        widths = batch["width"]
-        heights = batch["height"]
-
-        # ===============================
-        # Forward (student only)
-        # ===============================
-        outputs = model.forward_inference(images)
+        if env_node in ["develop", "staging", "production"]:
+            images = batch["image"].numpy().astype("float32")
+            outputs = pyfunc_model.predict(images)
+        else:
+            images = batch["image"].to(device)
+            outputs = model.forward_inference(images)
 
         pred_boxes = outputs["pred_boxes"]
         pred_logits = outputs["pred_logits"]
 
-        scores = torch.softmax(pred_logits, dim=-1)
-        max_scores, pred_labels = scores.max(-1)
-
-        B = images.size(0)
+        B = batch["image"].size(0)
 
         for i in range(B):
-            keep = max_scores[i] > score_thresh
+            gt_b = batch["boxes"][i].to(device)
+            gt_l = batch["labels"][i].to(device)
 
-            boxes_i = pred_boxes[i][keep]
-            scores_i = max_scores[i][keep]
-            labels_i = pred_labels[i][keep]
+            # ----- GT multi-hot -----
+            gt_vec = torch.zeros(num_classes, dtype=torch.int)
+            if gt_l.numel() > 0:
+                gt_vec[gt_l.unique()] = 1
+            
+            # ----- default pred -----
+            pred_vec = torch.zeros(num_classes, dtype=torch.int)
+            score_vec = torch.zeros(num_classes)
 
-            post_boxes, post_scores, post_labels = postprocess_boxes(
-                boxes_i,
-                scores_i,
-                labels_i
+            scores = torch.softmax(pred_logits[i], dim=-1)
+            max_scores, pred_l = scores.max(-1)
+
+            keep = max_scores > score_threshold
+            if keep.sum() == 0 or gt_b.numel() == 0:
+                all_y_true.append(gt_vec.numpy())
+                all_y_pred.append(pred_vec.numpy())
+                all_y_score.append(score_vec.numpy())
+                continue
+
+            pb = pred_boxes[i][keep]
+            pl = pred_l[keep]
+            ps = max_scores[keep]
+
+            # Hungarian match
+            idx_pred, idx_gt = matcher(
+                pred_logits[i][keep],
+                pb,
+                gt_l,
+                gt_b
             )
 
-            result = {
-                "image_id": batch.get("image_name", [None])[i],
-                "boxes": post_boxes.cpu(),     # cxcywh (normalized)
-                "scores": post_scores.cpu(),
-                "labels": post_labels.cpu()
-            }
+            if idx_pred.numel() > 0:
+                pb_xyxy = cxcywh_to_xyxy(pb[idx_pred])
+                gt_xyxy = cxcywh_to_xyxy(gt_b[idx_gt])
 
-            if save_vis:
-                pred = {
-                    "boxes": decode_boxes(boxes_i, widths[i], heights[i], fmt="cxcywh"),
-                    "scores": scores_i,
-                    "labels": labels_i
-                }
-                gt = {
-                    "boxes": decode_boxes(batch["boxes"][i], widths[i], heights[i], fmt="cxcywh"),
-                    "labels": batch["labels"][i]
-                }
-                visualize_result(images[i], widths[i], heights[i], pred, gt, f"{output_path}/{batch['image_name'][i]}", color_label_map)
+                ious = box_iou(pb_xyxy, gt_xyxy).diag()
 
-            all_results.append(result)
+                for j in range(len(idx_pred)):
+                    if ious[j] >= iou_threshold:
+                        c = pl[idx_pred[j]].item()
+                        pred_vec[c] = 1
+                        score_vec[c] = max(score_vec[c], ps[idx_pred[j]].item())
+            
+            all_y_true.append(gt_vec.numpy())
+            all_y_pred.append(pred_vec.numpy())
+            all_y_score.append(score_vec.numpy())
+    
+    mcm = multilabel_confusion_matrix(all_y_true, all_y_pred)
 
-            if verbose:
-                print("----")
-                print(f"Image: {result['image_id']}")
-                print(f"Detections: {len(post_boxes)}")
+    for c in range(num_classes):
+        tn, fp, fn, tp = mcm[c].ravel()
+        print(f"[Class {c}] TP={tp}, FP={fp}, FN={fn}, TN={tn}")
 
-    cm = np.zeros((num_classes+1, num_classes+1), dtype=int)
-    precisions, recalls = [], []
+    auc_macro = roc_auc_score(all_y_true, all_y_score, average="macro")
+    auc_micro = roc_auc_score(all_y_true, all_y_score, average="micro")
 
-    for batch, pred in zip(data_loader, all_results):
-        gt = {
-            "boxes": batch["boxes"],
-            "labels": batch["labels"]
-        }
+    print("AUC macro:", auc_macro)
+    print("AUC mico:", auc_micro)
 
-        tp, fp, fn = match_predictions(
-            pred["boxes"], pred["labels"], pred["scores"],
-            gt["boxes"], gt["labels"]
-        )
+    roc_aucs, aps = plot_roc_pr_multi_class(
+        all_y_true,
+        all_y_score,
+        num_classes=num_classes,
+        save_dir="outputs/curves"
+    )
 
-        p, r = compute_precision_recall(tp, fp, fn)
-        precisions.append(p)
-        recalls.append(r)
-
-        update_confusion_matrix(
-            cm, tp, fp, fn,
-            pred["labels"], gt["labels"], num_classes
-        )
-
-    print("Precision:", sum(precisions)/len(precisions))
-    print("Recall:", sum(recalls)/len(recalls))
-    print("Confusion Matrix:\n", cm)
-
-    return all_results
+    print("ROC AUC per class:", roc_aucs)
+    print("AP per class:", aps)

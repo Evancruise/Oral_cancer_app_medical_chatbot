@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.10
 
 # ===== system deps =====
 RUN apt-get update && apt-get install -y \
@@ -18,5 +18,15 @@ COPY . .
 
 # ===== expose =====
 ENV PORT=8080
+ENV GUNICORN_CMD_ARGS="--workers 1 --threads 1 --timeout 180"
 
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
+RUN python - <<EOF
+import timm, torch, transformers
+import google.cloud.tasks_v2 as t
+print("timm OK", timm.__version__)
+print("torch OK", torch.__version__)
+print("hf OK", transformers.__version__)
+print("tasks_v2 OK", t)
+EOF
+
+CMD gunicorn app:app --bind 0.0.0.0:8080

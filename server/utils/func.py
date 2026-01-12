@@ -5,16 +5,18 @@ import torch.nn.functional as F
 from PIL import Image
 from torchvision.ops import nms
 from utils.config import DINOv3Cfg
-import faiss
+import matplotlib.pyplot as plt
+# import faiss
 from google.cloud import storage
 from scipy.optimize import linear_sum_assignment
 
+import hashlib
 import json
 import os
 import numpy as np
 import pandas as pd
-import hashlib
 import cv2
+from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
 
 def collate_fn(batch):
     images = torch.stack([b["image"] for b in batch])
@@ -48,6 +50,69 @@ def download_from_gcs(bucket_name, blob_path, local_path):
     blob.download_to_filename(local_path)
     print(f"[GCS] Downloaded {blob_path} → {local_path}")
 
+def match_predictions(
+    pred_boxes,
+    pred_labels,
+    pred_scores,
+    gt_boxes,
+    gt_labels,
+    iou_threshold=0.5,
+    score_threshold=0.5
+):
+    """
+    :param pred_boxes: Tensor [N,4] xyxy
+    :param pred_labels: Tensor [N]
+    :param pred_scores: Tensor [N]
+    :param gt_boxes: Tensor [M,4] xyxy
+    :param gt_labels: Tensor [M]
+    return dict with tp / fp / fn
+    """
+    # Confidence filtering
+    keep = pred_scores >= score_threshold
+    pred_boxes = pred_boxes[keep]
+    pred_labels = pred_labels[keep]
+    pred_scores = pred_scores[keep]
+
+    matched_gt = set()
+    tp = []
+    fp = []
+
+    # IoU matching 
+    if len(pred_boxes) > 0 and len(gt_boxes) > 0:
+        ious = box_iou(pred_boxes, gt_boxes) # [N, M]
+
+        for pred_idx in range(len(pred_boxes)):
+            # Find the best prediction iou for corresponding gt
+            best_iou, best_gt_idx = ious[pred_idx].max(0)
+
+            # IoU & label matching
+            if (
+                best_iou >= iou_threshold
+                and best_gt_idx.item() not in matched_gt
+                and pred_labels[pred_idx] == gt_labels[best_gt_idx]
+            ):
+                tp.append(pred_idx)
+                matched_gt.add(best_gt_idx.item())
+            else:
+                fp.append(pred_idx)
+    else:
+        # 沒有 gt, 全部 pred 都是 fp
+        fp = list(range(len(pred_boxes)))
+    
+    # False Negative Case
+    fn = [
+        gt_idx for gt_idx in range(len(gt_boxes))
+        if gt_idx not in matched_gt
+    ]
+
+    return {
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "num_gt": len(gt_boxes),
+        "num_pred": len(pred_boxes)
+    }
+
 def postprocess_boxes(boxes, scores, labels, iou_thresh=0.5):
     keep = nms(boxes, scores, iou_thresh)
     return boxes[keep], scores[keep], labels[keep]
@@ -75,7 +140,7 @@ def build_raw_text(row):
 
     return " ".join(parts)
 
-def _gcs_download_to_cache(gs_uri: str, cache_dir: str = "/tmp/gcs_cache") -> str:
+def gcs_download_to_cache(gs_uri: str, cache_dir: str = "/tmp/gcs_cache") -> str:
     os.makedirs(cache_dir, exist_ok=True)
     # stable local filename
     h = hashlib.md5(gs_uri.encode("utf-8")).hexdigest()
@@ -242,67 +307,6 @@ def cxcywh_to_xyxy(b):
     y2 = y_c + 0.5 * h
     return torch.stack([x1, y1, x2, y2], dim=-1)
 
-def match_predictions(
-    pred_boxes,
-    pred_labels,
-    pred_scores,
-    gt_boxes,
-    gt_labels,
-    iou_threshold=0.5,
-    score_threshold=0.5
-):
-    """
-    Docstring for match_predictions
-    
-    :param pred_boxes: Description
-    :param pred_labels: Description
-    :param pred_scores: Description
-    :param gt_boxes: Description
-    :param gt_labels: Description
-    :param iou_threshold: Description
-    :param score_threshold: Description
-    """
-    keep = pred_scores >= score_threshold
-    pred_boxes = pred_boxes[keep]
-    pred_labels = pred_labels[keep]
-
-    # boxes: [N,4] xyxy
-
-    if isinstance(gt_boxes, (list, tuple)):
-        gt_boxes = gt_boxes[0]
-    if isinstance(gt_labels, (list, tuple)):
-        gt_labels = gt_labels[0]
-
-    # ---- edge cases ----
-    if pred_boxes.numel() == 0 and gt_boxes.numel() == 0:
-        return [], [], []
-
-    if pred_boxes.numel() == 0:
-        return [], [], list(range(len(gt_boxes)))
-
-    if gt_boxes.numel() == 0:
-        return [], list(range(len(pred_boxes))), []
-    
-    pred_boxes = cxcywh_to_xyxy(pred_boxes)
-    gt_boxes   = cxcywh_to_xyxy(gt_boxes)
-
-    ious = box_iou(pred_boxes, gt_boxes)
-
-    matched_gt = set()
-    tp, fp = [], []
-
-    for i in range(len(pred_boxes)):
-        max_iou, j = ious[i].max(dim=0)
-
-        if max_iou >= iou_threshold and j.item() not in matched_gt:
-            tp.append((i, j))
-            matched_gt.add(j.item())
-        else:
-            fp.append(i)
-
-    fn = [j for j in range(len(gt_boxes)) if j not in matched_gt]
-    return tp, fp, fn
-
 def compute_precision_recall(tp, fp, fn):
     """
     Docstring for compute_precision_recall
@@ -334,13 +338,20 @@ def update_confusion_matrix(
     return cm
 
 def box_iou(boxes1, boxes2):
-    # boxes2 could be list[tensor] when batch_size=1
-    if isinstance(boxes2, (list, tuple)):
-        assert len(boxes2) == 1, f"Expected batch_size=1, got {len(boxes2)}"
-        boxes2 = boxes2[0]
+    """
+    boxes1: Tensor[N, 4]
+    boxes2: Tensor[M, 4]  (M can be 0)
+    return: Tensor[N, M]
+    """
+    if boxes2.numel() == 0:
+        # no GT → IoU matrix is empty
+        return torch.zeros(
+            (boxes1.shape[0], 0),
+            device=boxes1.device
+        )
 
-    area1 = (boxes1[:, 2]-boxes1[:, 0]) * (boxes1[:, 3]-boxes1[:, 1])
-    area2 = (boxes2[:, 2]-boxes2[:, 0]) * (boxes2[:, 3]-boxes2[:, 1])
+    area1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 3] - boxes1[:, 1])
+    area2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 3] - boxes2[:, 1])
 
     lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])
     rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])
@@ -348,7 +359,73 @@ def box_iou(boxes1, boxes2):
 
     inter = wh[:, :, 0] * wh[:, :, 1]
     union = area1[:, None] + area2 - inter
-    return inter / union
+
+    return inter / union.clamp(min=1e-6)
+
+class HungarianMatcher(torch.nn.Module):
+    """
+    DETR / DINO style Hugarian matcher
+    Description: Handle empty GT safely
+    """
+    def __init__(
+        self,
+        const_class=1.0,
+        const_bbox=1.0,
+        const_iou=1.0
+    ):
+        super().__init__()
+        self.const_class = const_class
+        self.const_bbox = const_bbox
+        self.const_iou = const_iou
+
+    @torch.no_grad()
+    def forward(self, pred_logits, pred_boxes, gt_labels, gt_boxes):
+        """
+        pred_logits: (N, C)
+        pred_boxes: (N, 4) cxcywh
+        gt_labels: (M,)
+        gt_boxes: (M, 4) cxcywh
+        """
+
+        N = pred_boxes.shape[0]
+        M = gt_boxes.shape[0]
+
+        device = pred_boxes.device
+
+        # Case 1: No GT
+        if M == 0:
+            # no matches
+            return (
+                torch.empty(0, dtype=torch.long, device=device),
+                torch.empty(0, dtype=torch.long, device=device)
+            )
+        
+        # compute classification cost
+        prob = pred_logits.softmax(-1)      # (N, C)
+        cost_class = -prob[:, gt_labels]    # (N, M)
+
+        # compute bbox (L1) cost
+        cost_bbox = torch.cdist(pred_boxes, gt_boxes, p=1)
+        
+        # compute IoU cost
+        pred_xyxy = cxcywh_to_xyxy(pred_boxes)
+        gt_xyxy = cxcywh_to_xyxy(gt_boxes)
+
+        iou = box_iou(pred_xyxy, gt_xyxy)
+        cost_iou = -iou
+
+        total_cost = \
+            self.const_class * cost_class + \
+            self.const_bbox * cost_bbox + \
+            self.const_iou * cost_iou
+        
+        # Hugarian matching
+        indices = linear_sum_assignment(total_cost.cpu())
+
+        return (
+            torch.as_tensor(indices[0], dtype=torch.long, device=device),
+            torch.as_tensor(indices[1], dtype=torch.long, device=device)
+        )
 
 def decode_boxes(boxes, img_w, img_h, fmt="cxcywh"):
     """
@@ -432,6 +509,107 @@ def tensor_to_cv2(image_tensor, width, height, mean=None, std=None):
     img = cv2.resize(img, (width, height))
 
     return img
+
+def plot_roc_pr_multi_class(
+    all_y_true,
+    all_y_score,
+    num_classes,
+    save_dir="metric"      
+):
+    os.makedirs(save_dir, exist_ok=True)
+
+    all_y_true = np.array(all_y_true)
+    all_y_score = np.array(all_y_score)
+
+    roc_aucs = {}
+    aps = {}
+
+    # ----- per-class -----
+    for c in range(num_classes):
+        y_true_c = all_y_true[:, c]
+        y_score_c = all_y_score[:, c]
+
+        # skip class with no positive GT
+        if y_true_c.sum() == 0:
+            print(f"[Class {c}] skipped (no positive GT)")
+            continue
+
+        roc_auc, ap = plot_roc_pr_single_class(
+            y_true_c, y_score_c, c, save_dir
+        )
+
+        roc_aucs[c] = roc_auc
+        aps[c] = ap
+
+    # ----- ROC ------
+    plt.figure()
+    for c, auc_c in roc_aucs.items():
+        fpr, tpr, _ = roc_curve(all_y_true[:, c], all_y_score[:, c])
+        plt.plot(fpr, tpr, label=f"Class {c} (AUC)={auc_c:.2f}")
+
+    plt.plot([0, 1], [0, 1], "--", color="gray")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Per-class ROC Curves")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"{save_dir}/roc_all_classes.png")
+    plt.close()
+
+    # ----- PR -----
+    plt.figure()
+    for c, ap_c in aps.items():
+        precision, recall, _ = precision_recall_curve(
+            all_y_true[:, c], all_y_score[:, c]
+        )
+        plt.plot(recall, precision, label=f"Class {c} (AP={ap_c:.2f})")
+    
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Per-class PR Curves")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"{save_dir}/pr_all_classes.png")
+    plt.close()
+
+    return roc_aucs, aps
+
+def plot_roc_pr_single_class(y_true, y_score, class_id, save_dir):
+    """
+    y_true: (N,) binary
+    y_score: (N,) float
+    """
+
+    # ------ ROC ------
+    fpr, tpr, _ = roc_curve(y_true, y_score)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure()
+    plt.plot(fpr, tpr, label=f"ROC (AUC={roc_auc:.3f})")
+    plt.plot([0, 1], [0, 1], "--", color="gray")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title(f"ROC Curve - Class {class_id}")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"{save_dir}/roc_class_{class_id}.png")
+    plt.close()
+
+    # ----- Precision/Recall -----
+    precision, recall, _ = precision_recall_curve(y_true, y_score)
+    ap = average_precision_score(y_true, y_score)
+
+    plt.figure()
+    plt.plot(recall, precision, label=f"AP={ap:.3f}")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title(f"PR Curve - Class {class_id}")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"{save_dir}/pr_class_{class_id}.png")
+    plt.close()
+
+    return roc_auc, ap
 
 def visualize_result(
     image_tensor, 
@@ -674,50 +852,102 @@ def mask_bce_cost(pred_masks, gt_masks):
 
 def dinov3_compute_loss(
     det_outs,
-    gt_boxes,
-    gt_labels,
-    device="cpu",
-    cfg=DINOv3Cfg()
+    gt_boxes_list,
+    gt_labels_list,
+    matcher,
+    no_object_class_idx=None,
+    lambda_bbox=5.0,
+    lambda_iou=2.0,
+    lambda_cls=1.0,
+    eos_coef=1.0      
 ):
-    pred_boxes = det_outs["pred_boxes"]     # [B, Q, 4]
-    pred_logits = det_outs["pred_logits"]   # [B, Q, C]
+    """
+    def_outs:
+        pred_boxes: (B, N, 4) cxcywh (norm)
+        pred_logits: (B, N, C) logits (C includes no-object)
+    gt_boxes_list: list[Tensor(Mi, 4)]
+    gt_labels_list: list[Tensor(Mi,)]
+    """
 
-    loss_box = torch.tensor(0.0, device=device)
-    loss_iou = torch.tensor(0.0, device=device)
-    loss_cls = torch.tensor(0.0, device=device)
+    pred_boxes = det_outs["pred_boxes"]
+    pred_logits = det_outs["pred_logits"]
+    B, N, C = pred_logits.shape
+    device = pred_logits.device
 
-    B = pred_boxes.size(0)
+    # no-object class index
+    if no_object_class_idx is None:
+        no_object_class_idx = C - 1
+    
+    total_loss_bbox = torch.tensor(0.0, device=device)
+    total_loss_iou = torch.tensor(0.0, device=device)
+    total_loss_cls = torch.tensor(0.0, device=device)
 
-    for b in range(B):
-        pb = pred_boxes[b]
-        gb = gt_boxes[b]
-        gl = gt_labels[b]
+    # class weighting: downweight no-object
+    empty_weight = torch.ones(C, device=device)
+    empty_weight[no_object_class_idx] = eos_coef
 
-        if gb.numel() == 0:
-            continue
+    for i in range(B):
+        gt_boxes = gt_boxes_list[i]
+        gt_labels = gt_labels_list[i]
 
-        idx_p, idx_g = hungarian_matcher(pb, gb)
+        # matcher returns matched indices (can be empty if gt empty)
+        idx_pred, idx_gt = matcher(pred_logits[i], pred_boxes[i], gt_labels, gt_boxes)
+        # print("idx_pred, idx_gt:", idx_pred, idx_gt)
 
-        matched_pb = pb[idx_p]
-        matched_gb = gb[idx_g]
-        matched_gl = gl[idx_g]
+        # classification targets (default all no-object)
+        target_classes = torch.full((N,), no_object_class_idx, dtype=torch.long, device=device)
+        if idx_pred.numel() > 0:
+            target_classes[idx_pred] = gt_labels[idx_gt]
+        
+        # print("pred_logits[", i, "], target_classes:", pred_logits[i], target_classes)
+        loss_cls = F.cross_entropy(pred_logits[i], target_classes, weight=empty_weight)
 
-        # L1 bbox loss
-        loss_box += F.l1_loss(matched_pb, matched_gb, reduction="mean")
+        # bbox & iou loss only on matched pairs
+        if idx_pred.numel() > 0:
+            pb = pred_boxes[i, idx_pred]    # (K,4) cxcywh
+            gb = gt_boxes[idx_gt]
 
-        # IoU loss (cxcywh assumed)
-        iou = box_iou(matched_pb, matched_gb)
-        loss_iou += 1 - iou.diag().mean()
+            loss_bbox = F.l1_loss(pb, gb, reduction="mean")
 
-        # classification loss
-        loss_cls += F.cross_entropy(
-            pred_logits[b, idx_p],
-            matched_gl,
-            reduction="mean"
-        )
+            pb_xyxy = cxcywh_to_xyxy(pb)
+            gb_xyxy = cxcywh_to_xyxy(gb)
+            loss_iou = iou_loss(pb_xyxy, gb_xyxy, device)
+        else:
+            loss_bbox = torch.tensor(0.0, device=device)
+            loss_iou = torch.tensor(0.0, device=device)
+        
+        total_loss_cls += loss_cls
+        total_loss_bbox += loss_bbox
+        total_loss_iou += loss_iou
+    
+    # average over batch
+    total_loss_cls = total_loss_cls / B
+    total_loss_bbox = total_loss_bbox / B
+    total_loss_iou = total_loss_iou / B
 
-    num = max(B, 1)
-    return loss_box / num, loss_iou / num, loss_cls / num
+    return (lambda_bbox * total_loss_bbox, lambda_iou * total_loss_iou, lambda_cls * total_loss_cls)
+
+def iou_loss(boxes1, boxes2, device):
+    # boxes: (K,4) xyxy
+    if boxes1.numel() == 0:
+        return torch.tensor(0.0, device=device)
+    
+    # IoU
+    area1 = (boxes1[:,2]-boxes1[:,0]).clamp(min=0) * (boxes1[:,3]-boxes2[:,1]).clamp(min=0)
+    area2 = (boxes2[:,2]-boxes2[:,0]).clamp(min=0) * (boxes2[:,3]-boxes2[:,1]).clamp(min=0)
+
+    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])
+    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])
+    wh = (rb - lt).clamp(min=0)
+    inter = wh[:,:,0] * wh[:,:,1]
+    union = area1[:,None] + area2 - inter
+    iou = inter / union.clamp(min=1e-6)
+
+    # matched pairs -> diagonal after selecting same K
+    # we'll call this with K matched and aligned (K,4) vs (K,4)
+    # so compute per-pair IoU simply
+    diag = iou.diag()
+    return (1.0 - diag).mean()
 
 def dinov3_compute_loss_llm(det_outs, gt_boxes, gt_labels, llm_type=False, s_txt_outs=None, pos_mask=None, neg_mask=None, region_feat=None, device='cpu', cfg=DINOv3Cfg()):
 
@@ -797,11 +1027,12 @@ def build_retriever_index(enc_model, enc_tokenizer, dataloader, device):
 
     # Concatenate
     all_embeddings = torch.cat(all_embeddings, dim=0)
-    dim = all_embeddings.shape[1]
+    # dim = all_embeddings.shape[1]
 
     # Build FAISS index
-    index = faiss.IndexFlatL2(dim)
-    index.add(all_embeddings.numpy())
+    index = None
+    # index = faiss.IndexFlatL2(dim)
+    # index.add(all_embeddings.numpy())
 
-    print(f"[INIT] Built retriever index: dim={dim}, total={index.ntotal}")
+    # print(f"[INIT] Built retriever index: dim={dim}, total={index.ntotal}")
     return index, meta_info

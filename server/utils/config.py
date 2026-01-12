@@ -27,6 +27,10 @@ class DINOv3Cfg:
         }
     )
 
+    # hyperparameters
+    lr: float = 1e-4
+    weight_decay: float = 1e-4
+
     # projection head
     in_dim: int = 768       # ✅ 修這裡
     llm_hidden_dim: int = 1024,
