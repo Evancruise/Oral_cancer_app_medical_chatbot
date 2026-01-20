@@ -34,3 +34,6 @@ google-cloud-firestore==2.22.0
 google-cloud-tasks==2.20.0
 google-api-core==2.28.1
 google-auth==2.46.0
+
+# ---- prometheus ----
+prometheus-client==0.20.0

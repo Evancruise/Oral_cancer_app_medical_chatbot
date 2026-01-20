@@ -2,7 +2,7 @@ import os
 
 from utils.config import DINOv3Cfg
 from flask import Flask
-from api.infer import infer_bp, init_bbox_model
+from server.api.service import infer_bp, init_bbox_model
 # from api.infer import infer_bp, init_seg_model
 
 # Cloud Run Job 我們剛剛設計是用「一個 JSON 字串當 args[0]」

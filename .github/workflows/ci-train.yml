@@ -1,0 +1,49 @@
+name: CI/CD - Vertex AI Training
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "vertex_training/**"
+
+env:
+  PROJECT_ID: oral-cancer-ai
+  REGION: asia-east1
+  GAR_LOCATION: asia-east1-docker.pkg.dev
+  GAR_REPO: oral-ai
+  TRAIN_IMAGE_NAME: oral-train
+
+jobs:
+  submit-training:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # ---- Auth ----
+    - uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker
+      run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}
+    
+    # ---- Build training image ----
+    - name: Build training image
+      run: |
+        IMAGE_URI=${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.TRAIN_IMAGE_NAME }}:${{ github.sha }}
+        docker build -f vertex_training/Dockerfile -t $IMAGE_URI .
+        echo "TRAIN_IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+    - name: Push training image
+      run: docker push $TRAIN_IMAGE_URI
+
+    # ---- Submit Vertex AI Custom Job ----
+    - name: Submit Vertex AI training job
+      run: |
+        gcloud ai custom-jobs create \
+          --region=${{ env.REGION }} \
+          --display-name=oral-train-${{ github.sha }} \
+          --worker-pool-spec=machine-type=n1-standard-8,replica-count=1,container-image-uri=$TRAIN_IMAGE_URI

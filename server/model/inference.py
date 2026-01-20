@@ -10,8 +10,12 @@ from transformers import AutoTokenizer
 from torchvision import transforms
 from tqdm import tqdm
 from torch.nn import functional as F
-from utils.func import cxcywh_to_xyxy, box_iou, plot_roc_pr_multi_class
+from utils.func import cxcywh_to_xyxy, box_iou, plot_roc_pr_multi_class, box_iou_xyxy, \
+                       collect_det_results_one_image, compute_map50, \
+                       collect_det_results_one_image_multi_iou, compute_map_multi_iou
 from sklearn.metrics import multilabel_confusion_matrix, roc_auc_score
+
+IOU_THRESHOLDS = [round(x, 2) for x in np.arange(0.5, 0.96, 0.05)]
 
 def grounding_inference_single(model, image_path, prompt, checkpoint_path, device="cuda",
                                box_thresh=0.3, text_thresh=0.25, save_path="results"):
@@ -670,3 +674,210 @@ def dinov3_inference_bbox(
 
     print("ROC AUC per class:", roc_aucs)
     print("AP per class:", aps)
+
+@torch.no_grad()
+def lesion_bundle_inference(
+    bundle_model,
+    data_loader,
+    matcher,
+    device,
+    iou_threshold=0.5,
+    score_threshold=0.05,
+    num_classes=4,
+    env_node="local",
+):
+    """
+    Multi-stage detection inference + image-level evaluation
+
+    Procedure:
+
+    ├── Stage B: DINO + YOLOv7-EMA lesion experts
+    ├── Stage C: calibration + fusion
+    ├── Stage D: ROI -> original image mapping
+    ├── Image-level multi-label evaluation (Hungarian + IoU)
+    ├── Detection-level statistics (optional)
+
+    Returns:
+        results: dict of metrics
+    """
+
+    all_y_true, all_y_pred, all_y_score = [], [], []
+    highest_severity_correct = []
+    all_det_records = []
+    all_det_records_multi_iou = []
+
+    for batch in tqdm(data_loader, desc="[inference][Multi-Stage]"):
+        # forward (pyfunc / local)
+        if env_node in ["develop", "staging", "production"]:
+            outputs_df = bundle_model.predict({
+                "roi_images": batch["image"].numpy().astype("float32"),
+                "roi_meta": batch.get("roi_meta"),
+                "roi_transform": batch.get("roi_transform"),
+                "orig_shape": batch.get("orig_shape"),
+            })
+
+            #unpack per image
+            preds_per_image = []
+            for _, row in outputs_df.iterrows():
+                preds_per_image.append({
+                    "boxes": torch.tensor(row["boxes"], device=device),
+                    "scores": torch.tensor(row["scores"], device=device),
+                    "labels": torch.tensor(row["labels"], device=device),
+                })
+        
+        else:
+            # local bundle runner (InferenceBundle-like wrapper)
+            preds_per_image = bundle_model.run_batch(batch, device=device)
+        
+        # --- Per-image evaluation
+        B = len(preds_per_image)
+
+        for i in range(B):
+            gt_boxes = batch["boxes"][i].to(device)
+            gt_labels = batch["labels"][i].to(device)
+
+            pred_boxes = preds_per_image[i]["boxes"]
+            pred_scores = preds_per_image[i]["scores"]
+            pred_labels = preds_per_image[i]["labels"]
+
+            # ---- GT multi-hot ----
+            gt_vec = torch.zeros(num_classes, dtype=torch.int)
+            if gt_labels.numel() > 0:
+                gt_vec[gt_labels.unique()] = 1
+            
+            pred_vec = torch.zeros(num_classes, dtype=torch.int)
+            score_vec = torch.zeros(num_classes)
+
+            # ==== filter out low score ====
+            keep = pred_scores >= score_threshold
+            pred_boxes = pred_boxes[keep]
+            pred_scores = pred_scores[keep]
+            pred_labels = pred_labels[keep]
+
+            # ==== detection-level records ====
+            det_recs = collect_det_results_one_image(
+                pred_boxes,
+                pred_scores,
+                pred_labels,
+                gt_boxes,
+                gt_labels,
+                matcher,
+                iou_threshold=iou_threshold
+            )
+            all_det_records.append(det_recs)
+
+            det_recs_multi = collect_det_results_one_image_multi_iou(
+                pred_boxes,
+                pred_scores,
+                pred_labels,
+                gt_boxes,
+                gt_labels,
+                matcher,
+                iou_thresholds=IOU_THRESHOLDS
+            )
+            all_det_records_multi_iou.append(det_recs_multi)
+
+            # ==== no prediction / no GT ====
+            if pred_boxes.numel() == 0 or gt_boxes.numel() == 0:
+                all_y_true.append(gt_vec.numpy())
+                all_y_pred.append(pred_vec.numpy())
+                all_y_score.append(score_vec.numpy())
+
+                # highest severity
+                highest_severity_correct.append(
+                    int(gt_boxes.numel() == 0)
+                )
+                continue
+                
+            # ==== Hungarian matching ====
+            idx_pred, idx_gt = matcher(
+                pred_labels,
+                pred_boxes,
+                gt_labels,
+                gt_boxes
+            )
+
+            if idx_pred.numel() > 0:
+                pb = pred_boxes[idx_pred]
+                gb = gt_boxes[idx_gt]
+                ious = box_iou_xyxy(pb, gb).diag()
+
+                for j in range(len(idx_pred)):
+                    if ious[j] >= iou_threshold:
+                        c = int(pred_labels[idx_pred[j]].item())
+                        pred_vec[c] = 1
+                        score_vec[c] = max(
+                            score_vec[c],
+                            float(pred_scores[idx_pred[j]].item())
+                        )
+            
+            if gt_labels.numel() > 0:
+                highest_gt = int(gt_labels.max().item())
+                correct = False
+                for j in range(len(idx_pred)):
+                    if (
+                        ious[j] >= iou_threshold and
+                        int(pred_labels[idx_pred[j]].item()) == highest_gt
+                    ):
+                        correct = True
+                        break
+                
+                highest_severity_correct.append(int(correct))
+            else:
+                highest_severity_correct.append(1)
+        
+            all_y_true.append(gt_vec.numpy())
+            all_y_pred.append(pred_vec.numpy())
+            all_y_score.append(score_vec.numpy())
+        
+    # metrics
+    mcm = multilabel_confusion_matrix(all_y_true, all_y_pred)
+    print("==== per-class confusion matrix ====")
+    for c in range(num_classes):
+        tn, fp, fn, tp = mcm[c].ravel()
+        print(f"[Class {c}] TP={tp}, FP={fp}, FN={fn}, TN={tn}")
+    
+    auc_macro = roc_auc_score(all_y_true, all_y_score, average="macro")
+    auc_micro = roc_auc_score(all_y_true, all_y_score, average="micro")
+
+    print("AUC macro:", auc_macro)
+    print("AUC micro:", auc_micro)
+
+    roc_aucs, aps_cls = plot_roc_pr_multi_class(
+        all_y_true,
+        all_y_score,
+        num_classes=num_classes,
+        save_dir="outputs/curves"
+    )
+
+    highest_sev_acc = float(np.mean(highest_severity_correct))
+    
+    map50, ap_per_class = compute_map50(all_det_records, num_classes)
+    print("mAP@50:", map50)
+
+    # for c, ap in ap_per_class.items():
+    #     print(f"AP@50 class {c}: {ap}")
+
+    map_multi = compute_map_multi_iou(
+        all_det_records_multi_iou,
+        num_classes=num_classes,
+        iou_thresholds=IOU_THRESHOLDS
+    )
+
+    print("mAP@50:95:", map_multi["map_5095"])
+    for t, v in map_multi["map_per_iou"].items():
+        print(f"  mAP@{t:.2f}: {v:.4f}")
+
+    return {
+        "auc_macro": auc_macro,
+        "auc_micro": auc_micro,
+        "roc_aucs": roc_aucs,
+        "aps_cls": aps_cls,
+        "highest_severity_acc": highest_sev_acc,
+        "map50": map50,
+        "ap_per_class": ap_per_class,
+        "map_5095": map_multi["map_5095"],
+        "map_per_iou": map_multi["map_per_iou"],
+        "ap_per_iou_per_class": map_multi["ap_per_iou_per_class"],
+    }
+

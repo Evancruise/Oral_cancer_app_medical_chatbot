@@ -1,4 +1,31 @@
+import torch
 from dataclasses import dataclass, field
+from typing import List, Tuple, Dict, Optional
+
+@dataclass
+class UnifiedDetection:
+    model_id: str           # "dino_v1", "yolov7ema"
+    boxes: torch.Tensor     # [N, 4] xyxy
+    scores: torch.Tensor    # [N] row confidence (0~1)
+    labels: torch.Tensor    # [N] class id
+    meta: Dict              # model-specific debug info
+
+@dataclass
+class MouthDetConfig:
+    img_size: int = 640
+    nc: int = 1
+    base: int = 32
+    neck_ch: int = 128
+    strides: Tuple[int, int, int] = (8, 16, 32)
+
+    # loss weights
+    box_weight: float = 7.5
+    obj_weight: float = 1.0
+    cls_weight: float = 0.3
+
+    # assignment
+    center_radius: float = 2.5
+    min_iou_pos: float = 0.2
 
 @dataclass
 class GroundDINOConfig:

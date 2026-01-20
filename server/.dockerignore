@@ -1,8 +1,39 @@
-node_modules
-npm-debug.log
-Dockerfile
-.dockerignore
-.get
-.getignore
-coverage
-dist
+# datasets
+utils/dataset/
+utils/dataset/all/
+utils/dataset/train/
+utils/dataset/val/
+utils/dataset/test/
+utils-kaggle/
+
+# fhir
+utils/fhir/
+utils-kaggle/
+
+# checkpoints
+checkpoints/
+
+# cache / temp
+__pycache__/
+*.pyc
+*.pyo
+
+# git
+.git/
+.gitignore
+
+# local outputs
+results/
+logs/
+
+# notebooks
+*.ipynb
+
+# package files
+*.json
+
+# mlflow files
+*.db
+
+# vertex ai training api
+vertex_training/
